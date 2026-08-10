@@ -250,6 +250,10 @@ type EditorCopy = {
   voice: string;
   text: string;
   toolbarAriaLabel: string;
+  undo: string;
+  undoTitle: string;
+  redo: string;
+  redoTitle: string;
   clearAll: string;
   clearAllTitle: string;
   help: string;
@@ -276,6 +280,10 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     toolbarAriaLabel: "SSMLツールバー",
     clearAll: "全てクリア",
     clearAllTitle: "XML要素を削除して本文を残す",
+    undo: "元に戻す",
+    undoTitle: "直前の変更を元に戻す",
+    redo: "やり直す",
+    redoTitle: "元に戻した変更をやり直す",
     help: "説明",
     helpTitle: "ボタンとパラメータの説明を表示",
     helpHeading: "ボタンとパラメータの説明",
@@ -284,7 +292,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     toolbarActions: "本文ツールバーのボタン",
     format: "フォーマット",
     formatTitle: "XMLを改行して見やすく表示",
-    compact: "元に戻す",
+    compact: "コンパクト",
     compactTitle: "XMLを1行で表示",
     voiceDescription: "使用する Azure 音声の名前を指定します。",
     voiceParameter: "音声名（例: en-US-JennyNeural）",
@@ -298,6 +306,10 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     toolbarAriaLabel: "SSML toolbar",
     clearAll: "Clear all",
     clearAllTitle: "Remove XML elements and keep the text",
+    undo: "Undo",
+    undoTitle: "Undo the last change",
+    redo: "Redo",
+    redoTitle: "Redo the last undone change",
     help: "Help",
     helpTitle: "Show button and parameter descriptions",
     helpHeading: "Button and parameter descriptions",
@@ -977,6 +989,40 @@ export function SsmlEditor({
               </div>
             </details>
           ))}
+          <button
+            type="button"
+            style={toolbarButtonStyle}
+            aria-label={copy.undo}
+            title={copy.undoTitle}
+            onClick={() => {
+              editorRef.current?.trigger("toolbar", "undo", null);
+              editorRef.current?.focus();
+            }}
+          >
+            {showToolbarIcons && (
+              <span style={styles.toolbarIcon} aria-hidden="true">
+                ↩
+              </span>
+            )}
+            {showToolbarText && <span>{copy.undo}</span>}
+          </button>
+          <button
+            type="button"
+            style={toolbarButtonStyle}
+            aria-label={copy.redo}
+            title={copy.redoTitle}
+            onClick={() => {
+              editorRef.current?.trigger("toolbar", "redo", null);
+              editorRef.current?.focus();
+            }}
+          >
+            {showToolbarIcons && (
+              <span style={styles.toolbarIcon} aria-hidden="true">
+                ↪
+              </span>
+            )}
+            {showToolbarText && <span>{copy.redo}</span>}
+          </button>
           <button
             type="button"
             style={toolbarButtonStyle}
