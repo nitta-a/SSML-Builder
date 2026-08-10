@@ -3,3 +3,4 @@
  */
 
 export { SsmlEditor } from "./SsmlEditor";
+export type { SsmlEditorProps } from "./SsmlEditor";
