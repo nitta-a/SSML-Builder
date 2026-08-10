@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
-import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";
+import { buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
 import type {
   ProsodyElement,
   SsmlDocument,
@@ -18,6 +18,9 @@ const DEFAULT_RATE = "medium";
 const DEFAULT_VOLUME = "medium";
 const DEFAULT_LANGUAGE = "ja";
 const VOICE_ICON = "🎙️";
+const SSML_MARKER_OWNER = "ssml-builder";
+const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
+const EDITABLE_SSML_SUFFIX = "</speak>";
 const RATE_OPTIONS = ["x-slow", "slow", "medium", "fast", "x-fast"] as const;
 const VOLUME_OPTIONS = [
   "silent",
@@ -270,6 +273,7 @@ type EditorCopy = {
   voiceDescription: string;
   voiceParameter: string;
   generatedSsml: string;
+  syntaxError: string;
 };
 
 const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
@@ -298,6 +302,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     voiceDescription: "使用する Azure 音声の名前を指定します。",
     voiceParameter: "音声名（例: en-US-JennyNeural）",
     generatedSsml: "生成されたSSML",
+    syntaxError: "構文エラー",
   },
   en: {
     editorAriaLabel: "SSML editor",
@@ -324,6 +329,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     voiceDescription: "Selects the Azure voice name to use.",
     voiceParameter: "Voice name (for example, en-US-JennyNeural)",
     generatedSsml: "Generated SSML",
+    syntaxError: "Syntax error",
   },
 };
 
@@ -336,6 +342,8 @@ const STYLE_CSS = `
   --ssml-editor-control-bg: #f9fafb;
   --ssml-editor-control-border: #9ca3af;
   --ssml-editor-preview-bg: #f3f4f6;
+  --ssml-editor-error: #b91c1c;
+  --ssml-editor-error-bg: #fef2f2;
 }
 @media (prefers-color-scheme: dark) {
   [data-ssml-editor] {
@@ -345,6 +353,8 @@ const STYLE_CSS = `
     --ssml-editor-control-bg: #111827;
     --ssml-editor-control-border: #4b5563;
     --ssml-editor-preview-bg: #111827;
+    --ssml-editor-error: #fca5a5;
+    --ssml-editor-error-bg: #450a0a;
   }
 }
 `.trim();
@@ -527,6 +537,15 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "0.25rem",
     overflow: "hidden",
   },
+  error: {
+    margin: 0,
+    padding: "0.5rem 0.75rem",
+    border: "1px solid var(--ssml-editor-error)",
+    borderRadius: "0.25rem",
+    color: "var(--ssml-editor-error)",
+    backgroundColor: "var(--ssml-editor-error-bg)",
+    lineHeight: 1.5,
+  },
   preview: {
     margin: 0,
     padding: "0.75rem",
@@ -541,6 +560,7 @@ const styles: Record<string, CSSProperties> = {
 type MonacoEditor = Parameters<OnMount>[0];
 type SsmlInsertion = (typeof SSML_INSERTIONS)[number];
 type MonacoLanguages = Monaco["languages"];
+type MonacoModel = NonNullable<ReturnType<MonacoEditor["getModel"]>>;
 type MonacoHoverProvider = Parameters<
   MonacoLanguages["registerHoverProvider"]
 >[1];
@@ -556,6 +576,35 @@ const hoverProviderRegistrations = new WeakMap<
   MonacoLanguages,
   HoverProviderRegistration
 >();
+
+function updateSsmlMarkers(
+  monaco: Monaco,
+  model: MonacoModel,
+  value: string,
+  syntaxError: SsmlSyntaxError | null,
+): void {
+  if (!syntaxError) {
+    monaco.editor.setModelMarkers(model, SSML_MARKER_OWNER, []);
+    return;
+  }
+
+  const startOffset =
+    value.length === 0 ? 0 : Math.min(syntaxError.offset, value.length - 1);
+  const endOffset = Math.min(startOffset + 1, value.length);
+  const start = model.getPositionAt(startOffset);
+  const end = model.getPositionAt(endOffset);
+
+  monaco.editor.setModelMarkers(model, SSML_MARKER_OWNER, [
+    {
+      message: syntaxError.message,
+      severity: monaco.MarkerSeverity.Error,
+      startLineNumber: start.lineNumber,
+      startColumn: start.column,
+      endLineNumber: end.lineNumber,
+      endColumn: end.column,
+    },
+  ]);
+}
 
 function isSsmlElement(node: SsmlNode): node is SsmlElement {
   return typeof node !== "string" && node.type !== "text";
@@ -706,6 +755,31 @@ function parseEditableText(value: string, lang: string): SsmlNode[] {
   } catch {
     return [value];
   }
+}
+
+interface SsmlSyntaxError {
+  message: string;
+  offset: number;
+}
+
+function validateEditableText(value: string): SsmlSyntaxError | null {
+  if (!value.includes("<")) {
+    return null;
+  }
+
+  const source = `${EDITABLE_SSML_PREFIX}${value}${EDITABLE_SSML_SUFFIX}`;
+  const validationError = validateSsml(source);
+  if (!validationError) {
+    return null;
+  }
+
+  return {
+    message: validationError.message,
+    offset: Math.min(
+      Math.max(validationError.position - EDITABLE_SSML_PREFIX.length, 0),
+      value.length,
+    ),
+  };
 }
 
 function serializeEditableText(nodes: SsmlNode[], lang: string): string {
@@ -871,10 +945,12 @@ export function SsmlEditor({
   const helpPanelId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const [isDark, setIsDark] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSsmlFormatted, setIsSsmlFormatted] = useState(false);
+  const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
   const toolbarButtonStyle = showToolbarText
@@ -896,9 +972,14 @@ export function SsmlEditor({
 
   useEffect(() => {
     return () => {
+      const model = editorRef.current?.getModel();
+      if (model && monacoRef.current) {
+        updateSsmlMarkers(monacoRef.current, model, model.getValue(), null);
+      }
       releaseHoverProviderRef.current?.();
       releaseHoverProviderRef.current = null;
       editorRef.current = null;
+      monacoRef.current = null;
     };
   }, []);
 
@@ -906,6 +987,16 @@ export function SsmlEditor({
   const voice = findFirstElement(children, isVoice);
   const voiceName = voice?.name ?? DEFAULT_VOICE;
   const text = getEditableText(draftDocument);
+
+  useEffect(() => {
+    const nextSyntaxError = validateEditableText(text);
+    setSyntaxError(nextSyntaxError);
+
+    const model = editorRef.current?.getModel();
+    if (model && monacoRef.current) {
+      updateSsmlMarkers(monacoRef.current, model, text, nextSyntaxError);
+    }
+  }, [text]);
 
   const commit = (nextDocument: SsmlDocument): void => {
     setDraftDocument(nextDocument);
@@ -1110,13 +1201,30 @@ export function SsmlEditor({
             value={text}
             onMount={(editor, monaco) => {
               editorRef.current = editor;
+              monacoRef.current = monaco;
               releaseHoverProviderRef.current?.();
               releaseHoverProviderRef.current =
                 acquireSsmlHoverProvider(monaco);
+              const model = editor.getModel();
+              const nextSyntaxError = validateEditableText(editor.getValue());
+              setSyntaxError(nextSyntaxError);
+              if (model) {
+                updateSsmlMarkers(
+                  monaco,
+                  model,
+                  editor.getValue(),
+                  nextSyntaxError,
+                );
+              }
             }}
             onChange={(value) => commit(updateText(draftDocument, value ?? ""))}
           />
         </div>
+        {syntaxError && (
+          <p style={styles.error} role="alert">
+            {copy.syntaxError}: {syntaxError.message}
+          </p>
+        )}
       </div>
       <details>
         <summary>{copy.generatedSsml}</summary>

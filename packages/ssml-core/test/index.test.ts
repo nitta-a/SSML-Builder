@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSsml, parseSsml } from "../src/index.ts";
+import { buildSsml, parseSsml, validateSsml } from "../src/index.ts";
 
 test("buildSsml uses the default language", () => {
   assert.deepEqual(buildSsml("Hello"), {
@@ -121,4 +121,21 @@ test("parseSsml decodes text, CDATA, and custom elements", () => {
       ],
     },
   );
+});
+
+test("validateSsml returns no error for valid SSML", () => {
+  assert.equal(
+    validateSsml('<speak version="1.0" xml:lang="en-US">Hello</speak>'),
+    null,
+  );
+});
+
+test("validateSsml returns a message and parser position for invalid SSML", () => {
+  const source = '<speak version="1.0" xml:lang="en-US"><voice>Hello</speak>';
+  const error = validateSsml(source);
+
+  assert.deepEqual(error, {
+    message: "Mismatched closing element: expected </voice> but found </speak>",
+    position: source.length,
+  });
 });
