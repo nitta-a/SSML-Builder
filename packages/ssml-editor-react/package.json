@@ -3,9 +3,17 @@
   "version": "0.1.0",
   "description": "React-based SSML editor component",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "tsup",
     "typecheck": "tsc --build"
   },
   "devDependencies": {

@@ -3,9 +3,17 @@
   "version": "0.1.0",
   "description": "Azure Text-to-Speech client for SSML playback",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test test/index.test.ts"
   },
