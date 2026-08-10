@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
-import Editor from "@monaco-editor/react";
-import { buildSsml } from "@ssml-builder/ssml-core";
+import Editor, { type OnMount } from "@monaco-editor/react";
+import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";
 import type {
   ProsodyElement,
   SsmlDocument,
@@ -22,6 +22,64 @@ const VOLUME_OPTIONS = [
   "medium",
   "loud",
   "x-loud",
+] as const;
+const SSML_INSERTIONS = [
+  {
+    label: "間 (break)",
+    title: 'Insert a 500ms pause with <break time="500ms"/>',
+    prefix: '<break time="500ms"/>',
+    suffix: "",
+    mode: "insert",
+  },
+  {
+    label: "強調 (emphasis)",
+    title: "Wrap the selection with <emphasis level=\"strong\">",
+    prefix: '<emphasis level="strong">',
+    suffix: "</emphasis>",
+    mode: "wrap",
+  },
+  {
+    label: "速度 (prosody)",
+    title: 'Wrap the selection with <prosody rate="fast">',
+    prefix: '<prosody rate="fast">',
+    suffix: "</prosody>",
+    mode: "wrap",
+  },
+  {
+    label: "高さ (prosody)",
+    title: 'Wrap the selection with <prosody pitch="+2st">',
+    prefix: '<prosody pitch="+2st">',
+    suffix: "</prosody>",
+    mode: "wrap",
+  },
+  {
+    label: "音量 (prosody)",
+    title: 'Wrap the selection with <prosody volume="loud">',
+    prefix: '<prosody volume="loud">',
+    suffix: "</prosody>",
+    mode: "wrap",
+  },
+  {
+    label: "感情 (express-as)",
+    title: 'Wrap the selection with <mstts:express-as style="cheerful">',
+    prefix: '<mstts:express-as style="cheerful">',
+    suffix: "</mstts:express-as>",
+    mode: "wrap",
+  },
+  {
+    label: "読み上げ (say-as)",
+    title: 'Wrap the selection with <say-as interpret-as="characters">',
+    prefix: '<say-as interpret-as="characters">',
+    suffix: "</say-as>",
+    mode: "wrap",
+  },
+  {
+    label: "発音 (phoneme)",
+    title: 'Wrap the selection with <phoneme alphabet="ipa">',
+    prefix: '<phoneme alphabet="ipa" ph="">',
+    suffix: "</phoneme>",
+    mode: "wrap",
+  },
 ] as const;
 
 export interface SsmlEditorProps {
@@ -53,6 +111,21 @@ const styles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "0.375rem",
   },
+  toolbar: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.5rem",
+  },
+  toolbarButton: {
+    minHeight: "2.25rem",
+    padding: "0.375rem 0.625rem",
+    border: "1px solid #9ca3af",
+    borderRadius: "0.25rem",
+    color: "#111827",
+    backgroundColor: "#f9fafb",
+    font: "inherit",
+    cursor: "pointer",
+  },
   input: {
     boxSizing: "border-box",
     width: "100%",
@@ -83,6 +156,9 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "pre-wrap",
   },
 };
+
+type MonacoEditor = Parameters<OnMount>[0];
+type SsmlInsertion = (typeof SSML_INSERTIONS)[number];
 
 function isSsmlElement(node: SsmlNode): node is SsmlElement {
   return typeof node !== "string" && node.type !== "text";
@@ -229,18 +305,26 @@ function updateProsody(
   ]);
 }
 
-function getTextContent(nodes: SsmlNode[]): string {
-  return nodes
-    .map((node) => {
-      if (typeof node === "string") {
-        return node;
-      }
-      if (node.type === "text") {
-        return node.value;
-      }
-      return getTextContent(node.children ?? []);
-    })
-    .join("");
+function parseEditableText(value: string): SsmlNode[] {
+  try {
+    return (
+      parseSsml(
+        `<speak version="1.0" xml:lang="en-US">${value}</speak>`,
+      ).children ?? []
+    );
+  } catch {
+    return [value];
+  }
+}
+
+function serializeEditableText(nodes: SsmlNode[]): string {
+  const xml = buildSsml({
+    version: "1.0",
+    lang: "en-US",
+    children: nodes,
+  });
+  const contentStart = xml.indexOf(">") + 1;
+  return xml.slice(contentStart, -"</speak>".length);
 }
 
 function getEditableText(document: SsmlDocument): string {
@@ -248,14 +332,16 @@ function getEditableText(document: SsmlDocument): string {
   const element =
     findFirstElement(children, isProsody) ??
     findFirstElement(children, isVoice);
-  return getTextContent(element?.children ?? children);
+  return serializeEditableText(element?.children ?? children);
 }
 
 function updateText(document: SsmlDocument, value: string): SsmlDocument {
+  const nextChildren = parseEditableText(value);
+  const editableChildren = nextChildren.length > 0 ? nextChildren : [value];
   const children = getDocumentChildren(document);
   const prosodyResult = updateFirstElement(children, isProsody, (prosody) => ({
     ...prosody,
-    children: [value],
+    children: editableChildren,
   }));
   if (prosodyResult.updated) {
     return withChildren(document, prosodyResult.nodes);
@@ -263,13 +349,13 @@ function updateText(document: SsmlDocument, value: string): SsmlDocument {
 
   const voiceResult = updateFirstElement(children, isVoice, (voice) => ({
     ...voice,
-    children: [value],
+    children: editableChildren,
   }));
   if (voiceResult.updated) {
     return withChildren(document, voiceResult.nodes);
   }
 
-  return withChildren(document, [value]);
+  return withChildren(document, editableChildren);
 }
 
 function getPitchValue(pitch: string | number | undefined): number {
@@ -284,12 +370,58 @@ function formatPitch(value: number): string {
   return `${value > 0 ? "+" : ""}${value}st`;
 }
 
+function applySsmlInsertion(
+  editor: MonacoEditor,
+  insertion: SsmlInsertion,
+): void {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!model || !selection) {
+    return;
+  }
+
+  const startOffset = model.getOffsetAt(selection.getStartPosition());
+  const endOffset = model.getOffsetAt(selection.getEndPosition());
+  const selectedText = model.getValueInRange(selection);
+  const replacement =
+    insertion.mode === "insert"
+      ? `${insertion.prefix}${selectedText}`
+      : `${insertion.prefix}${selectedText}${insertion.suffix}`;
+
+  editor.pushUndoStop();
+  const applied = editor.executeEdits("ssml-toolbar", [
+    {
+      range: selection,
+      text: replacement,
+    },
+  ]);
+  editor.pushUndoStop();
+  if (!applied) {
+    return;
+  }
+
+  const nextSelectionStart = model.getPositionAt(
+    startOffset + insertion.prefix.length,
+  );
+  const nextSelectionEnd = model.getPositionAt(
+    endOffset + insertion.prefix.length,
+  );
+  editor.setSelection({
+    selectionStartLineNumber: nextSelectionStart.lineNumber,
+    selectionStartColumn: nextSelectionStart.column,
+    positionLineNumber: nextSelectionEnd.lineNumber,
+    positionColumn: nextSelectionEnd.column,
+  });
+  editor.focus();
+}
+
 export function SsmlEditor({
   document,
   onChange,
   onSsmlChange,
 }: SsmlEditorProps): ReactElement {
   const [draftDocument, setDraftDocument] = useState(document);
+  const editorRef = useRef<MonacoEditor | null>(null);
 
   useEffect(() => {
     setDraftDocument(document);
@@ -402,11 +534,32 @@ export function SsmlEditor({
       </div>
       <div style={styles.field}>
         <span>Text</span>
+        <div style={styles.toolbar} role="toolbar" aria-label="SSML toolbar">
+          {SSML_INSERTIONS.map((insertion) => (
+            <button
+              key={insertion.label}
+              type="button"
+              style={styles.toolbarButton}
+              title={insertion.title}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                if (editorRef.current) {
+                  applySsmlInsertion(editorRef.current, insertion);
+                }
+              }}
+            >
+              {insertion.label}
+            </button>
+          ))}
+        </div>
         <div style={styles.editor}>
           <Editor
             height="8rem"
             language="xml"
             value={text}
+            onMount={(editor) => {
+              editorRef.current = editor;
+            }}
             onChange={(value) => commit(updateText(draftDocument, value ?? ""))}
           />
         </div>
