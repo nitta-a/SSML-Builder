@@ -15,7 +15,7 @@ export class AzureTtsClient {
   }
 
   async synthesize(ssml: string): Promise<ArrayBuffer> {
-    const endpoint = `https://${this.options.region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    const endpoint = `https://${this.#options.region}.tts.speech.microsoft.com/cognitiveservices/v1`;
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
