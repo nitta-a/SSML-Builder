@@ -6,7 +6,10 @@ export interface SsmlEditorProps {
   onChange?: (content: string) => void;
 }
 
-export function SsmlEditor({ document, onChange }: SsmlEditorProps): React.ReactElement {
+export function SsmlEditor({
+  document,
+  onChange,
+}: SsmlEditorProps): React.ReactElement {
   return (
     <textarea
       value={document.content}
