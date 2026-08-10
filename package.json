@@ -6,6 +6,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "format": "prettier --check .",
+    "lint": "npm run typecheck",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
