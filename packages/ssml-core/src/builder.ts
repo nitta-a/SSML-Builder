@@ -12,7 +12,10 @@ const MSTTS_NAMESPACE = "https://www.w3.org/2001/mstts";
 const XML_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
 
 function escapeText(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function escapeAttribute(value: string): string {
@@ -115,11 +118,7 @@ function getAttributes(element: SsmlElement): SsmlAttributes {
       break;
     case "mstts:viseme":
     case "viseme":
-      addAttribute(
-        attributes,
-        "type",
-        element.typeValue ?? element.visemeType,
-      );
+      addAttribute(attributes, "type", element.typeValue ?? element.visemeType);
       break;
     case "p":
     case "s":
@@ -214,15 +213,15 @@ function usesMsttsNamespace(nodes: SsmlNode[]): boolean {
 
     const tagName = getTagName(node);
     return (
-      tagName.startsWith("mstts:") ||
-      usesMsttsNamespace(getChildren(node))
+      tagName.startsWith("mstts:") || usesMsttsNamespace(getChildren(node))
     );
   });
 }
 
 function serializeDocument(document: SsmlDocument): string {
   const children =
-    document.children ?? (document.content === undefined ? [] : [document.content]);
+    document.children ??
+    (document.content === undefined ? [] : [document.content]);
   const attributes: SsmlAttributes = {
     ...(document.attributes ?? {}),
     version: document.version,

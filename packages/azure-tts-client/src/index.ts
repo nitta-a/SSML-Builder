@@ -15,7 +15,10 @@ export interface AzureTtsClientOptions {
 }
 
 function resolveEndpoint(config: TtsConfig): string {
-  return config.endpoint.replace(/\{region\}/g, encodeURIComponent(config.region));
+  return config.endpoint.replace(
+    /\{region\}/g,
+    encodeURIComponent(config.region),
+  );
 }
 
 export function synthesizeSpeech(

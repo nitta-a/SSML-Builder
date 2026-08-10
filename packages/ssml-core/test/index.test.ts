@@ -58,7 +58,7 @@ test("buildSsml escapes text and attribute values", () => {
         {
           type: "voice",
           name: 'voice & "name"',
-          children: ['Say <this> & that'],
+          children: ["Say <this> & that"],
         },
       ],
     }),
