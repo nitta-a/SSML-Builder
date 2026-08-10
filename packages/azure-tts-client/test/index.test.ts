@@ -6,12 +6,12 @@ test("synthesize sends SSML to the regional Azure endpoint", async () => {
   const originalFetch = globalThis.fetch;
   let request: { input: RequestInfo | URL; init?: RequestInit } | undefined;
 
-  globalThis.fetch = async (input, init) => {
-    request = { input, init };
-    return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
-  };
-
   try {
+    globalThis.fetch = async (input, init) => {
+      request = { input, init };
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+    };
+
     const audio = await new AzureTtsClient({
       subscriptionKey: "subscription-key",
       region: "japaneast",
@@ -36,13 +36,14 @@ test("synthesize sends SSML to the regional Azure endpoint", async () => {
 
 test("synthesize reports unsuccessful Azure responses", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () =>
-    new Response("Unauthorized", {
-      status: 401,
-      statusText: "Unauthorized",
-    });
 
   try {
+    globalThis.fetch = async () =>
+      new Response("Unauthorized", {
+        status: 401,
+        statusText: "Unauthorized",
+      });
+
     await assert.rejects(
       new AzureTtsClient({
         subscriptionKey: "subscription-key",
