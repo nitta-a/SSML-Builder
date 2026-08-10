@@ -30,6 +30,6 @@
     }
   },
   "dependencies": {
-    "@ssml-builder/ssml-core": "workspace:*"
+    "@ssml-builder/ssml-core": "*"
   }
 }
