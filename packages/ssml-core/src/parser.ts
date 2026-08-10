@@ -135,8 +135,11 @@ function removeStandardNamespaceAttributes(attributes: SsmlAttributes): void {
 
 class XmlParser {
   #index = 0;
+  private readonly source: string;
 
-  constructor(private readonly source: string) {}
+  constructor(source: string) {
+    this.source = source;
+  }
 
   parse(): XmlElementNode {
     if (this.source.charCodeAt(0) === 0xfeff) {
