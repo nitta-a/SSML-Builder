@@ -17,6 +17,7 @@ const DEFAULT_PITCH = "0st";
 const DEFAULT_RATE = "medium";
 const DEFAULT_VOLUME = "medium";
 const DEFAULT_LANGUAGE = "ja";
+const VOICE_ICON = "🎙️";
 const RATE_OPTIONS = ["x-slow", "slow", "medium", "fast", "x-fast"] as const;
 const VOLUME_OPTIONS = [
   "silent",
@@ -470,7 +471,20 @@ const styles: Record<string, CSSProperties> = {
     paddingLeft: "1.25rem",
   },
   helpItem: {
+    display: "grid",
+    gridTemplateColumns: "1.25rem minmax(0, 1fr)",
+    columnGap: "0.375rem",
     lineHeight: 1.45,
+  },
+  helpIcon: {
+    display: "inline-flex",
+    width: "1.25rem",
+    justifyContent: "center",
+    fontSize: "1.1rem",
+    lineHeight: 1.45,
+  },
+  helpItemContent: {
+    minWidth: 0,
   },
   helpParameter: {
     display: "block",
@@ -1002,9 +1016,14 @@ export function SsmlEditor({
             <p style={styles.helpDescription}>{copy.helpDescription}</p>
             <ul style={styles.helpList}>
               <li style={styles.helpItem}>
-                <strong>{copy.voice}</strong> — {copy.voiceDescription}
-                <span style={styles.helpParameter}>
-                  {copy.parameters}: {copy.voiceParameter}
+                <span style={styles.helpIcon} aria-hidden="true">
+                  {VOICE_ICON}
+                </span>
+                <span style={styles.helpItemContent}>
+                  <strong>{copy.voice}</strong> — {copy.voiceDescription}
+                  <span style={styles.helpParameter}>
+                    {copy.parameters}: {copy.voiceParameter}
+                  </span>
                 </span>
               </li>
             </ul>
@@ -1012,13 +1031,18 @@ export function SsmlEditor({
             <ul style={styles.helpList}>
               {SSML_INSERTIONS.map((insertion) => (
                 <li key={insertion.id} style={styles.helpItem}>
-                  <strong>{insertion.labels[language]}</strong> —{" "}
-                  {insertion.descriptions[language]}
-                  <span style={styles.helpParameter}>
-                    {copy.parameters}:{" "}
-                    {insertion.options
-                      .map((option) => option.labels[language])
-                      .join(", ")}
+                  <span style={styles.helpIcon} aria-hidden="true">
+                    {insertion.icon}
+                  </span>
+                  <span style={styles.helpItemContent}>
+                    <strong>{insertion.labels[language]}</strong> —{" "}
+                    {insertion.descriptions[language]}
+                    <span style={styles.helpParameter}>
+                      {copy.parameters}:{" "}
+                      {insertion.options
+                        .map((option) => option.labels[language])
+                        .join(", ")}
+                    </span>
                   </span>
                 </li>
               ))}
