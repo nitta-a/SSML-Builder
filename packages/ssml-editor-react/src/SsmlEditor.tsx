@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
+import Editor from "@monaco-editor/react";
 import { buildSsml } from "@ssml-builder/ssml-core";
 import type {
   ProsodyElement,
@@ -64,16 +65,13 @@ const styles: Record<string, CSSProperties> = {
   range: {
     width: "100%",
   },
-  textarea: {
+  editor: {
     boxSizing: "border-box",
     width: "100%",
     minHeight: "8rem",
-    padding: "0.5rem",
     border: "1px solid #9ca3af",
     borderRadius: "0.25rem",
-    font: "inherit",
-    lineHeight: 1.5,
-    resize: "vertical",
+    overflow: "hidden",
   },
   preview: {
     margin: 0,
@@ -402,16 +400,18 @@ export function SsmlEditor({
           />
         </div>
       </div>
-      <label style={styles.field} htmlFor="ssml-editor-text">
+      <label style={styles.field}>
         Text
-        <textarea
-          id="ssml-editor-text"
-          style={styles.textarea}
-          value={text}
-          onChange={(event) =>
-            commit(updateText(draftDocument, event.target.value))
-          }
-        />
+        <div style={styles.editor}>
+          <Editor
+            height="8rem"
+            language="xml"
+            value={text}
+            onChange={(value) =>
+              commit(updateText(draftDocument, value ?? ""))
+            }
+          />
+        </div>
       </label>
       <details>
         <summary>Generated SSML</summary>
