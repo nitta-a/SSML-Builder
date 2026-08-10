@@ -7,14 +7,18 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "check": "biome check .",
+    "changeset": "changeset",
     "format": "biome format .",
     "format:write": "biome format --write .",
     "lint": "biome check .",
+    "release": "pnpm build && changeset publish",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "version-packages": "changeset version"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
+    "@changesets/cli": "2.31.1",
     "tsup": "8.5.1",
     "typescript": "^5.7.3"
   },
