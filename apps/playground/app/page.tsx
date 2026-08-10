@@ -40,7 +40,7 @@ export default function Home() {
           package together.
         </p>
       </header>
-      <SsmlEditor document={document} onChange={setDocument} />
+      <SsmlEditor document={document} onChange={setDocument} language="ja" />
       <section className="output" aria-labelledby="generated-ssml-heading">
         <h2 id="generated-ssml-heading">Generated SSML</h2>
         <pre>

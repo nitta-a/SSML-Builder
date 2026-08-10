@@ -94,7 +94,7 @@ const parsed = parseSsml(ssml);
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、音声名、速度、音量、ピッチ、本文を編集できるコントロールを表示します。本文の編集には Monaco Editor を使用し、XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。`Generated SSML` の項目から現在の XML も確認できます。
+`SsmlEditor` は `SsmlDocument` を受け取り、音声名、速度、音量、ピッチ、本文を編集できるコントロールを表示します。本文の編集には Monaco Editor を使用し、XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。生成された SSML を確認でき、画面表示は日本語（デフォルト）と英語に対応しています。
 
 ```tsx
 import { useState } from "react";
@@ -117,6 +117,7 @@ export function App() {
         document={document}
         onChange={setDocument}
         onSsmlChange={setSsml}
+        language="ja"
       />
       <pre>{ssml}</pre>
     </>
@@ -127,6 +128,11 @@ export function App() {
 - `document`: 編集対象の `SsmlDocument`
 - `onChange`: 編集後の `SsmlDocument` を受け取るコールバック
 - `onSsmlChange`: 編集後に生成された SSML 文字列を受け取るコールバック
+- `language`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`
+- `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
+- `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
+
+ツールバーの「全てクリア」ボタンは、本文と本文内の SSML 要素を削除します。ドキュメントの `version`、`lang`、その他の属性は保持されます。
 
 ## `azure-tts-client` の利用方法
 

@@ -15,6 +15,7 @@ const DEFAULT_VOICE = "en-US-JennyNeural";
 const DEFAULT_PITCH = "0st";
 const DEFAULT_RATE = "medium";
 const DEFAULT_VOLUME = "medium";
+const DEFAULT_LANGUAGE = "ja";
 const RATE_OPTIONS = ["x-slow", "slow", "medium", "fast", "x-fast"] as const;
 const VOLUME_OPTIONS = [
   "silent",
@@ -24,64 +25,236 @@ const VOLUME_OPTIONS = [
   "loud",
   "x-loud",
 ] as const;
+
+export type SsmlEditorLanguage = "ja" | "en";
+
+type LocalizedText = Record<SsmlEditorLanguage, string>;
+type SsmlInsertionOption = {
+  value: string;
+  labels: LocalizedText;
+};
+type SsmlInsertionTemplate = {
+  prefix: string;
+  suffix: string;
+  mode: "insert" | "wrap";
+};
+type SsmlInsertionDefinition = {
+  id: string;
+  icon: string;
+  labels: LocalizedText;
+  titles: LocalizedText;
+  options: readonly SsmlInsertionOption[];
+  createTemplate: (value: string) => SsmlInsertionTemplate;
+};
+
+function createInsertionOptions(
+  values: readonly string[],
+): readonly SsmlInsertionOption[] {
+  return values.map((value) => ({
+    value,
+    labels: { ja: value, en: value },
+  }));
+}
+
 const SSML_INSERTIONS = [
   {
-    label: "間 (break)",
-    title: 'Insert a 500ms pause with <break time="500ms"/>',
-    prefix: '<break time="500ms"/>',
-    suffix: "",
-    mode: "insert",
+    id: "break",
+    icon: "⏸",
+    labels: { ja: "間", en: "Break" },
+    titles: {
+      ja: '500msの間を挿入 (<break time="500ms"/>)',
+      en: 'Insert a 500ms pause with <break time="500ms"/>',
+    },
+    options: createInsertionOptions(["500ms", "1s", "2s", "3s"]),
+    createTemplate: (value) => ({
+      prefix: `<break time="${value}"/>`,
+      suffix: "",
+      mode: "insert",
+    }),
   },
   {
-    label: "強調 (emphasis)",
-    title: 'Wrap the selection with <emphasis level="strong">',
-    prefix: '<emphasis level="strong">',
-    suffix: "</emphasis>",
-    mode: "wrap",
+    id: "emphasis",
+    icon: "✦",
+    labels: { ja: "強調", en: "Emphasis" },
+    titles: {
+      ja: '選択範囲を <emphasis level="strong"> で囲む',
+      en: 'Wrap the selection with <emphasis level="strong">',
+    },
+    options: createInsertionOptions(["strong", "moderate", "reduced", "none"]),
+    createTemplate: (value) => ({
+      prefix: `<emphasis level="${value}">`,
+      suffix: "</emphasis>",
+      mode: "wrap",
+    }),
   },
   {
-    label: "速度 (prosody)",
-    title: 'Wrap the selection with <prosody rate="fast">',
-    prefix: '<prosody rate="fast">',
-    suffix: "</prosody>",
-    mode: "wrap",
+    id: "rate",
+    icon: "↕",
+    labels: { ja: "速度", en: "Rate" },
+    titles: {
+      ja: '選択範囲を <prosody rate="fast"> で囲む',
+      en: 'Wrap the selection with <prosody rate="fast">',
+    },
+    options: createInsertionOptions(RATE_OPTIONS),
+    createTemplate: (value) => ({
+      prefix: `<prosody rate="${value}">`,
+      suffix: "</prosody>",
+      mode: "wrap",
+    }),
   },
   {
-    label: "高さ (prosody)",
-    title: 'Wrap the selection with <prosody pitch="+2st">',
-    prefix: '<prosody pitch="+2st">',
-    suffix: "</prosody>",
-    mode: "wrap",
+    id: "pitch",
+    icon: "↗",
+    labels: { ja: "高さ", en: "Pitch" },
+    titles: {
+      ja: '選択範囲を <prosody pitch="+2st"> で囲む',
+      en: 'Wrap the selection with <prosody pitch="+2st">',
+    },
+    options: createInsertionOptions([
+      "+2st",
+      "-2st",
+      "0st",
+      "+4st",
+      "-4st",
+      "+8st",
+      "-8st",
+      "+12st",
+      "-12st",
+    ]),
+    createTemplate: (value) => ({
+      prefix: `<prosody pitch="${value}">`,
+      suffix: "</prosody>",
+      mode: "wrap",
+    }),
   },
   {
-    label: "音量 (prosody)",
-    title: 'Wrap the selection with <prosody volume="loud">',
-    prefix: '<prosody volume="loud">',
-    suffix: "</prosody>",
-    mode: "wrap",
+    id: "volume",
+    icon: "🔊",
+    labels: { ja: "音量", en: "Volume" },
+    titles: {
+      ja: '選択範囲を <prosody volume="loud"> で囲む',
+      en: 'Wrap the selection with <prosody volume="loud">',
+    },
+    options: createInsertionOptions(VOLUME_OPTIONS),
+    createTemplate: (value) => ({
+      prefix: `<prosody volume="${value}">`,
+      suffix: "</prosody>",
+      mode: "wrap",
+    }),
   },
   {
-    label: "感情 (express-as)",
-    title: 'Wrap the selection with <mstts:express-as style="cheerful">',
-    prefix: '<mstts:express-as style="cheerful">',
-    suffix: "</mstts:express-as>",
-    mode: "wrap",
+    id: "emotion",
+    icon: "☺",
+    labels: { ja: "感情", en: "Emotion" },
+    titles: {
+      ja: '選択範囲を <mstts:express-as style="cheerful"> で囲む',
+      en: 'Wrap the selection with <mstts:express-as style="cheerful">',
+    },
+    options: createInsertionOptions([
+      "cheerful",
+      "friendly",
+      "calm",
+      "sad",
+      "angry",
+      "excited",
+      "serious",
+    ]),
+    createTemplate: (value) => ({
+      prefix: `<mstts:express-as style="${value}">`,
+      suffix: "</mstts:express-as>",
+      mode: "wrap",
+    }),
   },
   {
-    label: "読み上げ (say-as)",
-    title: 'Wrap the selection with <say-as interpret-as="characters">',
-    prefix: '<say-as interpret-as="characters">',
-    suffix: "</say-as>",
-    mode: "wrap",
+    id: "say-as",
+    icon: "Aa",
+    labels: { ja: "読み上げ", en: "Say as" },
+    titles: {
+      ja: '選択範囲を <say-as interpret-as="characters"> で囲む',
+      en: 'Wrap the selection with <say-as interpret-as="characters">',
+    },
+    options: createInsertionOptions([
+      "characters",
+      "spell-out",
+      "cardinal",
+      "ordinal",
+      "number",
+      "date",
+      "time",
+      "telephone",
+      "fraction",
+      "address",
+      "name",
+      "currency",
+    ]),
+    createTemplate: (value) => ({
+      prefix: `<say-as interpret-as="${value}">`,
+      suffix: "</say-as>",
+      mode: "wrap",
+    }),
   },
   {
-    label: "発音 (phoneme)",
-    title: 'Wrap the selection with <phoneme alphabet="ipa">',
-    prefix: '<phoneme alphabet="ipa" ph="">',
-    suffix: "</phoneme>",
-    mode: "wrap",
+    id: "phoneme",
+    icon: "ɑ",
+    labels: { ja: "発音", en: "Phoneme" },
+    titles: {
+      ja: '選択範囲を <phoneme alphabet="ipa"> で囲む',
+      en: 'Wrap the selection with <phoneme alphabet="ipa">',
+    },
+    options: createInsertionOptions(["ipa", "sapi", "x-sampa", "ups"]),
+    createTemplate: (value) => ({
+      prefix: `<phoneme alphabet="${value}" ph="">`,
+      suffix: "</phoneme>",
+      mode: "wrap",
+    }),
   },
-] as const;
+] satisfies readonly SsmlInsertionDefinition[];
+
+type EditorCopy = {
+  editorAriaLabel: string;
+  heading: string;
+  voice: string;
+  rate: string;
+  volume: string;
+  pitch: string;
+  pitchValueAriaLabel: string;
+  text: string;
+  toolbarAriaLabel: string;
+  clearAll: string;
+  clearAllTitle: string;
+  generatedSsml: string;
+};
+
+const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
+  ja: {
+    editorAriaLabel: "SSMLエディター",
+    heading: "SSMLエディター",
+    voice: "音声",
+    rate: "速度",
+    volume: "音量",
+    pitch: "高さ",
+    pitchValueAriaLabel: "高さの値",
+    text: "本文",
+    toolbarAriaLabel: "SSMLツールバー",
+    clearAll: "全てクリア",
+    clearAllTitle: "本文とSSML要素を全てクリア",
+    generatedSsml: "生成されたSSML",
+  },
+  en: {
+    editorAriaLabel: "SSML editor",
+    heading: "SSML Editor",
+    voice: "Voice",
+    rate: "Rate",
+    volume: "Volume",
+    pitch: "Pitch",
+    pitchValueAriaLabel: "Pitch value",
+    text: "Text",
+    toolbarAriaLabel: "SSML toolbar",
+    clearAll: "Clear all",
+    clearAllTitle: "Clear all editable text and SSML elements",
+    generatedSsml: "Generated SSML",
+  },
+};
 
 const STYLE_ID = "ssml-editor-theme";
 const STYLE_CSS = `
@@ -118,6 +291,12 @@ export interface SsmlEditorProps {
   document: SsmlDocument;
   onChange?: (document: SsmlDocument) => void;
   onSsmlChange?: (xml: string) => void;
+  /** UI language. Japanese is used when omitted. */
+  language?: SsmlEditorLanguage;
+  /** Whether toolbar action icons are displayed. */
+  showToolbarIcons?: boolean;
+  /** Whether toolbar action text labels are displayed. */
+  showToolbarLabels?: boolean;
 }
 
 const styles: Record<string, CSSProperties> = {
@@ -148,7 +327,14 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
     gap: "0.5rem",
   },
+  toolbarDropdown: {
+    position: "relative",
+    display: "inline-block",
+  },
   toolbarButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.375rem",
     minHeight: "2.25rem",
     padding: "0.375rem 0.625rem",
     border: "1px solid var(--ssml-editor-control-border)",
@@ -156,6 +342,47 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--ssml-editor-color)",
     backgroundColor: "var(--ssml-editor-control-bg)",
     font: "inherit",
+    cursor: "pointer",
+  },
+  toolbarIconOnly: {
+    justifyContent: "center",
+    minWidth: "2.25rem",
+    padding: "0.375rem",
+  },
+  toolbarIcon: {
+    display: "inline-flex",
+    width: "1.25rem",
+    justifyContent: "center",
+    fontSize: "1.1rem",
+    lineHeight: 1,
+  },
+  toolbarChevron: {
+    fontSize: "0.7rem",
+    lineHeight: 1,
+  },
+  toolbarMenu: {
+    position: "absolute",
+    top: "calc(100% + 0.25rem)",
+    left: 0,
+    zIndex: 1,
+    display: "grid",
+    minWidth: "max-content",
+    gap: "0.125rem",
+    padding: "0.25rem",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.25rem",
+    backgroundColor: "var(--ssml-editor-control-bg)",
+    boxShadow: "0 0.25rem 0.75rem rgb(0 0 0 / 20%)",
+  },
+  toolbarOption: {
+    padding: "0.375rem 0.5rem",
+    border: 0,
+    borderRadius: "0.125rem",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "transparent",
+    font: "inherit",
+    textAlign: "left",
+    whiteSpace: "nowrap",
     cursor: "pointer",
   },
   input: {
@@ -290,6 +517,10 @@ function withChildren(
     delete nextDocument.content;
   }
   return nextDocument;
+}
+
+function clearDocument(document: SsmlDocument): SsmlDocument {
+  return withChildren(document, []);
 }
 
 function createProsody(
@@ -482,6 +713,7 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
 function applySsmlInsertion(
   editor: MonacoEditor,
   insertion: SsmlInsertion,
+  option: SsmlInsertionOption,
 ): void {
   const model = editor.getModel();
   const selection = editor.getSelection();
@@ -489,13 +721,14 @@ function applySsmlInsertion(
     return;
   }
 
+  const template = insertion.createTemplate(option.value);
   const startOffset = model.getOffsetAt(selection.getStartPosition());
   const endOffset = model.getOffsetAt(selection.getEndPosition());
   const selectedText = model.getValueInRange(selection);
   const replacement =
-    insertion.mode === "insert"
-      ? `${insertion.prefix}${selectedText}`
-      : `${insertion.prefix}${selectedText}${insertion.suffix}`;
+    template.mode === "insert"
+      ? `${template.prefix}${selectedText}`
+      : `${template.prefix}${selectedText}${template.suffix}`;
 
   editor.pushUndoStop();
   const applied = editor.executeEdits("ssml-toolbar", [
@@ -510,10 +743,10 @@ function applySsmlInsertion(
   }
 
   const nextSelectionStart = model.getPositionAt(
-    startOffset + insertion.prefix.length,
+    startOffset + template.prefix.length,
   );
   const nextSelectionEnd = model.getPositionAt(
-    endOffset + insertion.prefix.length,
+    endOffset + template.prefix.length,
   );
   editor.setSelection({
     selectionStartLineNumber: nextSelectionStart.lineNumber,
@@ -528,11 +761,19 @@ export function SsmlEditor({
   document,
   onChange,
   onSsmlChange,
+  language = DEFAULT_LANGUAGE,
+  showToolbarIcons = true,
+  showToolbarLabels = false,
 }: SsmlEditorProps): ReactElement {
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const [isDark, setIsDark] = useState(false);
+  const copy = EDITOR_COPY[language];
+  const showToolbarText = showToolbarLabels || !showToolbarIcons;
+  const toolbarButtonStyle = showToolbarText
+    ? styles.toolbarButton
+    : { ...styles.toolbarButton, ...styles.toolbarIconOnly };
 
   useEffect(() => {
     injectEditorTheme();
@@ -574,13 +815,13 @@ export function SsmlEditor({
   return (
     <section
       style={styles.container}
-      aria-label="SSML editor"
+      aria-label={copy.editorAriaLabel}
       data-ssml-editor=""
     >
-      <h2 style={styles.heading}>SSML Editor</h2>
+      <h2 style={styles.heading}>{copy.heading}</h2>
       <div style={styles.controls}>
         <label style={styles.field} htmlFor="ssml-editor-voice">
-          Voice
+          {copy.voice}
           <input
             id="ssml-editor-voice"
             style={styles.input}
@@ -592,7 +833,7 @@ export function SsmlEditor({
           />
         </label>
         <label style={styles.field} htmlFor="ssml-editor-rate">
-          Rate
+          {copy.rate}
           <select
             id="ssml-editor-rate"
             style={styles.input}
@@ -612,7 +853,7 @@ export function SsmlEditor({
           </select>
         </label>
         <label style={styles.field} htmlFor="ssml-editor-volume">
-          Volume
+          {copy.volume}
           <select
             id="ssml-editor-volume"
             style={styles.input}
@@ -634,7 +875,9 @@ export function SsmlEditor({
           </select>
         </label>
         <div style={styles.field}>
-          <label htmlFor="ssml-editor-pitch">Pitch: {pitch}</label>
+          <label htmlFor="ssml-editor-pitch">
+            {copy.pitch}: {pitch}
+          </label>
           <input
             id="ssml-editor-pitch"
             style={styles.range}
@@ -652,7 +895,7 @@ export function SsmlEditor({
             }
           />
           <input
-            aria-label="Pitch value"
+            aria-label={copy.pitchValueAriaLabel}
             style={styles.input}
             type="text"
             value={pitch}
@@ -665,24 +908,78 @@ export function SsmlEditor({
         </div>
       </div>
       <div style={styles.field}>
-        <span>Text</span>
-        <div style={styles.toolbar} role="toolbar" aria-label="SSML toolbar">
+        <span>{copy.text}</span>
+        <div
+          style={styles.toolbar}
+          role="toolbar"
+          aria-label={copy.toolbarAriaLabel}
+        >
           {SSML_INSERTIONS.map((insertion) => (
-            <button
-              key={insertion.label}
-              type="button"
-              style={styles.toolbarButton}
-              title={insertion.title}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                if (editorRef.current) {
-                  applySsmlInsertion(editorRef.current, insertion);
-                }
-              }}
-            >
-              {insertion.label}
-            </button>
+            <details key={insertion.id} style={styles.toolbarDropdown}>
+              <summary
+                style={{
+                  ...toolbarButtonStyle,
+                  listStyleType: "none",
+                }}
+                title={insertion.titles[language]}
+                aria-label={insertion.labels[language]}
+                aria-haspopup="menu"
+              >
+                {showToolbarIcons && (
+                  <span style={styles.toolbarIcon} aria-hidden="true">
+                    {insertion.icon}
+                  </span>
+                )}
+                {showToolbarText && <span>{insertion.labels[language]}</span>}
+                <span style={styles.toolbarChevron} aria-hidden="true">
+                  ▾
+                </span>
+              </summary>
+              <div
+                style={styles.toolbarMenu}
+                role="menu"
+                aria-label={insertion.labels[language]}
+              >
+                {insertion.options.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitem"
+                    style={styles.toolbarOption}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={(event) => {
+                      if (editorRef.current) {
+                        applySsmlInsertion(
+                          editorRef.current,
+                          insertion,
+                          option,
+                        );
+                      }
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
+                    }}
+                  >
+                    {option.labels[language]}
+                  </button>
+                ))}
+              </div>
+            </details>
           ))}
+          <button
+            type="button"
+            style={toolbarButtonStyle}
+            aria-label={copy.clearAll}
+            title={copy.clearAllTitle}
+            onClick={() => commit(clearDocument(draftDocument))}
+          >
+            {showToolbarIcons && (
+              <span style={styles.toolbarIcon} aria-hidden="true">
+                ×
+              </span>
+            )}
+            {showToolbarText && <span>{copy.clearAll}</span>}
+          </button>
         </div>
         <div style={styles.editor}>
           <Editor
@@ -702,7 +999,7 @@ export function SsmlEditor({
         </div>
       </div>
       <details>
-        <summary>Generated SSML</summary>
+        <summary>{copy.generatedSsml}</summary>
         <pre style={styles.preview}>{buildSsml(draftDocument)}</pre>
       </details>
     </section>
