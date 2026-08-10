@@ -94,7 +94,7 @@ const parsed = parseSsml(ssml);
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、音声名、速度、音量、ピッチ、本文を編集できるコントロールを表示します。本文の編集には Monaco Editor を使用し、生成された SSML を確認できます。画面表示は日本語（デフォルト）と英語に対応しています。
+`SsmlEditor` は `SsmlDocument` を受け取り、音声名、速度、音量、ピッチ、本文を編集できるコントロールを表示します。本文の編集には Monaco Editor を使用し、XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。生成された SSML を確認でき、画面表示は日本語（デフォルト）と英語に対応しています。
 
 ```tsx
 import { useState } from "react";

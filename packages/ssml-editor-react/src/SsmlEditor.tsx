@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
+import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";
 import type {
   ProsodyElement,
@@ -9,6 +9,7 @@ import type {
   SsmlNode,
   VoiceElement,
 } from "@ssml-builder/ssml-core";
+import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
 const DEFAULT_VOICE = "en-US-JennyNeural";
 const DEFAULT_PITCH = "0st";
@@ -419,6 +420,22 @@ const styles: Record<string, CSSProperties> = {
 
 type MonacoEditor = Parameters<OnMount>[0];
 type SsmlInsertion = (typeof SSML_INSERTIONS)[number];
+type MonacoLanguages = Monaco["languages"];
+type MonacoHoverProvider = Parameters<
+  MonacoLanguages["registerHoverProvider"]
+>[1];
+type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
+type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
+
+interface HoverProviderRegistration {
+  disposable: ReturnType<MonacoLanguages["registerHoverProvider"]>;
+  references: number;
+}
+
+const hoverProviderRegistrations = new WeakMap<
+  MonacoLanguages,
+  HoverProviderRegistration
+>();
 
 function isSsmlElement(node: SsmlNode): node is SsmlElement {
   return typeof node !== "string" && node.type !== "text";
@@ -637,6 +654,62 @@ function formatPitch(value: number): string {
   return `${value > 0 ? "+" : ""}${value}st`;
 }
 
+function acquireSsmlHoverProvider(monaco: Monaco): () => void {
+  const languages = monaco.languages;
+  let registration = hoverProviderRegistrations.get(languages);
+
+  if (!registration) {
+    const provider: Parameters<MonacoLanguages["registerHoverProvider"]>[1] = {
+      provideHover(model: MonacoHoverModel, position: MonacoHoverPosition) {
+        const target = findSsmlHoverTarget(
+          model.getValue(),
+          position.lineNumber,
+          position.column,
+        );
+        if (!target) {
+          return undefined;
+        }
+
+        return {
+          contents: [
+            {
+              isTrusted: false,
+              supportHtml: false,
+              value: formatSsmlHover(target),
+            },
+          ],
+          range: target.range,
+        };
+      },
+    };
+    const disposable = languages.registerHoverProvider("xml", {
+      ...provider,
+    });
+    registration = { disposable, references: 0 };
+    hoverProviderRegistrations.set(languages, registration);
+  }
+
+  registration.references += 1;
+  let released = false;
+  return () => {
+    if (released) {
+      return;
+    }
+    released = true;
+
+    const current = hoverProviderRegistrations.get(languages);
+    if (!current) {
+      return;
+    }
+
+    current.references -= 1;
+    if (current.references === 0) {
+      current.disposable.dispose();
+      hoverProviderRegistrations.delete(languages);
+    }
+  };
+}
+
 function applySsmlInsertion(
   editor: MonacoEditor,
   insertion: SsmlInsertion,
@@ -694,6 +767,7 @@ export function SsmlEditor({
 }: SsmlEditorProps): ReactElement {
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
+  const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const [isDark, setIsDark] = useState(false);
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
@@ -713,6 +787,14 @@ export function SsmlEditor({
   useEffect(() => {
     setDraftDocument(document);
   }, [document]);
+
+  useEffect(() => {
+    return () => {
+      releaseHoverProviderRef.current?.();
+      releaseHoverProviderRef.current = null;
+      editorRef.current = null;
+    };
+  }, []);
 
   const children = getDocumentChildren(draftDocument);
   const voice = findFirstElement(children, isVoice);
@@ -904,9 +986,13 @@ export function SsmlEditor({
             height="8rem"
             language="xml"
             theme={isDark ? "vs-dark" : "light"}
+            options={{ hover: { enabled: "on" } }}
             value={text}
-            onMount={(editor) => {
+            onMount={(editor, monaco) => {
               editorRef.current = editor;
+              releaseHoverProviderRef.current?.();
+              releaseHoverProviderRef.current =
+                acquireSsmlHoverProvider(monaco);
             }}
             onChange={(value) => commit(updateText(draftDocument, value ?? ""))}
           />
