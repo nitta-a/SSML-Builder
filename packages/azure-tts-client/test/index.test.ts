@@ -2,68 +2,96 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AzureTtsClient, synthesizeSpeech } from "../src/index.ts";
 
-test("synthesizeSpeech sends SSML using the supplied configuration", async () => {
+type CapturedRequest = {
+  input: RequestInfo | URL;
+  init?: RequestInit;
+};
+
+function installFetchMock(audio: ArrayBuffer) {
   const originalFetch = globalThis.fetch;
-  let request: { input: RequestInfo | URL; init?: RequestInit } | undefined;
+  let capturedRequest: CapturedRequest | undefined;
+
+  globalThis.fetch = async (input, init) => {
+    capturedRequest = { input, init };
+    return {
+      ok: true,
+      arrayBuffer: async () => audio,
+    } as Response;
+  };
+
+  return {
+    get request() {
+      return capturedRequest;
+    },
+    restore() {
+      globalThis.fetch = originalFetch;
+    },
+  };
+}
+
+function assertAzureRequest(
+  request: CapturedRequest | undefined,
+  endpoint: string,
+  subscriptionKey: string,
+  ssml: string,
+) {
+  assert.ok(request);
+  assert.equal(request.input, endpoint);
+  assert.equal(request.init?.method, "POST");
+  assert.deepEqual(request.init?.headers, {
+    "Ocp-Apim-Subscription-Key": subscriptionKey,
+    "Content-Type": "application/ssml+xml",
+    "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
+  });
+  assert.equal(request.init?.body, ssml);
+}
+
+test("synthesizeSpeech sends SSML using the supplied configuration", async () => {
+  const mockAudio = new ArrayBuffer(3);
+  new Uint8Array(mockAudio).set([4, 5, 6]);
+  const fetchMock = installFetchMock(mockAudio);
+  const ssml = "<speak>Hello</speak>";
 
   try {
-    globalThis.fetch = async (input, init) => {
-      request = { input, init };
-      return new Response(new Uint8Array([4, 5, 6]), { status: 200 });
-    };
-
-    const audio = await synthesizeSpeech("<speak>Hello</speak>", {
+    const audio = await synthesizeSpeech(ssml, {
       endpoint: "https://speech.example.test/cognitiveservices/v1",
       subscriptionKey: "subscription-key",
       region: "japaneast",
     });
 
-    assert.equal(
-      request?.input,
+    assertAzureRequest(
+      fetchMock.request,
       "https://speech.example.test/cognitiveservices/v1",
+      "subscription-key",
+      ssml,
     );
-    assert.equal(request?.init?.method, "POST");
-    assert.deepEqual(request?.init?.headers, {
-      "Ocp-Apim-Subscription-Key": "subscription-key",
-      "Content-Type": "application/ssml+xml",
-      "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
-    });
-    assert.equal(request?.init?.body, "<speak>Hello</speak>");
-    assert.deepEqual([...new Uint8Array(audio)], [4, 5, 6]);
+    assert.strictEqual(audio, mockAudio);
   } finally {
-    globalThis.fetch = originalFetch;
+    fetchMock.restore();
   }
 });
 
 test("synthesize sends SSML to the regional Azure endpoint", async () => {
-  const originalFetch = globalThis.fetch;
-  let request: { input: RequestInfo | URL; init?: RequestInit } | undefined;
+  const mockAudio = new ArrayBuffer(3);
+  new Uint8Array(mockAudio).set([1, 2, 3]);
+  const fetchMock = installFetchMock(mockAudio);
+  const ssml = "<speak>Hello</speak>";
 
   try {
-    globalThis.fetch = async (input, init) => {
-      request = { input, init };
-      return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
-    };
-
     const audio = await new AzureTtsClient({
       subscriptionKey: "subscription-key",
       region: "japaneast",
-    }).synthesize("<speak>Hello</speak>");
+    }).synthesize(ssml);
 
-    assert.equal(
-      request?.input,
+    assertAzureRequest(
+      fetchMock.request,
       "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1",
+      "subscription-key",
+      ssml,
     );
-    assert.equal(request?.init?.method, "POST");
-    assert.deepEqual(request?.init?.headers, {
-      "Ocp-Apim-Subscription-Key": "subscription-key",
-      "Content-Type": "application/ssml+xml",
-      "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
-    });
-    assert.equal(request?.init?.body, "<speak>Hello</speak>");
-    assert.deepEqual([...new Uint8Array(audio)], [1, 2, 3]);
+    assert.strictEqual(audio, mockAudio);
   } finally {
-    globalThis.fetch = originalFetch;
+    fetchMock.restore();
   }
 });
 
