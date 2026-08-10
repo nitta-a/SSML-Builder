@@ -2,7 +2,8 @@
   "name": "ssml-builder",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
@@ -24,6 +25,7 @@
     "typescript": "^7.0.2"
   },
   "overrides": {
+    "dompurify": "3.4.13",
     "esbuild": "0.28.2",
     "monaco-editor": {
       "dompurify": "3.4.13"
