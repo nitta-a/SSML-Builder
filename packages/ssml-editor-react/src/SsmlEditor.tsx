@@ -247,10 +247,6 @@ type EditorCopy = {
   editorAriaLabel: string;
   heading: string;
   voice: string;
-  rate: string;
-  volume: string;
-  pitch: string;
-  pitchValueAriaLabel: string;
   text: string;
   toolbarAriaLabel: string;
   clearAll: string;
@@ -263,12 +259,6 @@ type EditorCopy = {
   toolbarActions: string;
   voiceDescription: string;
   voiceParameter: string;
-  rateDescription: string;
-  rateParameter: string;
-  volumeDescription: string;
-  volumeParameter: string;
-  pitchDescription: string;
-  pitchParameter: string;
   generatedSsml: string;
 };
 
@@ -277,10 +267,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     editorAriaLabel: "SSMLエディター",
     heading: "SSMLエディター",
     voice: "音声",
-    rate: "速度",
-    volume: "音量",
-    pitch: "高さ",
-    pitchValueAriaLabel: "高さの値",
     text: "本文",
     toolbarAriaLabel: "SSMLツールバー",
     clearAll: "全てクリア",
@@ -293,22 +279,12 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     toolbarActions: "本文ツールバーのボタン",
     voiceDescription: "使用する Azure 音声の名前を指定します。",
     voiceParameter: "音声名（例: en-US-JennyNeural）",
-    rateDescription: "本文全体の読み上げ速度を指定します。",
-    rateParameter: `選択肢: ${RATE_OPTIONS.join(", ")}`,
-    volumeDescription: "本文全体の音量を指定します。",
-    volumeParameter: `選択肢: ${VOLUME_OPTIONS.join(", ")}`,
-    pitchDescription: "本文全体の声の高さを指定します。",
-    pitchParameter: "範囲: -12st ～ +12st（半音）",
     generatedSsml: "生成されたSSML",
   },
   en: {
     editorAriaLabel: "SSML editor",
     heading: "SSML Editor",
     voice: "Voice",
-    rate: "Rate",
-    volume: "Volume",
-    pitch: "Pitch",
-    pitchValueAriaLabel: "Pitch value",
     text: "Text",
     toolbarAriaLabel: "SSML toolbar",
     clearAll: "Clear all",
@@ -321,12 +297,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     toolbarActions: "Text toolbar buttons",
     voiceDescription: "Selects the Azure voice name to use.",
     voiceParameter: "Voice name (for example, en-US-JennyNeural)",
-    rateDescription: "Sets the speech rate for the entire text.",
-    rateParameter: `Options: ${RATE_OPTIONS.join(", ")}`,
-    volumeDescription: "Sets the volume for the entire text.",
-    volumeParameter: `Options: ${VOLUME_OPTIONS.join(", ")}`,
-    pitchDescription: "Sets the pitch for the entire text.",
-    pitchParameter: "Range: -12st to +12st (semitones)",
     generatedSsml: "Generated SSML",
   },
 };
@@ -505,9 +475,6 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--ssml-editor-color)",
     backgroundColor: "var(--ssml-editor-control-bg)",
   },
-  range: {
-    width: "100%",
-  },
   editor: {
     boxSizing: "border-box",
     width: "100%",
@@ -680,36 +647,6 @@ function updateVoiceName(document: SsmlDocument, name: string): SsmlDocument {
   ]);
 }
 
-function updateProsody(
-  document: SsmlDocument,
-  updates: Partial<ProsodyElement>,
-): SsmlDocument {
-  const children = getDocumentChildren(document);
-  const prosodyResult = updateFirstElement(children, isProsody, (prosody) => ({
-    ...prosody,
-    ...updates,
-  }));
-  if (prosodyResult.updated) {
-    return withChildren(document, prosodyResult.nodes);
-  }
-
-  const voiceResult = updateFirstElement(children, isVoice, (voice) => ({
-    ...voice,
-    children: [createProsody(voice.children ?? [], updates)],
-  }));
-  if (voiceResult.updated) {
-    return withChildren(document, voiceResult.nodes);
-  }
-
-  return withChildren(document, [
-    {
-      type: "voice",
-      name: DEFAULT_VOICE,
-      children: [createProsody(children, updates)],
-    },
-  ]);
-}
-
 function parseEditableText(value: string): SsmlNode[] {
   try {
     const children =
@@ -768,18 +705,6 @@ function updateText(document: SsmlDocument, value: string): SsmlDocument {
   }
 
   return withChildren(document, editableChildren);
-}
-
-function getPitchValue(pitch: string | number | undefined): number {
-  const match = String(pitch ?? DEFAULT_PITCH).match(
-    /^([+-]?\d+(?:\.\d+)?)st$/,
-  );
-  const value = match ? Number(match[1]) : 0;
-  return Math.min(12, Math.max(-12, value));
-}
-
-function formatPitch(value: number): string {
-  return `${value > 0 ? "+" : ""}${value}st`;
 }
 
 function acquireSsmlHoverProvider(monaco: Monaco): () => void {
@@ -928,12 +853,7 @@ export function SsmlEditor({
 
   const children = getDocumentChildren(draftDocument);
   const voice = findFirstElement(children, isVoice);
-  const prosody = findFirstElement(children, isProsody);
   const voiceName = voice?.name ?? DEFAULT_VOICE;
-  const pitch = String(prosody?.pitch ?? DEFAULT_PITCH);
-  const pitchValue = getPitchValue(prosody?.pitch);
-  const rate = String(prosody?.rate ?? DEFAULT_RATE);
-  const volume = String(prosody?.volume ?? DEFAULT_VOLUME);
   const text = getEditableText(draftDocument);
 
   const commit = (nextDocument: SsmlDocument): void => {
@@ -962,80 +882,6 @@ export function SsmlEditor({
             }
           />
         </label>
-        <label style={styles.field} htmlFor="ssml-editor-rate">
-          {copy.rate}
-          <select
-            id="ssml-editor-rate"
-            style={styles.input}
-            value={rate}
-            onChange={(event) =>
-              commit(updateProsody(draftDocument, { rate: event.target.value }))
-            }
-          >
-            {!([...RATE_OPTIONS] as string[]).includes(rate) && (
-              <option value={rate}>{rate}</option>
-            )}
-            {RATE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={styles.field} htmlFor="ssml-editor-volume">
-          {copy.volume}
-          <select
-            id="ssml-editor-volume"
-            style={styles.input}
-            value={volume}
-            onChange={(event) =>
-              commit(
-                updateProsody(draftDocument, { volume: event.target.value }),
-              )
-            }
-          >
-            {!([...VOLUME_OPTIONS] as string[]).includes(volume) && (
-              <option value={volume}>{volume}</option>
-            )}
-            {VOLUME_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div style={styles.field}>
-          <label htmlFor="ssml-editor-pitch">
-            {copy.pitch}: {pitch}
-          </label>
-          <input
-            id="ssml-editor-pitch"
-            style={styles.range}
-            type="range"
-            min="-12"
-            max="12"
-            step="1"
-            value={pitchValue}
-            onChange={(event) =>
-              commit(
-                updateProsody(draftDocument, {
-                  pitch: formatPitch(Number(event.target.value)),
-                }),
-              )
-            }
-          />
-          <input
-            aria-label={copy.pitchValueAriaLabel}
-            style={styles.input}
-            type="text"
-            value={pitch}
-            onChange={(event) =>
-              commit(
-                updateProsody(draftDocument, { pitch: event.target.value }),
-              )
-            }
-          />
-        </div>
       </div>
       <div style={styles.field}>
         <span>{copy.text}</span>
@@ -1140,24 +986,6 @@ export function SsmlEditor({
                 <strong>{copy.voice}</strong> — {copy.voiceDescription}
                 <span style={styles.helpParameter}>
                   {copy.parameters}: {copy.voiceParameter}
-                </span>
-              </li>
-              <li style={styles.helpItem}>
-                <strong>{copy.rate}</strong> — {copy.rateDescription}
-                <span style={styles.helpParameter}>
-                  {copy.parameters}: {copy.rateParameter}
-                </span>
-              </li>
-              <li style={styles.helpItem}>
-                <strong>{copy.volume}</strong> — {copy.volumeDescription}
-                <span style={styles.helpParameter}>
-                  {copy.parameters}: {copy.volumeParameter}
-                </span>
-              </li>
-              <li style={styles.helpItem}>
-                <strong>{copy.pitch}</strong> — {copy.pitchDescription}
-                <span style={styles.helpParameter}>
-                  {copy.parameters}: {copy.pitchParameter}
                 </span>
               </li>
             </ul>

@@ -9,7 +9,7 @@ SSML の XML エスケープや Azure Speech 拡張要素に対応したコア�
 | パッケージ | 内容 |
 | --- | --- |
 | `@ssml-builder/ssml-core` | SSML の型定義、ドキュメントの生成（`buildSsml`）、XML からの解析（`parseSsml`） |
-| `@ssml-builder/ssml-editor-react` | 音声、速度、音量、ピッチ、本文を編集し、生成された SSML を確認できる `SsmlEditor` コンポーネント |
+| `@ssml-builder/ssml-editor-react` | 音声と本文を編集し、本文ツールバーで速度、音量、ピッチなどを設定して、生成された SSML を確認できる `SsmlEditor` コンポーネント |
 | `@ssml-builder/azure-tts-client` | SSML を Azure Text-to-Speech に送信し、音声データを `ArrayBuffer` で取得するクライアント |
 
 ## セットアップ
@@ -94,7 +94,7 @@ const parsed = parseSsml(ssml);
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、音声名、速度、音量、ピッチ、本文を編集できるコントロールを表示します。本文の編集には Monaco Editor を使用し、XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。生成された SSML を確認でき、画面表示は日本語（デフォルト）と英語に対応しています。
+`SsmlEditor` は `SsmlDocument` を受け取り、音声名と本文を編集できるコントロールを表示します。本文ツールバーから、選択範囲の速度、音量、ピッチなどを設定できます。本文の編集には Monaco Editor を使用し、XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。生成された SSML を確認でき、画面表示は日本語（デフォルト）と英語に対応しています。
 
 ```tsx
 import { useState } from "react";
