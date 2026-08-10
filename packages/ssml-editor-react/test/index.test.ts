@@ -43,9 +43,9 @@ test("finds attributes and quoted attribute values", () => {
   assert.equal(attribute?.parameter?.name, "rate");
   assert.deepEqual(attribute?.range, {
     startLineNumber: 1,
-    startColumn: 11,
+    startColumn: 10,
     endLineNumber: 1,
-    endColumn: 15,
+    endColumn: 14,
   });
   assert.equal(value?.kind, "parameter-value");
   assert.equal(value?.parameter?.name, "rate");

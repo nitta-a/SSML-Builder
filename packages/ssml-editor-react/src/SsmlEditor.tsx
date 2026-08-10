@@ -194,6 +194,11 @@ const styles: Record<string, CSSProperties> = {
 type MonacoEditor = Parameters<OnMount>[0];
 type SsmlInsertion = (typeof SSML_INSERTIONS)[number];
 type MonacoLanguages = Monaco["languages"];
+type MonacoHoverProvider = Parameters<
+  MonacoLanguages["registerHoverProvider"]
+>[1];
+type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
+type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
 
 interface HoverProviderRegistration {
   disposable: ReturnType<MonacoLanguages["registerHoverProvider"]>;
@@ -423,8 +428,8 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
   let registration = hoverProviderRegistrations.get(languages);
 
   if (!registration) {
-    const disposable = languages.registerHoverProvider("xml", {
-      provideHover(model, position) {
+    const provider: Parameters<MonacoLanguages["registerHoverProvider"]>[1] = {
+      provideHover(model: MonacoHoverModel, position: MonacoHoverPosition) {
         const target = findSsmlHoverTarget(
           model.getValue(),
           position.lineNumber,
@@ -445,6 +450,9 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
           range: target.range,
         };
       },
+    };
+    const disposable = languages.registerHoverProvider("xml", {
+      ...provider,
     });
     registration = { disposable, references: 0 };
     hoverProviderRegistrations.set(languages, registration);
@@ -681,7 +689,7 @@ export function SsmlEditor({
             height="8rem"
             language="xml"
             theme={isDark ? "vs-dark" : "light"}
-            options={{ hover: { enabled: true } }}
+            options={{ hover: { enabled: "on" } }}
             value={text}
             onMount={(editor, monaco) => {
               editorRef.current = editor;
