@@ -842,16 +842,13 @@ export function SsmlEditor({
                 title={insertion.titles[language]}
                 aria-label={insertion.labels[language]}
                 aria-haspopup="menu"
-                onMouseDown={(event) => event.preventDefault()}
               >
                 {showToolbarIcons && (
                   <span style={styles.toolbarIcon} aria-hidden="true">
                     {insertion.icon}
                   </span>
                 )}
-                {showToolbarText && (
-                  <span>{insertion.labels[language]}</span>
-                )}
+                {showToolbarText && <span>{insertion.labels[language]}</span>}
                 <span style={styles.toolbarChevron} aria-hidden="true">
                   ▾
                 </span>
@@ -870,7 +867,11 @@ export function SsmlEditor({
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={(event) => {
                       if (editorRef.current) {
-                        applySsmlInsertion(editorRef.current, insertion, option);
+                        applySsmlInsertion(
+                          editorRef.current,
+                          insertion,
+                          option,
+                        );
                       }
                       event.currentTarget
                         .closest("details")
