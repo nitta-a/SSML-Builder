@@ -9,6 +9,7 @@ import type {
   SsmlNode,
   VoiceElement,
 } from "@ssml-builder/ssml-core";
+import { formatXml } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
 const DEFAULT_VOICE = "en-US-JennyNeural";
@@ -261,6 +262,10 @@ type EditorCopy = {
   helpDescription: string;
   parameters: string;
   toolbarActions: string;
+  format: string;
+  formatTitle: string;
+  compact: string;
+  compactTitle: string;
   voiceDescription: string;
   voiceParameter: string;
   rateDescription: string;
@@ -291,6 +296,10 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     helpDescription: "各コントロールと本文ツールバーの機能を確認できます。",
     parameters: "パラメータ",
     toolbarActions: "本文ツールバーのボタン",
+    format: "フォーマット",
+    formatTitle: "XMLを改行して見やすく表示",
+    compact: "元に戻す",
+    compactTitle: "XMLを1行で表示",
     voiceDescription: "使用する Azure 音声の名前を指定します。",
     voiceParameter: "音声名（例: en-US-JennyNeural）",
     rateDescription: "本文全体の読み上げ速度を指定します。",
@@ -319,6 +328,10 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     helpDescription: "Learn what each control and text toolbar action does.",
     parameters: "Parameters",
     toolbarActions: "Text toolbar buttons",
+    format: "Format",
+    formatTitle: "Format the XML with line breaks",
+    compact: "Compact",
+    compactTitle: "Show the XML on one line",
     voiceDescription: "Selects the Azure voice name to use.",
     voiceParameter: "Voice name (for example, en-US-JennyNeural)",
     rateDescription: "Sets the speech rate for the entire text.",
@@ -493,6 +506,11 @@ const styles: Record<string, CSSProperties> = {
     display: "block",
     marginTop: "0.125rem",
     fontSize: "0.875rem",
+  },
+  previewActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginTop: "0.5rem",
   },
   input: {
     boxSizing: "border-box",
@@ -899,6 +917,7 @@ export function SsmlEditor({
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const [isDark, setIsDark] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isSsmlFormatted, setIsSsmlFormatted] = useState(false);
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
   const toolbarButtonStyle = showToolbarText
@@ -1197,7 +1216,30 @@ export function SsmlEditor({
       </div>
       <details>
         <summary>{copy.generatedSsml}</summary>
-        <pre style={styles.preview}>{buildSsml(draftDocument)}</pre>
+        <div style={styles.previewActions}>
+          <button
+            type="button"
+            style={toolbarButtonStyle}
+            aria-label={isSsmlFormatted ? copy.compact : copy.format}
+            title={isSsmlFormatted ? copy.compactTitle : copy.formatTitle}
+            aria-pressed={isSsmlFormatted}
+            onClick={() => setIsSsmlFormatted((formatted) => !formatted)}
+          >
+            {showToolbarIcons && (
+              <span style={styles.toolbarIcon} aria-hidden="true">
+                ≡
+              </span>
+            )}
+            {showToolbarText && (
+              <span>{isSsmlFormatted ? copy.compact : copy.format}</span>
+            )}
+          </button>
+        </div>
+        <pre style={styles.preview}>
+          {isSsmlFormatted
+            ? formatXml(buildSsml(draftDocument))
+            : buildSsml(draftDocument)}
+        </pre>
       </details>
     </section>
   );

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { formatXml } from "../src/formatXml.ts";
 import {
   SSML_TAG_DEFINITIONS,
   findSsmlHoverTarget,
@@ -107,4 +108,20 @@ test("formats tag and parameter documentation as safe markdown", () => {
   assert.match(formatSsmlHover(parameter), /\*\*Parameter `strength`\*\*/);
   assert.match(formatSsmlHover(parameter), /`strong`/);
   assert.doesNotMatch(formatSsmlHover(tag), /<script>/i);
+});
+
+test("formats nested XML with readable line breaks", () => {
+  assert.equal(
+    formatXml(
+      '<speak version="1.0"><voice name="Jenny"><prosody rate="slow">Hello</prosody><break time="500ms"/></voice></speak>',
+    ),
+    '<speak version="1.0">\n  <voice name="Jenny">\n    <prosody rate="slow">Hello</prosody>\n    <break time="500ms"/>\n  </voice>\n</speak>',
+  );
+});
+
+test("keeps formatted XML stable and handles empty input", () => {
+  const formatted = "<root>\n  <child>text</child>\n</root>";
+
+  assert.equal(formatXml(formatted), formatted);
+  assert.equal(formatXml(" \n\t "), "");
 });
