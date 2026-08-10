@@ -26,7 +26,7 @@ npm run build
 npm test
 ```
 
-`npm run format` checks Prettier formatting. `npm run lint` runs the workspace typechecks; `npm run typecheck` runs the same checks through the root script. Builds and tests are delegated to workspaces when a package defines the corresponding script. Run the relevant command after making changes, and run the full command set before submitting a broad change.
+`npm run format` checks Prettier formatting. `npm run typecheck` is the canonical workspace typecheck command, and `npm run lint` is its CI-compatible alias. Builds and tests are delegated to workspaces when a package defines the corresponding script. Run the relevant command after making changes, and run the full command set before submitting a broad change.
 
 ## Development Guidelines
 
