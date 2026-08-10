@@ -6,7 +6,5 @@
     "jsx": "react-jsx"
   },
   "include": ["src"],
-  "references": [
-    { "path": "../ssml-core" }
-  ]
+  "references": [{ "path": "../ssml-core" }]
 }

@@ -27,7 +27,9 @@ export class AzureTtsClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Azure TTS request failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Azure TTS request failed: ${response.status} ${response.statusText}`,
+      );
     }
 
     return response.arrayBuffer();
