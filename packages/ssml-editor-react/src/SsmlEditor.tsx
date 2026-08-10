@@ -30,6 +30,24 @@ const VOLUME_OPTIONS = [
 export type SsmlEditorLanguage = "ja" | "en";
 
 type LocalizedText = Record<SsmlEditorLanguage, string>;
+const VOICE_OPTIONS = [
+  {
+    value: "ja-JP-NanamiNeural",
+    labels: { ja: "日本語（女性）", en: "Japanese (Female)" },
+  },
+  {
+    value: "ja-JP-KeitaNeural",
+    labels: { ja: "日本語（男性）", en: "Japanese (Male)" },
+  },
+  {
+    value: "en-US-JennyNeural",
+    labels: { ja: "英語（女性）", en: "English (Female)" },
+  },
+  {
+    value: "en-US-GuyNeural",
+    labels: { ja: "英語（男性）", en: "English (Male)" },
+  },
+] as const;
 type SsmlInsertionOption = {
   value: string;
   labels: LocalizedText;
@@ -286,8 +304,8 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     formatTitle: "XMLを改行して見やすく表示",
     compact: "元に戻す",
     compactTitle: "XMLを1行で表示",
-    voiceDescription: "使用する Azure 音声の名前を指定します。",
-    voiceParameter: "音声名（例: en-US-JennyNeural）",
+    voiceDescription: "使用する Azure 音声を選択します。",
+    voiceParameter: "日本語・英語の女性・男性から選択",
     generatedSsml: "生成されたSSML",
   },
   en: {
@@ -308,8 +326,8 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     formatTitle: "Format the XML with line breaks",
     compact: "Compact",
     compactTitle: "Show the XML on one line",
-    voiceDescription: "Selects the Azure voice name to use.",
-    voiceParameter: "Voice name (for example, en-US-JennyNeural)",
+    voiceDescription: "Selects the Azure voice to use.",
+    voiceParameter: "Choose from Japanese or English female and male voices",
     generatedSsml: "Generated SSML",
   },
 };
@@ -891,15 +909,20 @@ export function SsmlEditor({
       <div style={styles.controls}>
         <label style={styles.field} htmlFor="ssml-editor-voice">
           {copy.voice}
-          <input
+          <select
             id="ssml-editor-voice"
             style={styles.input}
-            type="text"
             value={voiceName}
             onChange={(event) =>
               commit(updateVoiceName(draftDocument, event.target.value))
             }
-          />
+          >
+            {VOICE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.labels[language]} ({option.value})
+              </option>
+            ))}
+          </select>
         </label>
       </div>
       <div style={styles.field}>
