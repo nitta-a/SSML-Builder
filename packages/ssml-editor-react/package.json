@@ -1,0 +1,21 @@
+{
+  "name": "@ssml-builder/ssml-editor-react",
+  "version": "0.1.0",
+  "description": "React-based SSML editor component",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/react": "^18.0.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "dependencies": {
+    "@ssml-builder/ssml-core": "*"
+  }
+}
