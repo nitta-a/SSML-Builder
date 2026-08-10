@@ -400,8 +400,8 @@ export function SsmlEditor({
           />
         </div>
       </div>
-      <label style={styles.field}>
-        Text
+      <div style={styles.field}>
+        <span>Text</span>
         <div style={styles.editor}>
           <Editor
             height="8rem"
@@ -410,7 +410,7 @@ export function SsmlEditor({
             onChange={(value) => commit(updateText(draftDocument, value ?? ""))}
           />
         </div>
-      </label>
+      </div>
       <details>
         <summary>Generated SSML</summary>
         <pre style={styles.preview}>{buildSsml(draftDocument)}</pre>
