@@ -24,6 +24,37 @@ const VOLUME_OPTIONS = [
   "loud",
   "x-loud",
 ] as const;
+
+export type SsmlEditorLanguage = "ja" | "en";
+
+type LocalizedText = Record<SsmlEditorLanguage, string>;
+type SsmlInsertionOption = {
+  value: string;
+  labels: LocalizedText;
+};
+type SsmlInsertionTemplate = {
+  prefix: string;
+  suffix: string;
+  mode: "insert" | "wrap";
+};
+type SsmlInsertionDefinition = {
+  id: string;
+  icon: string;
+  labels: LocalizedText;
+  titles: LocalizedText;
+  options: readonly SsmlInsertionOption[];
+  createTemplate: (value: string) => SsmlInsertionTemplate;
+};
+
+function createInsertionOptions(
+  values: readonly string[],
+): readonly SsmlInsertionOption[] {
+  return values.map((value) => ({
+    value,
+    labels: { ja: value, en: value },
+  }));
+}
+
 const SSML_INSERTIONS = [
   {
     id: "break",
@@ -33,9 +64,12 @@ const SSML_INSERTIONS = [
       ja: '500msの間を挿入 (<break time="500ms"/>)',
       en: 'Insert a 500ms pause with <break time="500ms"/>',
     },
-    prefix: '<break time="500ms"/>',
-    suffix: "",
-    mode: "insert",
+    options: createInsertionOptions(["500ms", "1s", "2s", "3s"]),
+    createTemplate: (value) => ({
+      prefix: `<break time="${value}"/>`,
+      suffix: "",
+      mode: "insert",
+    }),
   },
   {
     id: "emphasis",
@@ -45,9 +79,12 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <emphasis level="strong"> で囲む',
       en: 'Wrap the selection with <emphasis level="strong">',
     },
-    prefix: '<emphasis level="strong">',
-    suffix: "</emphasis>",
-    mode: "wrap",
+    options: createInsertionOptions(["strong", "moderate", "reduced", "none"]),
+    createTemplate: (value) => ({
+      prefix: `<emphasis level="${value}">`,
+      suffix: "</emphasis>",
+      mode: "wrap",
+    }),
   },
   {
     id: "rate",
@@ -57,9 +94,12 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <prosody rate="fast"> で囲む',
       en: 'Wrap the selection with <prosody rate="fast">',
     },
-    prefix: '<prosody rate="fast">',
-    suffix: "</prosody>",
-    mode: "wrap",
+    options: createInsertionOptions(RATE_OPTIONS),
+    createTemplate: (value) => ({
+      prefix: `<prosody rate="${value}">`,
+      suffix: "</prosody>",
+      mode: "wrap",
+    }),
   },
   {
     id: "pitch",
@@ -69,9 +109,22 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <prosody pitch="+2st"> で囲む',
       en: 'Wrap the selection with <prosody pitch="+2st">',
     },
-    prefix: '<prosody pitch="+2st">',
-    suffix: "</prosody>",
-    mode: "wrap",
+    options: createInsertionOptions([
+      "+2st",
+      "-2st",
+      "0st",
+      "+4st",
+      "-4st",
+      "+8st",
+      "-8st",
+      "+12st",
+      "-12st",
+    ]),
+    createTemplate: (value) => ({
+      prefix: `<prosody pitch="${value}">`,
+      suffix: "</prosody>",
+      mode: "wrap",
+    }),
   },
   {
     id: "volume",
@@ -81,9 +134,12 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <prosody volume="loud"> で囲む',
       en: 'Wrap the selection with <prosody volume="loud">',
     },
-    prefix: '<prosody volume="loud">',
-    suffix: "</prosody>",
-    mode: "wrap",
+    options: createInsertionOptions(VOLUME_OPTIONS),
+    createTemplate: (value) => ({
+      prefix: `<prosody volume="${value}">`,
+      suffix: "</prosody>",
+      mode: "wrap",
+    }),
   },
   {
     id: "emotion",
@@ -93,9 +149,20 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <mstts:express-as style="cheerful"> で囲む',
       en: 'Wrap the selection with <mstts:express-as style="cheerful">',
     },
-    prefix: '<mstts:express-as style="cheerful">',
-    suffix: "</mstts:express-as>",
-    mode: "wrap",
+    options: createInsertionOptions([
+      "cheerful",
+      "friendly",
+      "calm",
+      "sad",
+      "angry",
+      "excited",
+      "serious",
+    ]),
+    createTemplate: (value) => ({
+      prefix: `<mstts:express-as style="${value}">`,
+      suffix: "</mstts:express-as>",
+      mode: "wrap",
+    }),
   },
   {
     id: "say-as",
@@ -105,9 +172,25 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <say-as interpret-as="characters"> で囲む',
       en: 'Wrap the selection with <say-as interpret-as="characters">',
     },
-    prefix: '<say-as interpret-as="characters">',
-    suffix: "</say-as>",
-    mode: "wrap",
+    options: createInsertionOptions([
+      "characters",
+      "spell-out",
+      "cardinal",
+      "ordinal",
+      "number",
+      "date",
+      "time",
+      "telephone",
+      "fraction",
+      "address",
+      "name",
+      "currency",
+    ]),
+    createTemplate: (value) => ({
+      prefix: `<say-as interpret-as="${value}">`,
+      suffix: "</say-as>",
+      mode: "wrap",
+    }),
   },
   {
     id: "phoneme",
@@ -117,13 +200,14 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <phoneme alphabet="ipa"> で囲む',
       en: 'Wrap the selection with <phoneme alphabet="ipa">',
     },
-    prefix: '<phoneme alphabet="ipa" ph="">',
-    suffix: "</phoneme>",
-    mode: "wrap",
+    options: createInsertionOptions(["ipa", "sapi", "x-sampa", "ups"]),
+    createTemplate: (value) => ({
+      prefix: `<phoneme alphabet="${value}" ph="">`,
+      suffix: "</phoneme>",
+      mode: "wrap",
+    }),
   },
-] as const;
-
-export type SsmlEditorLanguage = "ja" | "en";
+] satisfies readonly SsmlInsertionDefinition[];
 
 type EditorCopy = {
   editorAriaLabel: string;
