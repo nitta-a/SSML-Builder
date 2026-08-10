@@ -33,7 +33,7 @@ const SSML_INSERTIONS = [
   },
   {
     label: "強調 (emphasis)",
-    title: "Wrap the selection with <emphasis level=\"strong\">",
+    title: 'Wrap the selection with <emphasis level="strong">',
     prefix: '<emphasis level="strong">',
     suffix: "</emphasis>",
     mode: "wrap",
@@ -307,17 +307,20 @@ function updateProsody(
 
 function parseEditableText(value: string): SsmlNode[] {
   try {
-    return (
-      parseSsml(
-        `<speak version="1.0" xml:lang="en-US">${value}</speak>`,
-      ).children ?? []
-    );
+    const children =
+      parseSsml(`<speak version="1.0" xml:lang="en-US">${value}</speak>`)
+        .children ?? [];
+    return children.some(isSsmlElement) ? children : [value];
   } catch {
     return [value];
   }
 }
 
 function serializeEditableText(nodes: SsmlNode[]): string {
+  if (nodes.length === 1 && typeof nodes[0] === "string") {
+    return nodes[0];
+  }
+
   const xml = buildSsml({
     version: "1.0",
     lang: "en-US",
