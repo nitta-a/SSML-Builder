@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --build --pretty false"
+    "typecheck": "tsc --build --pretty=false"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
