@@ -122,13 +122,8 @@ export interface MsttsVisemeElement extends SsmlElementBase {
   visemeType?: string;
 }
 
-export interface NamedElement extends SsmlElementBase {
-  type: "element";
-  name: string;
-}
-
 export interface CustomElement extends SsmlElementBase {
-  type: "custom";
+  type: "custom" | "element";
   name: string;
 }
 
@@ -151,7 +146,6 @@ export type SsmlElement =
   | WordElement
   | MsttsSilenceElement
   | MsttsVisemeElement
-  | NamedElement
   | CustomElement;
 
 export interface SsmlDocument {
@@ -170,3 +164,4 @@ export type SsmlBreakElement = BreakElement;
 export type SsmlExpressAsElement = ExpressAsElement;
 export type SsmlSayAsElement = SayAsElement;
 export type SsmlPhonemeElement = PhonemeElement;
+export type NamedElement = CustomElement;
