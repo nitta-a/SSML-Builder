@@ -57,20 +57,12 @@ function getAttributes(element: SsmlElement): SsmlAttributes {
     case "expressAs":
     case "mstts:express-as":
       addAttribute(attributes, "style", element.style);
-      addAttribute(
-        attributes,
-        "styledegree",
-        element.styleDegree ?? element.styledegree,
-      );
+      addAttribute(attributes, "styledegree", element.styleDegree);
       addAttribute(attributes, "role", element.role);
       break;
     case "say-as":
     case "sayAs":
-      addAttribute(
-        attributes,
-        "interpret-as",
-        element.interpretAs ?? element["interpret-as"],
-      );
+      addAttribute(attributes, "interpret-as", element.interpretAs);
       addAttribute(attributes, "format", element.format);
       addAttribute(attributes, "detail", element.detail);
       break;

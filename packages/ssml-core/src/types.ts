@@ -39,14 +39,12 @@ export interface ExpressAsElement extends SsmlElementBase {
   type: "express-as" | "expressAs" | "mstts:express-as";
   style?: string;
   styleDegree?: SsmlAttributeValue;
-  styledegree?: SsmlAttributeValue;
   role?: string;
 }
 
 export interface SayAsElement extends SsmlElementBase {
   type: "say-as" | "sayAs";
   interpretAs?: string;
-  "interpret-as"?: string;
   format?: string;
   detail?: string;
 }

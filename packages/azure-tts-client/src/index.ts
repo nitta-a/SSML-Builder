@@ -21,10 +21,6 @@ function resolveEndpoint(config: TtsConfig): string {
   );
 }
 
-export function synthesizeSpeech(
-  ssml: string,
-  config: TtsConfig,
-): Promise<ArrayBuffer>;
 export async function synthesizeSpeech(
   ssml: string,
   config: TtsConfig,
