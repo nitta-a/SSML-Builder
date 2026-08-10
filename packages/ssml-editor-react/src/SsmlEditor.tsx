@@ -1046,10 +1046,9 @@ export function SsmlEditor({
           </button>
         </div>
         {isHelpOpen && (
-          <div
+          <section
             id={helpPanelId}
             style={styles.helpPanel}
-            role="region"
             aria-label={copy.helpHeading}
           >
             <h3 style={styles.helpHeading}>{copy.helpHeading}</h3>
@@ -1095,7 +1094,7 @@ export function SsmlEditor({
                 </li>
               ))}
             </ul>
-          </div>
+          </section>
         )}
         <div style={styles.editor}>
           <Editor
