@@ -139,6 +139,7 @@ export function App() {
 - `language`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
+- `buttonVisibility`: ボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`phoneme`、`undo`、`redo`、`clearAll`、`format` を指定でき、未指定のボタンは表示されます
 - 生成された SSML の「フォーマット」ボタンで XML の改行表示を切り替えられます
 - 本文を変更すると SSML 構文を検証し、エラー箇所をエディター上に表示します
 
@@ -334,6 +335,7 @@ export function App() {
 - `language`: The UI language (`"ja"` or `"en"`); defaults to `"ja"`
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
+- `buttonVisibility`: Per-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `phoneme`, `undo`, `redo`, `clearAll`, and `format`; unspecified buttons are shown
 - Use the **Format** button for generated SSML to toggle formatted XML line breaks
 - Changing the text validates SSML syntax and displays errors in the editor
 

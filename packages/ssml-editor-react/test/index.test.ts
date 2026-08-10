@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  isSsmlEditorButtonVisible,
+  type SsmlEditorButtonVisibility,
+} from "../src/buttonVisibility.ts";
 import { formatXml } from "../src/formatXml.ts";
 import {
   SSML_TAG_DEFINITIONS,
@@ -7,6 +11,18 @@ import {
   formatSsmlHover,
   getSsmlTagDefinition,
 } from "../src/ssmlHover.ts";
+
+test("shows editor buttons by default and hides configured buttons", () => {
+  const visibility: SsmlEditorButtonVisibility = {
+    rate: false,
+    format: true,
+  };
+
+  assert.equal(isSsmlEditorButtonVisible(undefined, "help"), true);
+  assert.equal(isSsmlEditorButtonVisible(visibility, "rate"), false);
+  assert.equal(isSsmlEditorButtonVisible(visibility, "pitch"), true);
+  assert.equal(isSsmlEditorButtonVisible(visibility, "format"), true);
+});
 
 test("defines the supported SSML tags", () => {
   assert.ok(SSML_TAG_DEFINITIONS.length > 0);

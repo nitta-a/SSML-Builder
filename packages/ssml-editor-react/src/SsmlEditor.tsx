@@ -9,6 +9,11 @@ import type {
   SsmlNode,
   VoiceElement,
 } from "@ssml-builder/ssml-core";
+import {
+  isSsmlEditorButtonVisible,
+  type SsmlEditorButtonVisibility,
+  type SsmlEditorInsertionButton,
+} from "./buttonVisibility";
 import { formatXml } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
@@ -32,28 +37,6 @@ const VOLUME_OPTIONS = [
 ] as const;
 
 export type SsmlEditorLanguage = "ja" | "en";
-
-type SsmlEditorInsertionButton =
-  | "break"
-  | "emphasis"
-  | "rate"
-  | "pitch"
-  | "volume"
-  | "emotion"
-  | "say-as"
-  | "phoneme";
-
-export type SsmlEditorButton =
-  | "help"
-  | SsmlEditorInsertionButton
-  | "undo"
-  | "redo"
-  | "clearAll"
-  | "format";
-
-export type SsmlEditorButtonVisibility = Readonly<
-  Partial<Record<SsmlEditorButton, boolean>>
->;
 
 type LocalizedText = Record<SsmlEditorLanguage, string>;
 type SsmlInsertionOption = {
@@ -956,13 +939,6 @@ function applySsmlInsertion(
     positionColumn: nextSelectionEnd.column,
   });
   editor.focus();
-}
-
-export function isSsmlEditorButtonVisible(
-  buttonVisibility: SsmlEditorButtonVisibility | undefined,
-  button: SsmlEditorButton,
-): boolean {
-  return buttonVisibility?.[button] !== false;
 }
 
 export function SsmlEditor({
