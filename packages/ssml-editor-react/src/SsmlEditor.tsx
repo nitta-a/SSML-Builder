@@ -82,6 +82,37 @@ const SSML_INSERTIONS = [
   },
 ] as const;
 
+const STYLE_ID = "ssml-editor-theme";
+const STYLE_CSS = `
+[data-ssml-editor] {
+  --ssml-editor-color: #111827;
+  --ssml-editor-bg: #ffffff;
+  --ssml-editor-border: #d1d5db;
+  --ssml-editor-control-bg: #f9fafb;
+  --ssml-editor-control-border: #9ca3af;
+  --ssml-editor-preview-bg: #f3f4f6;
+}
+@media (prefers-color-scheme: dark) {
+  [data-ssml-editor] {
+    --ssml-editor-color: #f9fafb;
+    --ssml-editor-bg: #1f2937;
+    --ssml-editor-border: #374151;
+    --ssml-editor-control-bg: #111827;
+    --ssml-editor-control-border: #4b5563;
+    --ssml-editor-preview-bg: #111827;
+  }
+}
+`.trim();
+
+function injectEditorTheme(): void {
+  if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = STYLE_CSS;
+    document.head.appendChild(style);
+  }
+}
+
 export interface SsmlEditorProps {
   document: SsmlDocument;
   onChange?: (document: SsmlDocument) => void;
@@ -93,10 +124,10 @@ const styles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "1rem",
     padding: "1rem",
-    border: "1px solid #d1d5db",
+    border: "1px solid var(--ssml-editor-border)",
     borderRadius: "0.5rem",
-    color: "#111827",
-    backgroundColor: "#ffffff",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "var(--ssml-editor-bg)",
   },
   heading: {
     margin: 0,
@@ -119,10 +150,10 @@ const styles: Record<string, CSSProperties> = {
   toolbarButton: {
     minHeight: "2.25rem",
     padding: "0.375rem 0.625rem",
-    border: "1px solid #9ca3af",
+    border: "1px solid var(--ssml-editor-control-border)",
     borderRadius: "0.25rem",
-    color: "#111827",
-    backgroundColor: "#f9fafb",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "var(--ssml-editor-control-bg)",
     font: "inherit",
     cursor: "pointer",
   },
@@ -131,9 +162,11 @@ const styles: Record<string, CSSProperties> = {
     width: "100%",
     minHeight: "2.25rem",
     padding: "0.375rem 0.5rem",
-    border: "1px solid #9ca3af",
+    border: "1px solid var(--ssml-editor-control-border)",
     borderRadius: "0.25rem",
     font: "inherit",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "var(--ssml-editor-control-bg)",
   },
   range: {
     width: "100%",
@@ -142,7 +175,7 @@ const styles: Record<string, CSSProperties> = {
     boxSizing: "border-box",
     width: "100%",
     minHeight: "8rem",
-    border: "1px solid #9ca3af",
+    border: "1px solid var(--ssml-editor-control-border)",
     borderRadius: "0.25rem",
     overflow: "hidden",
   },
@@ -151,7 +184,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "0.75rem",
     overflowX: "auto",
     borderRadius: "0.25rem",
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "var(--ssml-editor-preview-bg)",
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
     whiteSpace: "pre-wrap",
   },
@@ -425,6 +458,16 @@ export function SsmlEditor({
 }: SsmlEditorProps): ReactElement {
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    injectEditorTheme();
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDark(mq.matches);
+    const handler = (e: MediaQueryListEvent): void => setIsDark(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   useEffect(() => {
     setDraftDocument(document);
@@ -447,7 +490,11 @@ export function SsmlEditor({
   };
 
   return (
-    <section style={styles.container} aria-label="SSML editor">
+    <section
+      style={styles.container}
+      aria-label="SSML editor"
+      data-ssml-editor=""
+    >
       <h2 style={styles.heading}>SSML Editor</h2>
       <div style={styles.controls}>
         <label style={styles.field} htmlFor="ssml-editor-voice">
@@ -559,6 +606,7 @@ export function SsmlEditor({
           <Editor
             height="8rem"
             language="xml"
+            theme={isDark ? "vs-dark" : "light"}
             value={text}
             onMount={(editor) => {
               editorRef.current = editor;

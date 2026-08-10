@@ -4,6 +4,13 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #f9fafb;
+    background: #111827;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -71,4 +78,19 @@ body {
   background: #f3f4f6;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   white-space: pre-wrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .intro p {
+    color: #9ca3af;
+  }
+
+  .output {
+    border-color: #374151;
+    background: #1f2937;
+  }
+
+  .output pre {
+    background: #111827;
+  }
 }
