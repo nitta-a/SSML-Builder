@@ -15,7 +15,7 @@ SSML-Builder is a TypeScript monorepo for editing and generating Azure Speech SS
 
 ## Setup and Commands
 
-Use Node.js 22, matching CI. From the repository root:
+Use Node.js 24, matching CI. From the repository root:
 
 ```sh
 npm ci
