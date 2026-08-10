@@ -45,7 +45,7 @@ const XML_ENTITIES: Record<string, string> = {
 };
 
 function hasOwn(object: object, property: PropertyKey): boolean {
-  return Object.hasOwn(object, property);
+  return Object.prototype.hasOwnProperty.call(object, property);
 }
 
 function setAttribute(
