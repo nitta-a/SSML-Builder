@@ -2,9 +2,46 @@
  * azure-tts-client: Azure Text-to-Speech client for SSML playback.
  */
 
+export interface TtsConfig {
+  endpoint: string;
+  subscriptionKey: string;
+  region: string;
+}
+
 export interface AzureTtsClientOptions {
   subscriptionKey: string;
   region: string;
+  endpoint?: string;
+}
+
+function resolveEndpoint(config: TtsConfig): string {
+  return config.endpoint.replace(
+    /\{region\}/g,
+    encodeURIComponent(config.region),
+  );
+}
+
+export async function synthesizeSpeech(
+  ssml: string,
+  config: TtsConfig,
+): Promise<ArrayBuffer> {
+  const response = await fetch(resolveEndpoint(config), {
+    method: "POST",
+    headers: {
+      "Ocp-Apim-Subscription-Key": config.subscriptionKey,
+      "Content-Type": "application/ssml+xml",
+      "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
+    },
+    body: ssml,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Azure TTS request failed: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  return response.arrayBuffer();
 }
 
 export class AzureTtsClient {
@@ -15,23 +52,12 @@ export class AzureTtsClient {
   }
 
   async synthesize(ssml: string): Promise<ArrayBuffer> {
-    const endpoint = `https://${this.#options.region}.tts.speech.microsoft.com/cognitiveservices/v1`;
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Ocp-Apim-Subscription-Key": this.#options.subscriptionKey,
-        "Content-Type": "application/ssml+xml",
-        "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
-      },
-      body: ssml,
+    return synthesizeSpeech(ssml, {
+      endpoint:
+        this.#options.endpoint ??
+        `https://${this.#options.region}.tts.speech.microsoft.com/cognitiveservices/v1`,
+      subscriptionKey: this.#options.subscriptionKey,
+      region: this.#options.region,
     });
-
-    if (!response.ok) {
-      throw new Error(
-        `Azure TTS request failed: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    return response.arrayBuffer();
   }
 }
