@@ -130,6 +130,7 @@ export function App() {
 - `onSsmlChange`: 編集後に生成された SSML 文字列を受け取るコールバック
 - `language`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
+- `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
 
 ツールバーの「全てクリア」ボタンは、本文と本文内の SSML 要素を削除します。ドキュメントの `version`、`lang`、その他の属性は保持されます。
 
