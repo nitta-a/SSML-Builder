@@ -51,6 +51,8 @@ npm ci
 
 `SsmlDocument` は `version`、`lang`、`children` を持つオブジェクトです。`children` には文字列、テキストノード、SSML 要素を入れられます。`children` を使う形式が推奨され、旧形式の `content` プロパティも `buildSsml` の入力として利用できます。
 
+`lang` は読み上げ言語を表す BCP-47 タグで、パッケージ外部から `SsmlDocument` に設定します。`SsmlEditor` の `language` は画面表示言語の設定であり、読み上げ言語とは別です。
+
 ```ts
 import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";
 import type { SsmlDocument } from "@ssml-builder/ssml-core";
@@ -243,6 +245,8 @@ npm ci
 ## Using `ssml-core`
 
 `SsmlDocument` is an object with `version`, `lang`, and `children` properties. `children` can contain strings, text nodes, and SSML elements. The `children` form is recommended; the legacy `content` property is also accepted as input by `buildSsml`.
+
+`lang` is the BCP-47 tag for speech synthesis and is set on `SsmlDocument` by the package consumer. `SsmlEditor`'s `language` prop controls the UI language and is separate from the speech language.
 
 ```ts
 import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";

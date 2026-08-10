@@ -740,10 +740,16 @@ function updateVoiceName(document: SsmlDocument, name: string): SsmlDocument {
   ]);
 }
 
-function parseEditableText(value: string): SsmlNode[] {
+function parseEditableText(value: string, lang: string): SsmlNode[] {
   try {
+    const wrapper = buildSsml({
+      version: "1.0",
+      lang,
+      children: [],
+    });
+    const openingTagEnd = wrapper.indexOf(">") + 1;
     const children =
-      parseSsml(`${EDITABLE_SSML_PREFIX}${value}${EDITABLE_SSML_SUFFIX}`)
+      parseSsml(`${wrapper.slice(0, openingTagEnd)}${value}</speak>`)
         .children ?? [];
     return children.some(isSsmlElement) ? children : [value];
   } catch {
@@ -776,14 +782,14 @@ function validateEditableText(value: string): SsmlSyntaxError | null {
   };
 }
 
-function serializeEditableText(nodes: SsmlNode[]): string {
+function serializeEditableText(nodes: SsmlNode[], lang: string): string {
   if (nodes.length === 1 && typeof nodes[0] === "string") {
     return nodes[0];
   }
 
   const xml = buildSsml({
     version: "1.0",
-    lang: "en-US",
+    lang,
     children: nodes,
   });
   const contentStart = xml.indexOf(">") + 1;
@@ -799,11 +805,11 @@ function getEditableChildren(document: SsmlDocument): SsmlNode[] {
 }
 
 function getEditableText(document: SsmlDocument): string {
-  return serializeEditableText(getEditableChildren(document));
+  return serializeEditableText(getEditableChildren(document), document.lang);
 }
 
 function updateText(document: SsmlDocument, value: string): SsmlDocument {
-  const nextChildren = parseEditableText(value);
+  const nextChildren = parseEditableText(value, document.lang);
   const editableChildren = nextChildren.length > 0 ? nextChildren : [value];
   const children = getDocumentChildren(document);
   const prosodyResult = updateFirstElement(children, isProsody, (prosody) => ({
