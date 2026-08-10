@@ -1,5 +1,10 @@
 # SSML-Builder
 
+- [日本語](#日本語)
+- [English](#english)
+
+## 日本語
+
 Azure Speech Service で利用できる SSML を、TypeScript のデータ構造から生成・解析し、React の GUI で編集するための npm ワークスペースモノレポです。
 
 SSML の XML エスケープや Azure Speech 拡張要素に対応したコアライブラリ、Monaco Editor を利用した React コンポーネント、Azure Text-to-Speech API クライアントを個別のパッケージとして提供します。
@@ -155,6 +160,15 @@ const audio = await client.synthesize(ssml);
 
 サブスクリプションキーはリクエストヘッダーに含まれるため、ソースコードへハードコードしたりログへ出力したりしないでください。ブラウザから直接呼び出す場合はキーが利用者へ公開されるため、通常はサーバー側で Azure TTS を呼び出す構成にします。
 
+## 仕様と参照元
+
+このプロジェクトは Azure Speech における SSML の実装を主な対象としています。Azure Speech の SSML 実装は W3C の SSML Version 1.0 をベースにしていますが、対応要素や動作は W3C 標準と異なる場合があり、Azure 固有の `mstts:` 拡張も含まれます。
+
+- [Azure Speech SSML のドキュメント構造とイベント（Microsoft Learn）](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-structure)
+- [Azure Speech SSML リファレンス（Microsoft Learn）](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-reference)
+- [Speech Synthesis Markup Language (SSML) Version 1.0（W3C Recommendation）](https://www.w3.org/TR/2004/REC-speech-synthesis-20040907/)
+- 参照バージョン: **W3C SSML 1.0**（2004 年 9 月 7 日勧告）。Microsoft Learn の Azure Speech ドキュメントには固定された製品バージョン番号がないため、利用時は上記リンク先の最新の仕様も確認してください。
+
 ## 開発用コマンド
 
 リポジトリのルートで次のコマンドを実行できます。
@@ -179,3 +193,194 @@ npm test
 ```
 
 `packages/*/dist` はビルド時に生成されるファイルのため、直接編集したりコミットしたりしないでください。
+
+## English
+
+SSML-Builder is an npm workspace monorepo for generating and parsing SSML supported by Azure Speech Service from TypeScript data structures and editing it in a React GUI.
+
+It provides separate packages for a core library with XML escaping and Azure Speech extension support, a React component based on Monaco Editor, and an Azure Text-to-Speech API client.
+
+## Package structure
+
+| Package | Description |
+| --- | --- |
+| `@ssml-builder/ssml-core` | SSML type definitions, document generation (`buildSsml`), and XML parsing (`parseSsml`) |
+| `@ssml-builder/ssml-editor-react` | The `SsmlEditor` component for editing voices, rate, volume, pitch, and text and previewing generated SSML |
+| `@ssml-builder/azure-tts-client` | A client that sends SSML to Azure Text-to-Speech and returns audio data as an `ArrayBuffer` |
+
+## Setup
+
+### Using the npm packages
+
+Install the packages required by your application:
+
+```sh
+npm install @ssml-builder/ssml-core
+```
+
+To use the React editor, also install React and the Monaco Editor adapter:
+
+```sh
+npm install @ssml-builder/ssml-editor-react @monaco-editor/react react react-dom
+```
+
+To use the Azure TTS client, add the following package:
+
+```sh
+npm install @ssml-builder/azure-tts-client
+```
+
+### Developing this repository
+
+Install Node.js 24 or later, then install dependencies from the repository root:
+
+```sh
+npm ci
+```
+
+## Using `ssml-core`
+
+`SsmlDocument` is an object with `version`, `lang`, and `children` properties. `children` can contain strings, text nodes, and SSML elements. The `children` form is recommended; the legacy `content` property is also accepted as input by `buildSsml`.
+
+```ts
+import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";
+import type { SsmlDocument } from "@ssml-builder/ssml-core";
+
+const document: SsmlDocument = {
+  version: "1.0",
+  lang: "en-US",
+  children: [
+    {
+      type: "voice",
+      name: "en-US-JennyNeural",
+      children: [
+        {
+          type: "prosody",
+          rate: "medium",
+          pitch: "+2st",
+          children: ["Hello."],
+        },
+        { type: "break", time: "300ms" },
+        {
+          type: "express-as",
+          style: "cheerful",
+          children: ["This is SSML Builder."],
+        },
+      ],
+    },
+  ],
+};
+
+// Generate an XML string from an SsmlDocument.
+const ssml = buildSsml(document);
+
+// Parse an XML string back into an SsmlDocument.
+const parsed = parseSsml(ssml);
+```
+
+The main `buildSsml` and `parseSsml` signatures are:
+
+| API | Description |
+| --- | --- |
+| `buildSsml(document)` | Converts an SSML document into an XML string |
+| `buildSsml(content, lang?)` | Convenience form that creates an `SsmlDocument` from text (legacy `content` form) |
+| `parseSsml(xml)` | Converts a `<speak>` XML document into an `SsmlDocument` |
+
+Typed representations are available for elements such as `voice`, `prosody`, `break`, `express-as`, `say-as`, `phoneme`, `audio`, `lang`, and `mark`. Use `type: "custom"` and `name` to handle undefined XML elements or additional attributes. When a document contains `mstts:` elements, the required Azure Speech namespace is added automatically.
+
+## Using `ssml-editor-react`
+
+`SsmlEditor` accepts an `SsmlDocument` and displays controls for editing the voice name, rate, volume, pitch, and text. Monaco Editor is used for text editing, and hovering over XML tag names or parameters shows SSML descriptions. Generated SSML can be previewed, and the UI supports Japanese (the default) and English.
+
+```tsx
+import { useState } from "react";
+import { SsmlEditor } from "@ssml-builder/ssml-editor-react";
+import type { SsmlDocument } from "@ssml-builder/ssml-core";
+
+const initialDocument: SsmlDocument = {
+  version: "1.0",
+  lang: "en-US",
+  children: ["Text to edit"],
+};
+
+export function App() {
+  const [document, setDocument] = useState(initialDocument);
+  const [ssml, setSsml] = useState("");
+
+  return (
+    <>
+      <SsmlEditor
+        document={document}
+        onChange={setDocument}
+        onSsmlChange={setSsml}
+        language="en"
+      />
+      <pre>{ssml}</pre>
+    </>
+  );
+}
+```
+
+- `document`: The `SsmlDocument` being edited
+- `onChange`: A callback that receives the edited `SsmlDocument`
+- `onSsmlChange`: A callback that receives the generated SSML string
+- `language`: The UI language (`"ja"` or `"en"`); defaults to `"ja"`
+- `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
+- `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
+- Use the **Format** button for generated SSML to toggle formatted XML line breaks
+
+Click the **Description** button in the text toolbar to see descriptions of each control, button, and parameter. The **Clear all** button removes only XML elements and leaves the text in place. The document's `version`, `lang`, and other attributes are preserved.
+
+## Using `azure-tts-client`
+
+Pass an Azure Speech subscription key and region to `AzureTtsClient`, then pass SSML to `synthesize`. The return value is an `ArrayBuffer` containing audio data.
+
+```ts
+import { AzureTtsClient } from "@ssml-builder/azure-tts-client";
+
+const client = new AzureTtsClient({
+  subscriptionKey: process.env.AZURE_SPEECH_KEY!,
+  region: "japaneast",
+});
+
+const audio = await client.synthesize(ssml);
+// audio is an audio/mpeg ArrayBuffer
+```
+
+Set `endpoint` to use an explicit endpoint. If omitted, `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` is used. If a custom endpoint contains `{region}`, it is replaced with the configured region.
+
+The subscription key is sent in a request header, so do not hard-code it in source code or write it to logs. Calling Azure TTS directly from a browser exposes the key to users; a server-side Azure TTS integration is normally recommended.
+
+## Specifications and references
+
+This project primarily targets the SSML implementation provided by Azure Speech. Azure Speech's SSML implementation is based on W3C SSML Version 1.0, but its supported elements and behavior can differ from the W3C standard and include Azure-specific `mstts:` extensions.
+
+- [Azure Speech SSML document structure and events (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-structure)
+- [Azure Speech SSML reference (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-reference)
+- [Speech Synthesis Markup Language (SSML) Version 1.0 (W3C Recommendation)](https://www.w3.org/TR/2004/REC-speech-synthesis-20040907/)
+- Reference version: **W3C SSML 1.0** (Recommendation dated September 7, 2004). Microsoft Learn's Azure Speech documentation does not expose a fixed product version, so check the linked documentation for the latest Azure behavior when using this project.
+
+## Development commands
+
+Run the following commands from the repository root:
+
+| Command | Description |
+| --- | --- |
+| `npm run format` | Check formatting with Biome |
+| `npm run format:write` | Apply formatting with Biome |
+| `npm run lint` | Run static checks with Biome |
+| `npm run typecheck` | Type-check all workspaces with TypeScript |
+| `npm run build` | Build each package |
+| `npm test` | Run tests for each package |
+
+To run the same checks as CI:
+
+```sh
+npm run format
+npm run lint
+npm run typecheck
+npm run build
+npm test
+```
+
+`packages/*/dist` contains generated build files; do not edit or commit them directly.
