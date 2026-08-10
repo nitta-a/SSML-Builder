@@ -5,3 +5,4 @@
 
 export * from "./types.ts";
 export { buildSsml } from "./builder.ts";
+export { parseSsml } from "./parser.ts";
