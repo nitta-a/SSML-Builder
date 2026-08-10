@@ -44,10 +44,7 @@ const XML_ENTITIES: Record<string, string> = {
   quot: '"',
 };
 
-function hasOwn(
-  object: object,
-  property: PropertyKey,
-): boolean {
+function hasOwn(object: object, property: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(object, property);
 }
 
@@ -120,18 +117,14 @@ function isXmlNameStart(value: string | undefined): boolean {
 }
 
 function isXmlNameCharacter(value: string | undefined): boolean {
-  return (
-    value !== undefined && /[A-Za-z0-9_.:-]/.test(value)
-  );
+  return value !== undefined && /[A-Za-z0-9_.:-]/.test(value);
 }
 
 function isXmlWhitespace(value: string | undefined): boolean {
   return value === " " || value === "\t" || value === "\r" || value === "\n";
 }
 
-function removeStandardNamespaceAttributes(
-  attributes: SsmlAttributes,
-): void {
+function removeStandardNamespaceAttributes(attributes: SsmlAttributes): void {
   if (attributes.xmlns === SYNTHESIS_NAMESPACE) {
     delete attributes.xmlns;
   }
@@ -475,7 +468,11 @@ function convertElement(node: XmlElementNode): SsmlElement {
     case "mstts:express-as": {
       const element: ExpressAsElement = { type: node.name };
       const style = readAttribute(attributes, "style");
-      const styleDegree = readAttribute(attributes, "styledegree", "styleDegree");
+      const styleDegree = readAttribute(
+        attributes,
+        "styledegree",
+        "styleDegree",
+      );
       const role = readAttribute(attributes, "role");
       if (style !== undefined) element.style = style;
       if (styleDegree !== undefined) element.styleDegree = styleDegree;
