@@ -407,9 +407,7 @@ export function SsmlEditor({
             height="8rem"
             language="xml"
             value={text}
-            onChange={(value) =>
-              commit(updateText(draftDocument, value ?? ""))
-            }
+            onChange={(value) => commit(updateText(draftDocument, value ?? ""))}
           />
         </div>
       </label>
