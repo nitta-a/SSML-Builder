@@ -10,7 +10,10 @@ import {
 test("defines the supported SSML tags", () => {
   assert.ok(SSML_TAG_DEFINITIONS.length > 0);
   assert.equal(getSsmlTagDefinition("prosody")?.name, "prosody");
-  assert.equal(getSsmlTagDefinition("mstts:express-as")?.name, "mstts:express-as");
+  assert.equal(
+    getSsmlTagDefinition("mstts:express-as")?.name,
+    "mstts:express-as",
+  );
   assert.equal(getSsmlTagDefinition("express-as")?.name, "mstts:express-as");
 });
 
@@ -79,14 +82,23 @@ test("supports multiline and incomplete start tags", () => {
 });
 
 test("does not provide help for unknown tags, attributes, or text", () => {
-  assert.equal(findSsmlHoverTarget("<custom answer=\"42\">text</custom>", 1, 3), undefined);
-  assert.equal(findSsmlHoverTarget('<prosody unknown="42">text</prosody>', 1, 11), undefined);
-  assert.equal(findSsmlHoverTarget("<prosody>text</prosody>", 1, 11), undefined);
+  assert.equal(
+    findSsmlHoverTarget('<custom answer="42">text</custom>', 1, 3),
+    undefined,
+  );
+  assert.equal(
+    findSsmlHoverTarget('<prosody unknown="42">text</prosody>', 1, 11),
+    undefined,
+  );
+  assert.equal(
+    findSsmlHoverTarget("<prosody>text</prosody>", 1, 11),
+    undefined,
+  );
 });
 
 test("formats tag and parameter documentation as safe markdown", () => {
-  const tag = findSsmlHoverTarget("<break strength=\"strong\"/>", 1, 3);
-  const parameter = findSsmlHoverTarget("<break strength=\"strong\"/>", 1, 10);
+  const tag = findSsmlHoverTarget('<break strength="strong"/>', 1, 3);
+  const parameter = findSsmlHoverTarget('<break strength="strong"/>', 1, 10);
 
   assert.ok(tag);
   assert.ok(parameter);

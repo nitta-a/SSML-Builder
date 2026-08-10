@@ -34,7 +34,8 @@ export interface SsmlHoverTarget {
 const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "voice",
-    description: "Selects the voice and optional voice effect used to synthesize the enclosed text.",
+    description:
+      "Selects the voice and optional voice effect used to synthesize the enclosed text.",
     parameters: [
       {
         name: "name",
@@ -49,7 +50,8 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   },
   {
     name: "prosody",
-    description: "Changes the speaking rate, pitch, volume, or pitch contour of the enclosed text.",
+    description:
+      "Changes the speaking rate, pitch, volume, or pitch contour of the enclosed text.",
     parameters: [
       {
         name: "rate",
@@ -59,18 +61,21 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       },
       {
         name: "pitch",
-        description: "Adjusts pitch using a named value, percentage, frequency, or semitone value.",
+        description:
+          "Adjusts pitch using a named value, percentage, frequency, or semitone value.",
         example: "+2st",
       },
       {
         name: "volume",
-        description: "Controls loudness using a named value, percentage, or decibel value.",
+        description:
+          "Controls loudness using a named value, percentage, or decibel value.",
         values: ["silent", "x-soft", "soft", "medium", "loud", "x-loud"],
         example: "loud",
       },
       {
         name: "contour",
-        description: "Defines a sequence of relative pitch changes at positions in the text.",
+        description:
+          "Defines a sequence of relative pitch changes at positions in the text.",
         example: "(0%,+0st) (100%,+2st)",
       },
       {
@@ -99,11 +104,13 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "mstts:express-as",
     aliases: ["express-as", "expressAs"],
-    description: "Applies an Azure Speech speaking style, style degree, or role to the enclosed text.",
+    description:
+      "Applies an Azure Speech speaking style, style degree, or role to the enclosed text.",
     parameters: [
       {
         name: "style",
-        description: "The speaking style supported by the selected voice, such as `cheerful`.",
+        description:
+          "The speaking style supported by the selected voice, such as `cheerful`.",
         example: "cheerful",
       },
       {
@@ -114,7 +121,8 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       },
       {
         name: "role",
-        description: "Changes the speaking role when supported by the selected voice.",
+        description:
+          "Changes the speaking role when supported by the selected voice.",
         example: "YoungAdultFemale",
       },
     ],
@@ -126,7 +134,8 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
     parameters: [
       {
         name: "interpret-as",
-        description: "Specifies the interpretation, such as characters, digits, date, or time.",
+        description:
+          "Specifies the interpretation, such as characters, digits, date, or time.",
         example: "characters",
       },
       {
@@ -135,13 +144,15 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       },
       {
         name: "detail",
-        description: "Provides an additional detail hint for the selected interpretation.",
+        description:
+          "Provides an additional detail hint for the selected interpretation.",
       },
     ],
   },
   {
     name: "phoneme",
-    description: "Replaces normal pronunciation with the supplied phonetic pronunciation.",
+    description:
+      "Replaces normal pronunciation with the supplied phonetic pronunciation.",
     parameters: [
       {
         name: "alphabet",
@@ -259,7 +270,8 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   },
   {
     name: "lexicon",
-    description: "Associates a pronunciation lexicon with the synthesized document.",
+    description:
+      "Associates a pronunciation lexicon with the synthesized document.",
     parameters: [
       {
         name: "uri",
@@ -286,7 +298,8 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "mstts:silence",
     aliases: ["silence"],
-    description: "Adds a specified Azure Speech silence before or after text or at a punctuation boundary.",
+    description:
+      "Adds a specified Azure Speech silence before or after text or at a punctuation boundary.",
     parameters: [
       {
         name: "type",
@@ -310,7 +323,8 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "mstts:viseme",
     aliases: ["viseme"],
-    description: "Requests Azure Speech viseme events for the synthesized audio.",
+    description:
+      "Requests Azure Speech viseme events for the synthesized audio.",
     parameters: [
       {
         name: "type",
@@ -395,7 +409,10 @@ function positionToOffset(
   return lineStart + column - 1;
 }
 
-function offsetToPosition(source: string, offset: number): {
+function offsetToPosition(
+  source: string,
+  offset: number,
+): {
   lineNumber: number;
   column: number;
 } {
@@ -568,8 +585,7 @@ function findTagAtOffset(source: string, offset: number): TagToken | undefined {
 
     if (source.startsWith("<?", start)) {
       const processingEnd = source.indexOf("?>", start + 2);
-      const tokenEnd =
-        processingEnd === -1 ? source.length : processingEnd + 2;
+      const tokenEnd = processingEnd === -1 ? source.length : processingEnd + 2;
       if (offset < tokenEnd) {
         return undefined;
       }
@@ -640,7 +656,10 @@ export function findSsmlHoverTarget(
 
   for (const attribute of tag.attributes) {
     if (containsOffset(attribute.name, offset)) {
-      const parameter = findParameter(definition, source.slice(attribute.name.start, attribute.name.end));
+      const parameter = findParameter(
+        definition,
+        source.slice(attribute.name.start, attribute.name.end),
+      );
       if (!parameter) {
         return undefined;
       }
@@ -695,11 +714,7 @@ export function formatSsmlHover(target: SsmlHoverTarget): string {
   const tagSyntax = target.isClosingTag
     ? `</${target.tagName}>`
     : `<${target.tagName}>`;
-  const lines = [
-    `### ${code(tagSyntax)}`,
-    "",
-    target.definition.description,
-  ];
+  const lines = [`### ${code(tagSyntax)}`, "", target.definition.description];
 
   if (target.parameter) {
     lines.push(

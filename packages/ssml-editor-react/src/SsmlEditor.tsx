@@ -9,10 +9,7 @@ import type {
   SsmlNode,
   VoiceElement,
 } from "@ssml-builder/ssml-core";
-import {
-  findSsmlHoverTarget,
-  formatSsmlHover,
-} from "./ssmlHover";
+import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
 const DEFAULT_VOICE = "en-US-JennyNeural";
 const DEFAULT_PITCH = "0st";
@@ -689,7 +686,8 @@ export function SsmlEditor({
             onMount={(editor, monaco) => {
               editorRef.current = editor;
               releaseHoverProviderRef.current?.();
-              releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco);
+              releaseHoverProviderRef.current =
+                acquireSsmlHoverProvider(monaco);
             }}
             onChange={(value) => commit(updateText(draftDocument, value ?? ""))}
           />
