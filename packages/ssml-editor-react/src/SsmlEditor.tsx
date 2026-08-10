@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";
@@ -42,6 +42,7 @@ type SsmlInsertionDefinition = {
   icon: string;
   labels: LocalizedText;
   titles: LocalizedText;
+  descriptions: LocalizedText;
   options: readonly SsmlInsertionOption[];
   createTemplate: (value: string) => SsmlInsertionTemplate;
 };
@@ -64,6 +65,10 @@ const SSML_INSERTIONS = [
       ja: '500msの間を挿入 (<break time="500ms"/>)',
       en: 'Insert a 500ms pause with <break time="500ms"/>',
     },
+    descriptions: {
+      ja: "指定した時間だけ無音の間を挿入します。",
+      en: "Inserts a silent pause for the selected duration.",
+    },
     options: createInsertionOptions(["500ms", "1s", "2s", "3s"]),
     createTemplate: (value) => ({
       prefix: `<break time="${value}"/>`,
@@ -78,6 +83,10 @@ const SSML_INSERTIONS = [
     titles: {
       ja: '選択範囲を <emphasis level="strong"> で囲む',
       en: 'Wrap the selection with <emphasis level="strong">',
+    },
+    descriptions: {
+      ja: "選択範囲の強調レベルを変更します。",
+      en: "Changes the emphasis level of the selected text.",
     },
     options: createInsertionOptions(["strong", "moderate", "reduced", "none"]),
     createTemplate: (value) => ({
@@ -94,6 +103,10 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <prosody rate="fast"> で囲む',
       en: 'Wrap the selection with <prosody rate="fast">',
     },
+    descriptions: {
+      ja: "選択範囲の読み上げ速度を変更します。",
+      en: "Changes the speech rate of the selected text.",
+    },
     options: createInsertionOptions(RATE_OPTIONS),
     createTemplate: (value) => ({
       prefix: `<prosody rate="${value}">`,
@@ -108,6 +121,10 @@ const SSML_INSERTIONS = [
     titles: {
       ja: '選択範囲を <prosody pitch="+2st"> で囲む',
       en: 'Wrap the selection with <prosody pitch="+2st">',
+    },
+    descriptions: {
+      ja: "選択範囲の声の高さを変更します。",
+      en: "Changes the pitch of the selected text.",
     },
     options: createInsertionOptions([
       "+2st",
@@ -134,6 +151,10 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <prosody volume="loud"> で囲む',
       en: 'Wrap the selection with <prosody volume="loud">',
     },
+    descriptions: {
+      ja: "選択範囲の音量を変更します。",
+      en: "Changes the volume of the selected text.",
+    },
     options: createInsertionOptions(VOLUME_OPTIONS),
     createTemplate: (value) => ({
       prefix: `<prosody volume="${value}">`,
@@ -148,6 +169,10 @@ const SSML_INSERTIONS = [
     titles: {
       ja: '選択範囲を <mstts:express-as style="cheerful"> で囲む',
       en: 'Wrap the selection with <mstts:express-as style="cheerful">',
+    },
+    descriptions: {
+      ja: "選択範囲に Azure 音声の感情スタイルを適用します。",
+      en: "Applies an Azure voice emotion style to the selected text.",
     },
     options: createInsertionOptions([
       "cheerful",
@@ -171,6 +196,10 @@ const SSML_INSERTIONS = [
     titles: {
       ja: '選択範囲を <say-as interpret-as="characters"> で囲む',
       en: 'Wrap the selection with <say-as interpret-as="characters">',
+    },
+    descriptions: {
+      ja: "数字や日付などの読み上げ方を指定します。",
+      en: "Specifies how values such as numbers or dates are spoken.",
     },
     options: createInsertionOptions([
       "characters",
@@ -200,6 +229,10 @@ const SSML_INSERTIONS = [
       ja: '選択範囲を <phoneme alphabet="ipa"> で囲む',
       en: 'Wrap the selection with <phoneme alphabet="ipa">',
     },
+    descriptions: {
+      ja: "選択範囲の発音記号を指定します。",
+      en: "Specifies the phonetic pronunciation of the selected text.",
+    },
     options: createInsertionOptions(["ipa", "sapi", "x-sampa", "ups"]),
     createTemplate: (value) => ({
       prefix: `<phoneme alphabet="${value}" ph="">`,
@@ -221,6 +254,20 @@ type EditorCopy = {
   toolbarAriaLabel: string;
   clearAll: string;
   clearAllTitle: string;
+  help: string;
+  helpTitle: string;
+  helpHeading: string;
+  helpDescription: string;
+  parameters: string;
+  toolbarActions: string;
+  voiceDescription: string;
+  voiceParameter: string;
+  rateDescription: string;
+  rateParameter: string;
+  volumeDescription: string;
+  volumeParameter: string;
+  pitchDescription: string;
+  pitchParameter: string;
   generatedSsml: string;
 };
 
@@ -236,7 +283,21 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     text: "本文",
     toolbarAriaLabel: "SSMLツールバー",
     clearAll: "全てクリア",
-    clearAllTitle: "本文とSSML要素を全てクリア",
+    clearAllTitle: "XML要素を削除して本文を残す",
+    help: "説明",
+    helpTitle: "ボタンとパラメータの説明を表示",
+    helpHeading: "ボタンとパラメータの説明",
+    helpDescription: "各コントロールと本文ツールバーの機能を確認できます。",
+    parameters: "パラメータ",
+    toolbarActions: "本文ツールバーのボタン",
+    voiceDescription: "使用する Azure 音声の名前を指定します。",
+    voiceParameter: "音声名（例: en-US-JennyNeural）",
+    rateDescription: "本文全体の読み上げ速度を指定します。",
+    rateParameter: `選択肢: ${RATE_OPTIONS.join(", ")}`,
+    volumeDescription: "本文全体の音量を指定します。",
+    volumeParameter: `選択肢: ${VOLUME_OPTIONS.join(", ")}`,
+    pitchDescription: "本文全体の声の高さを指定します。",
+    pitchParameter: "範囲: -12st ～ +12st（半音）",
     generatedSsml: "生成されたSSML",
   },
   en: {
@@ -250,7 +311,21 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     text: "Text",
     toolbarAriaLabel: "SSML toolbar",
     clearAll: "Clear all",
-    clearAllTitle: "Clear all editable text and SSML elements",
+    clearAllTitle: "Remove XML elements and keep the text",
+    help: "Help",
+    helpTitle: "Show button and parameter descriptions",
+    helpHeading: "Button and parameter descriptions",
+    helpDescription: "Learn what each control and text toolbar action does.",
+    parameters: "Parameters",
+    toolbarActions: "Text toolbar buttons",
+    voiceDescription: "Selects the Azure voice name to use.",
+    voiceParameter: "Voice name (for example, en-US-JennyNeural)",
+    rateDescription: "Sets the speech rate for the entire text.",
+    rateParameter: `Options: ${RATE_OPTIONS.join(", ")}`,
+    volumeDescription: "Sets the volume for the entire text.",
+    volumeParameter: `Options: ${VOLUME_OPTIONS.join(", ")}`,
+    pitchDescription: "Sets the pitch for the entire text.",
+    pitchParameter: "Range: -12st to +12st (semitones)",
     generatedSsml: "Generated SSML",
   },
 };
@@ -384,6 +459,40 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "nowrap",
     cursor: "pointer",
   },
+  helpPanel: {
+    display: "grid",
+    gap: "0.5rem",
+    padding: "0.75rem",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.25rem",
+    backgroundColor: "var(--ssml-editor-preview-bg)",
+  },
+  helpHeading: {
+    margin: 0,
+    fontSize: "1rem",
+  },
+  helpSubheading: {
+    margin: "0.25rem 0 0",
+    fontSize: "0.9375rem",
+  },
+  helpDescription: {
+    margin: 0,
+    lineHeight: 1.5,
+  },
+  helpList: {
+    display: "grid",
+    gap: "0.375rem",
+    margin: 0,
+    paddingLeft: "1.25rem",
+  },
+  helpItem: {
+    lineHeight: 1.45,
+  },
+  helpParameter: {
+    display: "block",
+    marginTop: "0.125rem",
+    fontSize: "0.875rem",
+  },
   input: {
     boxSizing: "border-box",
     width: "100%",
@@ -491,6 +600,20 @@ function updateFirstElement<T extends SsmlElement>(
   return { nodes: nextNodes, updated };
 }
 
+function getPlainText(nodes: SsmlNode[]): string {
+  return nodes
+    .map((node) => {
+      if (typeof node === "string") {
+        return node;
+      }
+      if (node.type === "text") {
+        return node.value;
+      }
+      return getPlainText(node.children ?? []);
+    })
+    .join("");
+}
+
 function withChildren(
   document: SsmlDocument,
   children: SsmlNode[],
@@ -503,7 +626,8 @@ function withChildren(
 }
 
 function clearDocument(document: SsmlDocument): SsmlDocument {
-  return withChildren(document, []);
+  const text = getPlainText(getDocumentChildren(document));
+  return withChildren(document, text === "" ? [] : [text]);
 }
 
 function createProsody(
@@ -594,12 +718,16 @@ function serializeEditableText(nodes: SsmlNode[]): string {
   return xml.slice(contentStart, -"</speak>".length);
 }
 
-function getEditableText(document: SsmlDocument): string {
+function getEditableChildren(document: SsmlDocument): SsmlNode[] {
   const children = getDocumentChildren(document);
   const element =
     findFirstElement(children, isProsody) ??
     findFirstElement(children, isVoice);
-  return serializeEditableText(element?.children ?? children);
+  return element?.children ?? children;
+}
+
+function getEditableText(document: SsmlDocument): string {
+  return serializeEditableText(getEditableChildren(document));
 }
 
 function updateText(document: SsmlDocument, value: string): SsmlDocument {
@@ -692,9 +820,11 @@ export function SsmlEditor({
   showToolbarIcons = true,
   showToolbarLabels = false,
 }: SsmlEditorProps): ReactElement {
+  const helpPanelId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
   const [isDark, setIsDark] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
   const toolbarButtonStyle = showToolbarText
@@ -832,6 +962,22 @@ export function SsmlEditor({
           role="toolbar"
           aria-label={copy.toolbarAriaLabel}
         >
+          <button
+            type="button"
+            style={toolbarButtonStyle}
+            aria-label={copy.help}
+            title={copy.helpTitle}
+            aria-expanded={isHelpOpen}
+            aria-controls={helpPanelId}
+            onClick={() => setIsHelpOpen((open) => !open)}
+          >
+            {showToolbarIcons && (
+              <span style={styles.toolbarIcon} aria-hidden="true">
+                ?
+              </span>
+            )}
+            {showToolbarText && <span>{copy.help}</span>}
+          </button>
           {SSML_INSERTIONS.map((insertion) => (
             <details key={insertion.id} style={styles.toolbarDropdown}>
               <summary
@@ -899,6 +1045,58 @@ export function SsmlEditor({
             {showToolbarText && <span>{copy.clearAll}</span>}
           </button>
         </div>
+        {isHelpOpen && (
+          <div
+            id={helpPanelId}
+            style={styles.helpPanel}
+            role="region"
+            aria-label={copy.helpHeading}
+          >
+            <h3 style={styles.helpHeading}>{copy.helpHeading}</h3>
+            <p style={styles.helpDescription}>{copy.helpDescription}</p>
+            <ul style={styles.helpList}>
+              <li style={styles.helpItem}>
+                <strong>{copy.voice}</strong> — {copy.voiceDescription}
+                <span style={styles.helpParameter}>
+                  {copy.parameters}: {copy.voiceParameter}
+                </span>
+              </li>
+              <li style={styles.helpItem}>
+                <strong>{copy.rate}</strong> — {copy.rateDescription}
+                <span style={styles.helpParameter}>
+                  {copy.parameters}: {copy.rateParameter}
+                </span>
+              </li>
+              <li style={styles.helpItem}>
+                <strong>{copy.volume}</strong> — {copy.volumeDescription}
+                <span style={styles.helpParameter}>
+                  {copy.parameters}: {copy.volumeParameter}
+                </span>
+              </li>
+              <li style={styles.helpItem}>
+                <strong>{copy.pitch}</strong> — {copy.pitchDescription}
+                <span style={styles.helpParameter}>
+                  {copy.parameters}: {copy.pitchParameter}
+                </span>
+              </li>
+            </ul>
+            <h4 style={styles.helpSubheading}>{copy.toolbarActions}</h4>
+            <ul style={styles.helpList}>
+              {SSML_INSERTIONS.map((insertion) => (
+                <li key={insertion.id} style={styles.helpItem}>
+                  <strong>{insertion.labels[language]}</strong> —{" "}
+                  {insertion.descriptions[language]}
+                  <span style={styles.helpParameter}>
+                    {copy.parameters}:{" "}
+                    {insertion.options
+                      .map((option) => option.labels[language])
+                      .join(", ")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div style={styles.editor}>
           <Editor
             height="8rem"
