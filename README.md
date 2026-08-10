@@ -36,7 +36,7 @@ npm install @ssml-builder/azure-tts-client
 
 ### リポジトリを開発する場合
 
-Node.js 22 以降を用意し、リポジトリのルートで依存関係をインストールします。
+Node.js 24 以降を用意し、リポジトリのルートで依存関係をインストールします。
 
 ```sh
 npm ci
