@@ -1168,8 +1168,7 @@ export function SsmlEditor({
             </button>
           )}
         </div>
-        {isHelpOpen &&
-          isSsmlEditorButtonVisible(buttonVisibility, "help") && (
+        {isHelpOpen && isSsmlEditorButtonVisible(buttonVisibility, "help") && (
           <section
             id={helpPanelId}
             style={styles.helpPanel}
