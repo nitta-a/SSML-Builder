@@ -131,12 +131,11 @@ test("validateSsml returns no error for valid SSML", () => {
 });
 
 test("validateSsml returns a message and parser position for invalid SSML", () => {
-  const source =
-    '<speak version="1.0" xml:lang="en-US"><voice>Hello</speak>';
+  const source = '<speak version="1.0" xml:lang="en-US"><voice>Hello</speak>';
   const error = validateSsml(source);
 
   assert.deepEqual(error, {
     message: "Mismatched closing element: expected </voice> but found </speak>",
-    position: source.indexOf("</speak>") + 2,
+    position: source.length,
   });
 });

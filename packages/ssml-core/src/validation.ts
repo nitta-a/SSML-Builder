@@ -19,9 +19,7 @@ export function validateSsml(xmlString: string): SsmlValidationError | null {
       message: positionMatch
         ? rawMessage.slice(0, positionMatch.index)
         : rawMessage,
-      position: positionMatch
-        ? Number.parseInt(positionMatch[1], 10)
-        : 0,
+      position: positionMatch ? Number.parseInt(positionMatch[1], 10) : 0,
     };
   }
 }
