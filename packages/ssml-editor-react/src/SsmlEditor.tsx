@@ -182,10 +182,7 @@ function createProsody(
   };
 }
 
-function updateVoiceName(
-  document: SsmlDocument,
-  name: string,
-): SsmlDocument {
+function updateVoiceName(document: SsmlDocument, name: string): SsmlDocument {
   const children = getDocumentChildren(document);
   const result = updateFirstElement(children, isVoice, (voice) => ({
     ...voice,
@@ -209,14 +206,10 @@ function updateProsody(
   updates: Partial<ProsodyElement>,
 ): SsmlDocument {
   const children = getDocumentChildren(document);
-  const prosodyResult = updateFirstElement(
-    children,
-    isProsody,
-    (prosody) => ({
-      ...prosody,
-      ...updates,
-    }),
-  );
+  const prosodyResult = updateFirstElement(children, isProsody, (prosody) => ({
+    ...prosody,
+    ...updates,
+  }));
   if (prosodyResult.updated) {
     return withChildren(document, prosodyResult.nodes);
   }
@@ -255,7 +248,8 @@ function getTextContent(nodes: SsmlNode[]): string {
 function getEditableText(document: SsmlDocument): string {
   const children = getDocumentChildren(document);
   const element =
-    findFirstElement(children, isProsody) ?? findFirstElement(children, isVoice);
+    findFirstElement(children, isProsody) ??
+    findFirstElement(children, isVoice);
   return getTextContent(element?.children ?? children);
 }
 
@@ -401,7 +395,9 @@ export function SsmlEditor({
             type="text"
             value={pitch}
             onChange={(event) =>
-              commit(updateProsody(draftDocument, { pitch: event.target.value }))
+              commit(
+                updateProsody(draftDocument, { pitch: event.target.value }),
+              )
             }
           />
         </div>
