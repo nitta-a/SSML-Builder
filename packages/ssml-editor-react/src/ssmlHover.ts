@@ -696,7 +696,7 @@ export function findSsmlHoverTarget(
 }
 
 function code(value: string): string {
-  return `\`${value.replace(/`/g, "\\`")}\``;
+  return `\`${value.replace(/\\/g, "\\\\").replace(/`/g, "\\`")}\``;
 }
 
 function formatParameter(parameter: SsmlParameterDefinition): string {

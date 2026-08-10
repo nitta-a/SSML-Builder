@@ -106,5 +106,5 @@ test("formats tag and parameter documentation as safe markdown", () => {
   assert.match(formatSsmlHover(tag), /`strength`/);
   assert.match(formatSsmlHover(parameter), /\*\*Parameter `strength`\*\*/);
   assert.match(formatSsmlHover(parameter), /`strong`/);
-  assert.doesNotMatch(formatSsmlHover(tag), /<script>/);
+  assert.doesNotMatch(formatSsmlHover(tag), /<script>/i);
 });
