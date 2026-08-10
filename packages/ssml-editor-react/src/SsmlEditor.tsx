@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
-import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";
+import { buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
 import type {
   ProsodyElement,
   SsmlDocument,
@@ -21,7 +21,6 @@ const VOICE_ICON = "🎙️";
 const SSML_MARKER_OWNER = "ssml-builder";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SSML_SUFFIX = "</speak>";
-const PARSER_POSITION_SUFFIX = / at position (\d+)$/;
 const RATE_OPTIONS = ["x-slow", "slow", "medium", "fast", "x-fast"] as const;
 const VOLUME_OPTIONS = [
   "silent",
@@ -590,9 +589,7 @@ function updateSsmlMarkers(
   }
 
   const startOffset =
-    value.length === 0
-      ? 0
-      : Math.min(syntaxError.offset, value.length - 1);
+    value.length === 0 ? 0 : Math.min(syntaxError.offset, value.length - 1);
   const endOffset = Math.min(startOffset + 1, value.length);
   const start = model.getPositionAt(startOffset);
   const end = model.getPositionAt(endOffset);
@@ -746,7 +743,7 @@ function updateVoiceName(document: SsmlDocument, name: string): SsmlDocument {
 function parseEditableText(value: string): SsmlNode[] {
   try {
     const children =
-      parseSsml(`<speak version="1.0" xml:lang="en-US">${value}</speak>`)
+      parseSsml(`${EDITABLE_SSML_PREFIX}${value}${EDITABLE_SSML_SUFFIX}`)
         .children ?? [];
     return children.some(isSsmlElement) ? children : [value];
   } catch {
@@ -765,28 +762,18 @@ function validateEditableText(value: string): SsmlSyntaxError | null {
   }
 
   const source = `${EDITABLE_SSML_PREFIX}${value}${EDITABLE_SSML_SUFFIX}`;
-
-  try {
-    parseSsml(source);
+  const validationError = validateSsml(source);
+  if (!validationError) {
     return null;
-  } catch (error) {
-    const rawMessage = error instanceof Error ? error.message : String(error);
-    const positionMatch = PARSER_POSITION_SUFFIX.exec(rawMessage);
-    const sourceOffset = positionMatch
-      ? Number.parseInt(positionMatch[1], 10)
-      : EDITABLE_SSML_PREFIX.length;
-    const message = positionMatch
-      ? rawMessage.slice(0, positionMatch.index)
-      : rawMessage;
-
-    return {
-      message,
-      offset: Math.min(
-        Math.max(sourceOffset - EDITABLE_SSML_PREFIX.length, 0),
-        value.length,
-      ),
-    };
   }
+
+  return {
+    message: validationError.message,
+    offset: Math.min(
+      Math.max(validationError.position - EDITABLE_SSML_PREFIX.length, 0),
+      value.length,
+    ),
+  };
 }
 
 function serializeEditableText(nodes: SsmlNode[]): string {
