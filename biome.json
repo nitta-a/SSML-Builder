@@ -3,6 +3,9 @@
   "assist": {
     "enabled": false
   },
+  "files": {
+    "includes": ["**", "!!**/dist/**"]
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
