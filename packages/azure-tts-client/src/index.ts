@@ -25,25 +25,10 @@ export function synthesizeSpeech(
   ssml: string,
   config: TtsConfig,
 ): Promise<ArrayBuffer>;
-export function synthesizeSpeech(
-  config: TtsConfig,
-  ssml: string,
-): Promise<ArrayBuffer>;
 export async function synthesizeSpeech(
-  ssmlOrConfig: string | TtsConfig,
-  configOrSsml: TtsConfig | string,
+  ssml: string,
+  config: TtsConfig,
 ): Promise<ArrayBuffer> {
-  let ssml: string;
-  let config: TtsConfig;
-
-  if (typeof ssmlOrConfig === "string") {
-    ssml = ssmlOrConfig;
-    config = configOrSsml as TtsConfig;
-  } else {
-    config = ssmlOrConfig;
-    ssml = configOrSsml as string;
-  }
-
   const response = await fetch(resolveEndpoint(config), {
     method: "POST",
     headers: {

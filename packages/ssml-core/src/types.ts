@@ -11,9 +11,7 @@ export type SsmlNode = string | SsmlText | SsmlElement;
 
 export interface SsmlElementBase {
   children?: SsmlNode[];
-  content?: SsmlNode[] | string;
   attributes?: SsmlAttributes;
-  attrs?: SsmlAttributes;
 }
 
 export interface VoiceElement extends SsmlElementBase {
@@ -163,6 +161,7 @@ export interface SsmlDocument {
   version: string;
   lang: string;
   children?: SsmlNode[];
+  /** @deprecated Use children to represent the document body. */
   content?: string;
   attributes?: SsmlAttributes;
 }

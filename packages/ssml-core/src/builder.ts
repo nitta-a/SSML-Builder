@@ -8,7 +8,7 @@ import type {
 } from "./types.ts";
 
 const SYNTHESIS_NAMESPACE = "http://www.w3.org/2001/10/synthesis";
-const MSTTS_NAMESPACE = "https://www.w3.org/2001/mstts";
+const MSTTS_NAMESPACE = "http://www.w3.org/2001/mstts";
 const XML_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
 
 function escapeText(value: string): string {
@@ -35,7 +35,6 @@ function addAttribute(
 function getAttributes(element: SsmlElement): SsmlAttributes {
   const attributes: SsmlAttributes = {
     ...(element.attributes ?? {}),
-    ...(element.attrs ?? {}),
   };
 
   switch (element.type) {
@@ -152,19 +151,7 @@ function getTagName(element: SsmlElement): string {
 }
 
 function getChildren(element: SsmlElementBase): SsmlNode[] {
-  if (element.children !== undefined) {
-    return element.children;
-  }
-
-  if (Array.isArray(element.content)) {
-    return element.content;
-  }
-
-  if (typeof element.content === "string") {
-    return [element.content];
-  }
-
-  return [];
+  return element.children ?? [];
 }
 
 function validateName(name: string, kind: "element" | "attribute"): void {
