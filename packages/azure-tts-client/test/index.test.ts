@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AzureTtsClient } from "./index.ts";
+import { AzureTtsClient } from "../src/index.ts";
 
 test("synthesize sends SSML to the regional Azure endpoint", async () => {
   const originalFetch = globalThis.fetch;

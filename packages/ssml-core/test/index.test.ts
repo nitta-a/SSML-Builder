@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSsml } from "./index.ts";
+import { buildSsml } from "../src/index.ts";
 
 test("buildSsml uses the default language", () => {
   assert.deepEqual(buildSsml("Hello"), {
