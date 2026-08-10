@@ -6,13 +6,16 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "format": "prettier --check .",
-    "lint": "npm run typecheck",
+    "check": "biome check .",
+    "format": "biome format .",
+    "format:write": "biome format --write .",
+    "lint": "biome check .",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
-    "prettier": "3.6.2",
+    "@biomejs/biome": "2.5.7",
+    "tsup": "8.5.1",
     "typescript": "^7.0.2"
   }
 }
