@@ -105,10 +105,7 @@ const STYLE_CSS = `
 `.trim();
 
 function injectEditorTheme(): void {
-  if (
-    typeof document !== "undefined" &&
-    !document.getElementById(STYLE_ID)
-  ) {
+  if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = STYLE_CSS;
@@ -493,7 +490,11 @@ export function SsmlEditor({
   };
 
   return (
-    <section style={styles.container} aria-label="SSML editor" data-ssml-editor="">
+    <section
+      style={styles.container}
+      aria-label="SSML editor"
+      data-ssml-editor=""
+    >
       <h2 style={styles.heading}>SSML Editor</h2>
       <div style={styles.controls}>
         <label style={styles.field} htmlFor="ssml-editor-voice">
