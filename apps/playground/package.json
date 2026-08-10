@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@monaco-editor/react": "4.7.0",
+    "monaco-editor": "0.56.0",
     "@ssml-builder/ssml-core": "*",
     "@ssml-builder/ssml-editor-react": "*",
     "next": "16.3.0",
