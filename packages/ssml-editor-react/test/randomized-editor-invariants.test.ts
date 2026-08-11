@@ -330,7 +330,7 @@ class InsertTextCommand extends EditorCommand {
 
   applyModel(model: EditorModel): void {
     setModelValue(model, `${model.value.slice(0, this.position)}${this.text}${model.value.slice(this.position)}`);
-    model.selectionStart = this.position + this.text.length;
+    model.selectionStart = Math.min(model.value.length, this.position + this.text.length);
     model.selectionEnd = model.selectionStart;
   }
 
@@ -502,11 +502,7 @@ test("preserves SSML invariants during model-based randomized editor operations"
         const model = createModel();
         const editor = new RandomizedEditor();
         lastOperationLog = model.operationLog;
-        for (const command of commands) {
-          if (command.check(model)) {
-            command.run(model, editor);
-          }
-        }
+        fc.modelRun(() => ({ model, real: editor }), commands);
         checkInvariants(model, editor);
       }),
       {
