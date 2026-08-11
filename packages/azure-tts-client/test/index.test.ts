@@ -152,7 +152,10 @@ test("synthesize reports unsuccessful Azure responses", async () => {
       }).synthesize("<speak>Hello</speak>"),
       (error: unknown) => {
         assert.ok(error instanceof AzureTtsError);
-        assert.equal(error.message, "Azure TTS request failed: 400 Bad Request");
+        assert.equal(
+          error.message,
+          "Azure TTS request failed: 400 Bad Request",
+        );
         assert.equal(error.status, 400);
         assert.equal(error.statusText, "Bad Request");
         assert.equal(error.responseBody, responseBody);
