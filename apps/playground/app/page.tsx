@@ -8,6 +8,9 @@ import { SsmlEditor } from "@ssml-builder/ssml-editor-react";
 
 type SpeechLanguage = "ja-JP" | "en-US";
 type SpeechGender = "female" | "male";
+type PlaygroundTheme = "light" | "dark";
+
+const THEME_STORAGE_KEY = "ssml-builder-playground-theme";
 
 const VOICE_NAMES = {
   "ja-JP": {
@@ -137,16 +140,33 @@ async function getSynthesisError(response: Response): Promise<string> {
   return `Audio generation failed (${response.status}).`;
 }
 
+function getStoredTheme(): PlaygroundTheme | null {
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return storedTheme === "light" || storedTheme === "dark" ? storedTheme : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeTheme(theme: PlaygroundTheme): void {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {}
+}
+
 export default function Home() {
   const [document, setDocument] = useState<SsmlDocument>(initialDocument);
   const [selectedLanguage, setSelectedLanguage] = useState<SpeechLanguage>("en-US");
   const [selectedGender, setSelectedGender] = useState<SpeechGender>("female");
+  const [theme, setTheme] = useState<PlaygroundTheme | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioCaptionTrack, setAudioCaptionTrack] = useState<string | null>(null);
   const [audioCaptionLanguage, setAudioCaptionLanguage] = useState<string | null>(null);
   const audioUrlRef = useRef<string | null>(null);
+  const hasManualThemeRef = useRef(false);
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
   const currentCaptionTrack = createCaptionTrack(document);
@@ -161,12 +181,57 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    const storedTheme = getStoredTheme();
+    if (storedTheme !== null) {
+      hasManualThemeRef.current = true;
+      setTheme(storedTheme);
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateTheme = (isDark: boolean): void => {
+      if (!hasManualThemeRef.current) {
+        setTheme(isDark ? "dark" : "light");
+      }
+    };
+    const handleChange = (event: MediaQueryListEvent): void => updateTheme(event.matches);
+
+    updateTheme(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (theme === null) {
+      return;
+    }
+
+    if (!hasManualThemeRef.current) {
+      globalThis.document.documentElement.removeAttribute("data-theme");
+      return;
+    }
+
+    globalThis.document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
   const replaceAudioUrl = (nextAudioUrl: string | null): void => {
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current);
     }
     audioUrlRef.current = nextAudioUrl;
     setAudioUrl(nextAudioUrl);
+  };
+
+  const toggleTheme = (): void => {
+    if (theme === null) {
+      return;
+    }
+
+    hasManualThemeRef.current = true;
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    storeTheme(nextTheme);
   };
 
   const generateAudio = async (): Promise<void> => {
@@ -203,8 +268,26 @@ export default function Home() {
   return (
     <main className="playground">
       <header className="intro">
-        <p className="eyebrow">SSML Builder</p>
-        <h1>Playground</h1>
+        <div className="intro-heading">
+          <div>
+            <p className="eyebrow">SSML Builder</p>
+            <h1>Playground</h1>
+          </div>
+          <div className="theme-switch">
+            <span id="theme-switch-label">Dark mode</span>
+            <button
+              className="theme-switch-track"
+              type="button"
+              role="switch"
+              aria-checked={theme === "dark"}
+              aria-labelledby="theme-switch-label"
+              onClick={toggleTheme}
+              disabled={theme === null}
+            >
+              <span className="theme-switch-thumb" />
+            </button>
+          </div>
+        </div>
         <p>Edit the sample document below to verify the SSML editor and core package together.</p>
       </header>
       <section className="speech-settings" aria-labelledby="speech-settings-heading">
@@ -251,7 +334,7 @@ export default function Home() {
           Voice: <code>{selectedVoice}</code>
         </p>
       </section>
-      <SsmlEditor document={document} onChange={setDocument} language="ja" />
+      <SsmlEditor document={document} onChange={setDocument} language="ja" theme={theme ?? "system"} />
       <section className="audio-generation" aria-labelledby="audio-generation-heading">
         <h2 id="audio-generation-heading">Audio preview</h2>
         <p>Generate audio from the current SSML and listen to it in the browser.</p>

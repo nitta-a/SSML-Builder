@@ -854,23 +854,21 @@ const STYLE_CSS = `
   --ssml-editor-prosody-badge-color: #166534;
   --ssml-editor-prosody-badge-border: #86efac;
 }
-@media (prefers-color-scheme: dark) {
-  [data-ssml-editor] {
-    --ssml-editor-color: #f9fafb;
-    --ssml-editor-bg: #1f2937;
-    --ssml-editor-border: #374151;
-    --ssml-editor-control-bg: #111827;
-    --ssml-editor-control-border: #4b5563;
-    --ssml-editor-preview-bg: #111827;
-    --ssml-editor-error: #fca5a5;
-    --ssml-editor-error-bg: #450a0a;
-    --ssml-editor-pause-badge-bg: #312e81;
-    --ssml-editor-pause-badge-color: #c7d2fe;
-    --ssml-editor-pause-badge-border: #6366f1;
-    --ssml-editor-prosody-badge-bg: #14532d;
-    --ssml-editor-prosody-badge-color: #bbf7d0;
-    --ssml-editor-prosody-badge-border: #4ade80;
-  }
+[data-ssml-editor][data-theme="dark"] {
+  --ssml-editor-color: #f9fafb;
+  --ssml-editor-bg: #1f2937;
+  --ssml-editor-border: #374151;
+  --ssml-editor-control-bg: #111827;
+  --ssml-editor-control-border: #4b5563;
+  --ssml-editor-preview-bg: #111827;
+  --ssml-editor-error: #fca5a5;
+  --ssml-editor-error-bg: #450a0a;
+  --ssml-editor-pause-badge-bg: #312e81;
+  --ssml-editor-pause-badge-color: #c7d2fe;
+  --ssml-editor-pause-badge-border: #6366f1;
+  --ssml-editor-prosody-badge-bg: #14532d;
+  --ssml-editor-prosody-badge-color: #bbf7d0;
+  --ssml-editor-prosody-badge-border: #4ade80;
 }
 [data-ssml-editor] .ssml-editor-inline-badge {
   display: inline-block;
@@ -1888,6 +1886,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
   const resolvedTheme = resolvedEditorOptions.theme ?? "system";
+  const isDarkTheme = resolvedTheme === "dark" || (resolvedTheme === "system" && isDark);
   const editorMinHeight = resolvedEditorOptions.minHeight ?? "8rem";
   const editorHeight = resolvedEditorOptions.height ?? editorMinHeight;
   const isReadOnly = resolvedEditorOptions.readOnly ?? false;
@@ -2292,6 +2291,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       style={{ ...styles.container, ...style }}
       aria-label={copy.editorAriaLabel}
       data-ssml-editor=""
+      data-theme={isDarkTheme ? "dark" : "light"}
     >
       <div
         className={toolbarClassName}
@@ -2353,7 +2353,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           <Editor
             height={editorHeight}
             language="xml"
-            theme={resolvedTheme === "dark" || (resolvedTheme === "system" && isDark) ? "vs-dark" : "light"}
+            theme={isDarkTheme ? "vs-dark" : "light"}
             options={{
               automaticLayout: resolvedEditorOptions.automaticLayout ?? true,
               fontSize: resolvedEditorOptions.fontSize,
