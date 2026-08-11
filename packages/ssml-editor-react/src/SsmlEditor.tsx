@@ -1673,7 +1673,28 @@ function getSelectedSsml(editor: MonacoEditor, document: SsmlDocument): string |
 
 function getNativePreviewText(value: string, lang: string): string {
   const text = getPlainText(parseEditableText(value, lang)).trim();
-  return text || value.replace(/<[^>]*>/g, "").trim();
+  return text || stripMarkupForNativePreview(value).trim();
+}
+
+function stripMarkupForNativePreview(value: string): string {
+  let text = "";
+  let inTag = false;
+
+  for (const character of value) {
+    if (character === "<") {
+      inTag = true;
+      continue;
+    }
+    if (inTag) {
+      if (character === ">") {
+        inTag = false;
+      }
+      continue;
+    }
+    text += character;
+  }
+
+  return text;
 }
 
 function isNativePreviewAvailable(): boolean {
