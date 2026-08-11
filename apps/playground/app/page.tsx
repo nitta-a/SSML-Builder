@@ -206,7 +206,6 @@ export default function Home() {
       return;
     }
     globalThis.document.documentElement.dataset.theme = theme;
-    globalThis.document.documentElement.dataset.theme = theme;
   }, [theme]);
 
   const replaceAudioUrl = (nextAudioUrl: string | null): void => {
