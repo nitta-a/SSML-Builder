@@ -550,11 +550,6 @@ const styles: Record<string, CSSProperties> = {
   helpItemContent: {
     minWidth: 0,
   },
-  helpParameter: {
-    display: "block",
-    marginTop: "0.125rem",
-    fontSize: "0.875rem",
-  },
   helpParameterAccordion: {
     marginTop: "0.375rem",
   },
@@ -1237,9 +1232,14 @@ export function SsmlEditor({
                 </span>
                 <div style={styles.helpItemContent}>
                   <strong>{copy.voice}</strong> — {copy.voiceDescription}
-                  <span style={styles.helpParameter}>
-                    {copy.parameters}: {copy.voiceParameter}
-                  </span>
+                  <details style={styles.helpParameterAccordion}>
+                    <summary style={styles.helpParameterSummary}>
+                      {copy.parameters}
+                    </summary>
+                    <p style={styles.helpParameterDescription}>
+                      {copy.voiceParameter}
+                    </p>
+                  </details>
                 </div>
               </li>
             </ul>
