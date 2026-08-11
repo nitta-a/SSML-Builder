@@ -1,4 +1,14 @@
-import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
@@ -1881,7 +1891,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     ...(automaticLayout === undefined ? {} : { automaticLayout }),
   };
   const helpPanelId = useId();
-  const [draftDocument, setDraftDocument] = useState(document);
+  const [, setDraftDocument] = useState(document);
   const draftDocumentRef = useRef(document);
   const editorRef = useRef<MonacoEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -2041,7 +2051,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     }
   }, [language, text]);
 
-  const syncEditorValue = (value: string): void => {
+  const syncEditorValue = useCallback((value: string): void => {
     pendingEditorValueRef.current = value;
     const editor = editorRef.current;
     if (!editor || isComposingRef.current) {
@@ -2055,11 +2065,11 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     } finally {
       syncingEditorValueRef.current = false;
     }
-  };
+  }, []);
 
   useEffect(() => {
     syncEditorValue(text);
-  }, [text]);
+  }, [syncEditorValue, text]);
 
   const commit = (nextDocument: SsmlDocument): void => {
     draftDocumentRef.current = nextDocument;
