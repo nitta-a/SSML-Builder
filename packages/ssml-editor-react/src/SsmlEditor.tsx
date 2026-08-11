@@ -54,6 +54,7 @@ type SsmlInsertionDefinition = {
   labels: LocalizedText;
   titles: LocalizedText;
   descriptions: LocalizedText;
+  parameterDescription: LocalizedText;
   options: readonly SsmlInsertionOption[];
   createTemplate: (value: string) => SsmlInsertionTemplate;
 };
@@ -80,6 +81,10 @@ const SSML_INSERTIONS = [
       ja: "指定した時間だけ無音の間を挿入します。",
       en: "Inserts a silent pause for the selected duration.",
     },
+    parameterDescription: {
+      ja: "無音にする時間を選択します。",
+      en: "Selects the duration of the silent pause.",
+    },
     options: createInsertionOptions(["500ms", "1s", "2s", "3s"]),
     createTemplate: (value) => ({
       prefix: `<break time="${value}"/>`,
@@ -98,6 +103,10 @@ const SSML_INSERTIONS = [
     descriptions: {
       ja: "選択範囲の強調レベルを変更します。",
       en: "Changes the emphasis level of the selected text.",
+    },
+    parameterDescription: {
+      ja: "選択範囲の強調レベルを選択します。",
+      en: "Selects the emphasis level for the selected text.",
     },
     options: createInsertionOptions(["strong", "moderate", "reduced", "none"]),
     createTemplate: (value) => ({
@@ -118,6 +127,10 @@ const SSML_INSERTIONS = [
       ja: "選択範囲の読み上げ速度を変更します。",
       en: "Changes the speech rate of the selected text.",
     },
+    parameterDescription: {
+      ja: "選択範囲の読み上げ速度を選択します。",
+      en: "Selects the speech rate for the selected text.",
+    },
     options: createInsertionOptions(RATE_OPTIONS),
     createTemplate: (value) => ({
       prefix: `<prosody rate="${value}">`,
@@ -136,6 +149,10 @@ const SSML_INSERTIONS = [
     descriptions: {
       ja: "選択範囲の声の高さを変更します。",
       en: "Changes the pitch of the selected text.",
+    },
+    parameterDescription: {
+      ja: "選択範囲の声の高さを半音単位で選択します。",
+      en: "Selects the pitch adjustment in semitone steps.",
     },
     options: createInsertionOptions([
       "+2st",
@@ -166,6 +183,10 @@ const SSML_INSERTIONS = [
       ja: "選択範囲の音量を変更します。",
       en: "Changes the volume of the selected text.",
     },
+    parameterDescription: {
+      ja: "選択範囲の音量レベルを選択します。",
+      en: "Selects the volume level for the selected text.",
+    },
     options: createInsertionOptions(VOLUME_OPTIONS),
     createTemplate: (value) => ({
       prefix: `<prosody volume="${value}">`,
@@ -184,6 +205,10 @@ const SSML_INSERTIONS = [
     descriptions: {
       ja: "選択範囲に Azure 音声の感情スタイルを適用します。",
       en: "Applies an Azure voice emotion style to the selected text.",
+    },
+    parameterDescription: {
+      ja: "選択範囲に適用する Azure 音声の感情スタイルを選択します。",
+      en: "Selects the Azure voice emotion style to apply.",
     },
     options: createInsertionOptions([
       "cheerful",
@@ -211,6 +236,10 @@ const SSML_INSERTIONS = [
     descriptions: {
       ja: "数字や日付などの読み上げ方を指定します。",
       en: "Specifies how values such as numbers or dates are spoken.",
+    },
+    parameterDescription: {
+      ja: "選択範囲の読み上げ方を選択します。",
+      en: "Selects how the selected text is spoken.",
     },
     options: createInsertionOptions([
       "characters",
@@ -243,6 +272,10 @@ const SSML_INSERTIONS = [
     descriptions: {
       ja: "選択範囲の発音記号を指定します。",
       en: "Specifies the phonetic pronunciation of the selected text.",
+    },
+    parameterDescription: {
+      ja: "発音記号に使用するアルファベットを選択します。",
+      en: "Selects the phonetic alphabet used for the pronunciation.",
     },
     options: createInsertionOptions(["ipa", "sapi", "x-sampa", "ups"]),
     createTemplate: (value) => ({
@@ -297,7 +330,8 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     help: "説明",
     helpTitle: "ボタンとパラメータの説明を表示",
     helpHeading: "ボタンとパラメータの説明",
-    helpDescription: "各コントロールと本文ツールバーの機能を確認できます。",
+    helpDescription:
+      "各コントロールと本文ツールバーの機能、パラメータを確認できます。",
     parameters: "パラメータ",
     toolbarActions: "本文ツールバーのボタン",
     format: "フォーマット",
@@ -324,7 +358,8 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     help: "Help",
     helpTitle: "Show button and parameter descriptions",
     helpHeading: "Button and parameter descriptions",
-    helpDescription: "Learn what each control and text toolbar action does.",
+    helpDescription:
+      "Learn what each control and text toolbar action does, including its parameters.",
     parameters: "Parameters",
     toolbarActions: "Text toolbar buttons",
     format: "Format",
@@ -518,6 +553,25 @@ const styles: Record<string, CSSProperties> = {
   helpParameter: {
     display: "block",
     marginTop: "0.125rem",
+    fontSize: "0.875rem",
+  },
+  helpParameterAccordion: {
+    marginTop: "0.375rem",
+  },
+  helpParameterSummary: {
+    padding: "0.125rem 0",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  helpParameterDescription: {
+    margin: "0.375rem 0 0",
+    fontSize: "0.875rem",
+  },
+  helpParameterList: {
+    display: "grid",
+    gap: "0.125rem",
+    margin: "0.25rem 0 0",
+    paddingLeft: "1.25rem",
     fontSize: "0.875rem",
   },
   previewActions: {
@@ -1181,12 +1235,12 @@ export function SsmlEditor({
                 <span style={styles.helpIcon} aria-hidden="true">
                   {VOICE_ICON}
                 </span>
-                <span style={styles.helpItemContent}>
+                <div style={styles.helpItemContent}>
                   <strong>{copy.voice}</strong> — {copy.voiceDescription}
                   <span style={styles.helpParameter}>
                     {copy.parameters}: {copy.voiceParameter}
                   </span>
-                </span>
+                </div>
               </li>
             </ul>
             {visibleInsertions.length > 0 && (
@@ -1198,16 +1252,25 @@ export function SsmlEditor({
                       <span style={styles.helpIcon} aria-hidden="true">
                         {insertion.icon}
                       </span>
-                      <span style={styles.helpItemContent}>
+                      <div style={styles.helpItemContent}>
                         <strong>{insertion.labels[language]}</strong> —{" "}
                         {insertion.descriptions[language]}
-                        <span style={styles.helpParameter}>
-                          {copy.parameters}:{" "}
-                          {insertion.options
-                            .map((option) => option.labels[language])
-                            .join(", ")}
-                        </span>
-                      </span>
+                        <details style={styles.helpParameterAccordion}>
+                          <summary style={styles.helpParameterSummary}>
+                            {copy.parameters}
+                          </summary>
+                          <p style={styles.helpParameterDescription}>
+                            {insertion.parameterDescription[language]}
+                          </p>
+                          <ul style={styles.helpParameterList}>
+                            {insertion.options.map((option) => (
+                              <li key={option.value}>
+                                {option.labels[language]}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      </div>
                     </li>
                   ))}
                 </ul>
