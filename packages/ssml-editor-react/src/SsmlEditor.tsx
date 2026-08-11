@@ -1847,7 +1847,31 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   for (const insertion of visibleInsertions) {
     toolbarItemRenderers.set(insertion.id, () => renderInsertion(insertion));
   }
-  const renderedToolbarItemIds = toolbarItemIds.filter((id) => toolbarItemRenderers.has(id));
+  const renderToolbarItems = (): ReactElement[] => {
+    let previousRenderedGroupId = UNGROUPED_TOOLBAR_GROUP;
+    let hasRenderedToolbarItem = false;
+    const renderedItems: ReactElement[] = [];
+
+    for (const id of toolbarItemIds) {
+      const render = toolbarItemRenderers.get(id);
+      if (!render) {
+        continue;
+      }
+
+      const groupId = toolbarGroupByButtonId.get(id) ?? UNGROUPED_TOOLBAR_GROUP;
+      const showSeparator = hasRenderedToolbarItem && groupId !== previousRenderedGroupId;
+      previousRenderedGroupId = groupId;
+      hasRenderedToolbarItem = true;
+      renderedItems.push(
+        <Fragment key={id}>
+          {showSeparator && <span style={styles.toolbarSeparator} aria-hidden="true" />}
+          {render()}
+        </Fragment>,
+      );
+    }
+
+    return renderedItems;
+  };
 
   return (
     <section
@@ -1867,26 +1891,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           aria-label={copy.toolbarAriaLabel}
           data-ssml-editor-toolbar-actions=""
         >
-          {renderedToolbarItemIds.map((id, index) => {
-            const render = toolbarItemRenderers.get(id);
-            if (!render) {
-              return null;
-            }
-            const groupId = toolbarGroupByButtonId.get(id) ?? UNGROUPED_TOOLBAR_GROUP;
-            const previousGroupId =
-              index > 0
-                ? (toolbarGroupByButtonId.get(renderedToolbarItemIds[index - 1]) ?? UNGROUPED_TOOLBAR_GROUP)
-                : groupId;
-
-            return (
-              <Fragment key={id}>
-                {index > 0 && groupId !== previousGroupId && (
-                  <span style={styles.toolbarSeparator} aria-hidden="true" />
-                )}
-                {render()}
-              </Fragment>
-            );
-          })}
+          {renderToolbarItems()}
         </div>
       </div>
       <div className={displayClassName} style={{ ...styles.display, ...displayStyle }} data-ssml-editor-display="">
