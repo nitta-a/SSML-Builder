@@ -176,6 +176,7 @@ export function App() {
 - `toolbarClassName` / `toolbarStyle`: ツールバーのクラス名とインラインスタイル
 - `displayClassName` / `displayStyle`: 本文表示エリアのクラス名とインラインスタイル
 - ツールバーの「フォーマット」ボタンで本文の XML を整形できます
+- 挿入専用の要素（`break`、`mstts:silence`、カスタム挿入の `mode: "insert"`）は、本文内で独立した行になるよう自動的に改行されます。選択範囲を囲む要素はインラインのまま挿入されます
 - 本文を変更すると SSML 構文を検証し、エラー箇所をエディター上に表示します
 
 標準の挿入メニューには `lang`、`mstts:silence` も含まれます。カスタム要素は `createSsmlEditorInsertionDefinition` でタグ名と属性を指定して作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
@@ -412,6 +413,7 @@ export function App() {
 - `toolbarClassName` / `toolbarStyle`: A class name and inline styles for the toolbar
 - `displayClassName` / `displayStyle`: A class name and inline styles for the text display area
 - Use the **Format** button to format the XML in the text display area
+- Standalone elements (`break`, `mstts:silence`, and custom insertions with `mode: "insert"`) are automatically placed on separate lines; elements that wrap a selection remain inline
 - Changing the text validates SSML syntax and displays errors in the editor
 
 The built-in insertion menus also include `lang` and `mstts:silence`. Use `createSsmlEditorInsertionDefinition` to create a custom insertion from a tag and one attribute. For arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
