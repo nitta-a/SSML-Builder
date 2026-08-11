@@ -41,7 +41,10 @@ export class AzureTtsError extends Error {
 
 const DEFAULT_OUTPUT_FORMAT = "audio-16khz-128kbitrate-mono-mp3";
 
-const OUTPUT_FORMATS = {
+const OUTPUT_FORMATS: Record<
+  string,
+  SpeechSDK.SpeechSynthesisOutputFormat
+> = {
   "raw-8khz-8bit-mono-mulaw":
     SpeechSDK.SpeechSynthesisOutputFormat.Raw8Khz8BitMonoMULaw,
   "riff-16khz-16kbps-mono-siren":
@@ -119,7 +122,7 @@ const OUTPUT_FORMATS = {
   "amr-wb-16000hz": SpeechSDK.SpeechSynthesisOutputFormat.AmrWb16000Hz,
   "g722-16khz-64kbps":
     SpeechSDK.SpeechSynthesisOutputFormat.G72216Khz64Kbps,
-} satisfies Record<string, SpeechSDK.SpeechSynthesisOutputFormat>;
+};
 
 function resolveEndpoint(config: TtsConfig): string {
   return config.endpoint.replace(
