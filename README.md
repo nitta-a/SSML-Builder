@@ -60,10 +60,11 @@ AZURE_SPEECH_REGION=japaneast
 # AZURE_SPEECH_ENDPOINT=https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
 ```
 
-`.env.example` をコピーして使用できます。設定後、リポジトリのルートから次のコマンドで
-Playground を起動します。
+`apps/playground/.env.example` をコピーして使用できます。設定後、リポジトリのルートから
+次のコマンドで Playground を起動します。
 
 ```sh
+cp apps/playground/.env.example apps/playground/.env.local
 npm run dev --workspace playground
 ```
 
@@ -279,9 +280,10 @@ AZURE_SPEECH_REGION=japaneast
 # AZURE_SPEECH_ENDPOINT=https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
 ```
 
-Copy `.env.example` to get started. Then run the playground from the repository root:
+Copy `apps/playground/.env.example` to get started. Then run the playground from the repository root:
 
 ```sh
+cp apps/playground/.env.example apps/playground/.env.local
 npm run dev --workspace playground
 ```
 

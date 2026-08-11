@@ -47,7 +47,7 @@ export async function POST(request: Request): Promise<Response> {
     const client = new AzureTtsClient({
       subscriptionKey,
       region,
-      endpoint: process.env.AZURE_SPEECH_ENDPOINT,
+      endpoint: process.env.AZURE_SPEECH_ENDPOINT || undefined,
     });
     const audio = await client.synthesize(ssml);
 
