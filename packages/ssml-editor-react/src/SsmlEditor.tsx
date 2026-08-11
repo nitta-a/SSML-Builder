@@ -623,7 +623,7 @@ function createDefaultToolbarGroups(
     })),
     {
       id: "document",
-      buttonIds: ["clearAll", "format"],
+      buttonIds: ["clearAll", "format", "decorations"],
     },
     {
       id: "help",
@@ -759,6 +759,9 @@ type EditorCopy = {
   parameters: string;
   format: string;
   formatTitle: string;
+  decorations: string;
+  decorationsShowTitle: string;
+  decorationsHideTitle: string;
   syntaxError: string;
   selectionActions: string;
   selectionCountSuffix: string;
@@ -791,6 +794,9 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     parameters: "パラメータ",
     format: "フォーマット",
     formatTitle: "本文のXMLを改行して見やすく表示",
+    decorations: "装飾",
+    decorationsShowTitle: "インライン装飾を表示",
+    decorationsHideTitle: "インライン装飾を非表示",
     syntaxError: "構文エラー",
     selectionActions: "選択範囲の操作",
     selectionCountSuffix: "文字",
@@ -821,6 +827,9 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     parameters: "Parameters",
     format: "Format",
     formatTitle: "Format the XML in the editor",
+    decorations: "Decorations",
+    decorationsShowTitle: "Show inline decorations",
+    decorationsHideTitle: "Hide inline decorations",
     syntaxError: "Syntax error",
     selectionActions: "Selection actions",
     selectionCountSuffix: " characters",
@@ -963,6 +972,8 @@ export interface SsmlEditorProps {
   showToolbarIcons?: boolean;
   /** Whether toolbar action text labels are displayed. */
   showToolbarLabels?: boolean;
+  /** Whether inline SSML decorations are displayed. The toolbar toggle can change this at runtime. */
+  showDecorations?: boolean;
   /** Controls which editor action buttons are displayed. Unspecified buttons are shown. */
   buttonVisibility?: SsmlEditorButtonVisibility;
   /** Monaco editor settings. */
@@ -1458,6 +1469,18 @@ function clearSsmlInlineDecorations(model: MonacoModel, decorationIds: string[])
   return model.deltaDecorations(decorationIds, []);
 }
 
+function syncSsmlInlineDecorations(
+  model: MonacoModel,
+  value: string,
+  language: SsmlEditorLanguage,
+  showDecorations: boolean,
+  decorationIds: string[],
+): string[] {
+  return showDecorations
+    ? updateSsmlInlineDecorations(model, value, language, decorationIds)
+    : clearSsmlInlineDecorations(model, decorationIds);
+}
+
 function isSsmlElement(node: SsmlNode): node is SsmlElement {
   return typeof node !== "string" && node.type !== "text";
 }
@@ -1852,6 +1875,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     language = DEFAULT_LANGUAGE,
     showToolbarIcons = true,
     showToolbarLabels = false,
+    showDecorations = false,
     buttonVisibility,
     editorOptions,
     settings,
@@ -1908,6 +1932,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const onPreviewSelectionRef = useRef(onPreviewSelection);
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
   const [isDark, setIsDark] = useState(false);
+  const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
   const [quickInsertionDialog, setQuickInsertionDialog] = useState<QuickInsertionDialogState | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
@@ -1952,7 +1977,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     })
     .filter(({ insertions }) => insertions.length > 0);
   const ungroupedInsertions = visibleInsertions.filter((insertion) => !groupedInsertionIds.has(insertion.id));
-  const toolbarActionIds = ["undo", "redo", "clearAll", "format", "help"] as const;
+  const toolbarActionIds = ["undo", "redo", "clearAll", "format", "decorations", "help"] as const;
   const defaultToolbarOrder = [
     "undo",
     "redo",
@@ -1960,6 +1985,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     ...ungroupedInsertions.map((insertion) => insertion.id),
     "clearAll",
     "format",
+    "decorations",
     "help",
   ];
   const visibleToolbarIds = new Set<string>([
@@ -2013,6 +2039,10 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   }, [document]);
 
   useEffect(() => {
+    setDecorationsVisible(showDecorations);
+  }, [showDecorations]);
+
+  useEffect(() => {
     return () => {
       const model = editorRef.current?.getModel();
       if (model && monacoRef.current) {
@@ -2041,14 +2071,15 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     const model = editorRef.current?.getModel();
     if (model && monacoRef.current) {
       updateSsmlMarkers(monacoRef.current, model, text, nextSyntaxError);
-      inlineDecorationIdsRef.current = updateSsmlInlineDecorations(
+      inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
         model,
         text,
         language,
+        decorationsVisible,
         inlineDecorationIdsRef.current,
       );
     }
-  }, [language, text]);
+  }, [decorationsVisible, language, text]);
 
   const commit = (nextDocument: SsmlDocument): void => {
     draftDocumentRef.current = nextDocument;
@@ -2289,6 +2320,27 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       ),
     ],
     [
+      "decorations",
+      () => (
+        <button
+          key="decorations"
+          type="button"
+          style={toolbarButtonStyle}
+          aria-label={copy.decorations}
+          title={decorationsVisible ? copy.decorationsHideTitle : copy.decorationsShowTitle}
+          aria-pressed={decorationsVisible}
+          onClick={() => setDecorationsVisible((visible) => !visible)}
+        >
+          {showToolbarIcons && (
+            <span style={styles.toolbarIcon} aria-hidden="true">
+              ✧
+            </span>
+          )}
+          {showToolbarText && <span>{copy.decorations}</span>}
+        </button>
+      ),
+    ],
+    [
       "help",
       () => (
         <button
@@ -2413,6 +2465,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               automaticLayout: resolvedEditorOptions.automaticLayout ?? true,
               fontSize: resolvedEditorOptions.fontSize,
               hover: { enabled: "on" },
+              inlayHints: { enabled: decorationsVisible ? "on" : "off" },
               lineNumbers: resolvedEditorOptions.lineNumbers,
               minimap: {
                 enabled: resolvedEditorOptions.minimap ?? true,
@@ -2444,10 +2497,11 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               setSyntaxError(nextSyntaxError);
               if (model) {
                 updateSsmlMarkers(monaco, model, editor.getValue(), nextSyntaxError);
-                inlineDecorationIdsRef.current = updateSsmlInlineDecorations(
+                inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
                   model,
                   editor.getValue(),
                   language,
+                  decorationsVisible,
                   inlineDecorationIdsRef.current,
                 );
               }
