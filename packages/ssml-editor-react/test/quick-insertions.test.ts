@@ -51,3 +51,11 @@ test("requires one break attribute", () => {
     mode: "insert",
   });
 });
+
+test("provides preset options for every quick insertion field", () => {
+  for (const definition of QUICK_INSERTION_DEFINITIONS) {
+    for (const field of definition.fields) {
+      assert.ok(field.options.length > 0, `${definition.id}.${field.attribute} should have preset options`);
+    }
+  }
+});
