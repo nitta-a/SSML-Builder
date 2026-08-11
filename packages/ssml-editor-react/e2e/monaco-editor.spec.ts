@@ -36,6 +36,7 @@ test.describe("Monaco SSML editor", () => {
     await replaceEditorText(page, JAPANESE_TEXT);
 
     const editor = monacoEditor(page);
+    await page.keyboard.press("Escape");
     await editor.locator(".view-lines").click();
     await page.keyboard.press("ControlOrMeta+A");
 
@@ -50,9 +51,7 @@ test.describe("Monaco SSML editor", () => {
     await expect(page.locator(".output code")).toContainText(`<prosody rate="slow">${JAPANESE_TEXT}</prosody>`);
   });
 
-  test("keeps the Japanese break hover visible and puts toolbar menus above Monaco context actions", async ({
-    page,
-  }) => {
+  test("keeps the break hover visible and puts toolbar menus above Monaco context actions", async ({ page }) => {
     await openPlayground(page);
 
     const editor = monacoEditor(page);
@@ -110,6 +109,11 @@ test.describe("Monaco SSML editor", () => {
     expect(toolbarMenuZIndex).toBeGreaterThan(contextMenuZIndex);
 
     await breakMenu.getByRole("menuitem", { name: "500ミリ秒の無音", exact: true }).click();
-    await expect(page.locator(".output code")).toContainText('<break time="500ms"/>');
+    await expect
+      .poll(async () => {
+        const output = await page.locator(".output code").textContent();
+        return output?.match(/<break time="500ms"\/>/g)?.length ?? 0;
+      })
+      .toBe(2);
   });
 });
