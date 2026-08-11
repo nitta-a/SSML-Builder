@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEffect } from "react";
 import { buildSsml } from "@ssml-builder/ssml-core";
 import type { SsmlDocument } from "@ssml-builder/ssml-core";
 import type { SsmlNode } from "@ssml-builder/ssml-core";
@@ -117,13 +118,71 @@ function updateSpeechSettings(
   return nextDocument;
 }
 
+async function getSynthesisError(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    if (
+      body !== null &&
+      typeof body === "object" &&
+      "error" in body &&
+      typeof body.error === "string"
+    ) {
+      return body.error;
+    }
+  } catch {
+    // Use the status-based fallback when the response is not JSON.
+  }
+
+  return `Audio generation failed (${response.status}).`;
+}
+
 export default function Home() {
   const [document, setDocument] = useState<SsmlDocument>(initialDocument);
   const [selectedLanguage, setSelectedLanguage] =
     useState<SpeechLanguage>("en-US");
   const [selectedGender, setSelectedGender] = useState<SpeechGender>("female");
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
+
+  useEffect(() => {
+    if (!audioUrl) {
+      return;
+    }
+
+    return () => URL.revokeObjectURL(audioUrl);
+  }, [audioUrl]);
+
+  const generateAudio = async (): Promise<void> => {
+    setIsGeneratingAudio(true);
+    setAudioError(null);
+    setAudioUrl(null);
+
+    try {
+      const response = await fetch("/api/synthesize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ssml }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await getSynthesisError(response));
+      }
+
+      const audioBlob = await response.blob();
+      setAudioUrl(URL.createObjectURL(audioBlob));
+    } catch (error) {
+      setAudioError(
+        error instanceof Error ? error.message : "Audio generation failed.",
+      );
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
 
   return (
     <main className="playground">
@@ -195,6 +254,40 @@ export default function Home() {
         </p>
       </section>
       <SsmlEditor document={document} onChange={setDocument} language="ja" />
+      <section
+        className="audio-generation"
+        aria-labelledby="audio-generation-heading"
+      >
+        <h2 id="audio-generation-heading">Audio preview</h2>
+        <p>
+          Generate audio from the current SSML and listen to it in the browser.
+        </p>
+        <button
+          className="generate-audio"
+          type="button"
+          onClick={generateAudio}
+          disabled={isGeneratingAudio}
+          aria-busy={isGeneratingAudio}
+        >
+          {isGeneratingAudio ? "Generating audio..." : "Generate audio"}
+        </button>
+        {audioError ? (
+          <p className="audio-error" role="alert">
+            {audioError}
+          </p>
+        ) : null}
+        {audioUrl ? (
+          <audio
+            className="audio-player"
+            controls
+            autoPlay
+            src={audioUrl}
+            aria-label="Generated speech audio"
+          >
+            Your browser does not support audio playback.
+          </audio>
+        ) : null}
+      </section>
       <section className="output" aria-labelledby="generated-ssml-heading">
         <h2 id="generated-ssml-heading">Generated SSML</h2>
         <pre>

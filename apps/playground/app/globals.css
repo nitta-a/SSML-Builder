@@ -97,6 +97,55 @@ body {
   color: #4b5563;
 }
 
+.audio-generation {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: #ffffff;
+}
+
+.audio-generation h2,
+.audio-generation p {
+  margin: 0;
+}
+
+.audio-generation h2 {
+  font-size: 1.125rem;
+}
+
+.audio-generation > p {
+  color: #4b5563;
+}
+
+.generate-audio {
+  justify-self: start;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0.25rem;
+  color: #ffffff;
+  background: #2563eb;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.generate-audio:disabled {
+  background: #93c5fd;
+  cursor: wait;
+}
+
+.audio-player {
+  width: 100%;
+}
+
+.audio-error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .output {
   display: grid;
   gap: 0.75rem;
@@ -136,6 +185,11 @@ body {
     background: #1f2937;
   }
 
+  .audio-generation {
+    border-color: #374151;
+    background: #1f2937;
+  }
+
   .setting-field select {
     border-color: #4b5563;
     background: #111827;
@@ -143,6 +197,18 @@ body {
 
   .selected-voice {
     color: #9ca3af;
+  }
+
+  .audio-generation > p {
+    color: #9ca3af;
+  }
+
+  .generate-audio:disabled {
+    background: #1d4ed8;
+  }
+
+  .audio-error {
+    color: #fca5a5;
   }
 
   .output pre {
