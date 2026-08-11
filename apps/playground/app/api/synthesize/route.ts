@@ -9,7 +9,7 @@ const MAX_LOGGED_RESPONSE_BODY_LENGTH = 4096;
 const subscriptionKey = process.env.AZURE_SPEECH_KEY;
 const region = process.env.AZURE_SPEECH_REGION;
 const endpoint = process.env.AZURE_SPEECH_ENDPOINT || "";
-const PARSER_POSITION_SUFFIX = / at position (\d+)$/;
+const PARSER_POSITION_SUFFIX = / at position \d+$/;
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
