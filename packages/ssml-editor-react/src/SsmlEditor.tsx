@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
@@ -16,7 +16,7 @@ import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
 const DEFAULT_LANGUAGE = "ja";
 const SSML_MARKER_OWNER = "ssml-builder";
-const SSML_INLINE_DECORATION_OWNER = 1;
+const SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES = 4;
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SSML_SUFFIX = "</speak>";
@@ -820,16 +820,19 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
 type InlineBadgeCopy = {
   pause: string;
   pitch: string;
+  prosody: string;
 };
 
 const INLINE_BADGE_COPY: Record<SsmlEditorLanguage, InlineBadgeCopy> = {
   ja: {
     pause: "間",
     pitch: "ピッチ変化",
+    prosody: "声の調整",
   },
   en: {
     pause: "Pause",
     pitch: "Pitch change",
+    prosody: "Prosody",
   },
 };
 
@@ -1213,6 +1216,15 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center",
     lineHeight: 1,
   },
+  selectionQuickGroup: {
+    display: "inline-flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "0.25rem",
+    margin: 0,
+    padding: 0,
+    border: 0,
+  },
   error: {
     margin: 0,
     padding: "0.5rem 0.75rem",
@@ -1307,7 +1319,8 @@ function updateSsmlMarkers(
 }
 
 function getSsmlAttributeValue(tag: string, attributeName: string): string | undefined {
-  const match = tag.match(new RegExp(`\\b${attributeName}\\s*=\\s*("|')([^"']*)\\1`, "i"));
+  const escapedAttributeName = attributeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = tag.match(new RegExp(`\\b${escapedAttributeName}\\s*=\\s*("|')([^"']*)\\1`, "i"));
   return match?.[2];
 }
 
@@ -1328,10 +1341,12 @@ function getSsmlInlineDecorations(model: MonacoModel, value: string, language: S
       getSsmlAttributeValue(tag, "pitch") ??
       getSsmlAttributeValue(tag, "contour") ??
       getSsmlAttributeValue(tag, "range");
+    const prosodyValue = pitchValue ?? getSsmlAttributeValue(tag, "rate") ?? getSsmlAttributeValue(tag, "volume");
+
     const badge =
       tagName === "break"
         ? `${badgeCopy.pause}${pauseValue ? ` ${pauseValue}` : ""}`
-        : `${badgeCopy.pitch}${pitchValue ? ` ${pitchValue}` : ""}`;
+        : `${pitchValue ? badgeCopy.pitch : badgeCopy.prosody}${prosodyValue ? ` ${prosodyValue}` : ""}`;
 
     decorations.push({
       range: {
@@ -1343,7 +1358,7 @@ function getSsmlInlineDecorations(model: MonacoModel, value: string, language: S
       options: {
         after: {
           content: ` ${badge}`,
-          inlineClassName: `ssml-editor-inline-badge ssml-editor-inline-badge-${tagName}`,
+          inlineClassName: `ssml-editor-inline-badge ssml-editor-inline-badge-${tagName === "break" ? "pause" : "prosody"}`,
         },
       },
     });
@@ -1358,11 +1373,11 @@ function updateSsmlInlineDecorations(
   language: SsmlEditorLanguage,
   decorationIds: string[],
 ): string[] {
-  return model.deltaDecorations(
-    decorationIds,
-    getSsmlInlineDecorations(model, value, language),
-    SSML_INLINE_DECORATION_OWNER,
-  );
+  return model.deltaDecorations(decorationIds, getSsmlInlineDecorations(model, value, language));
+}
+
+function clearSsmlInlineDecorations(model: MonacoModel, decorationIds: string[]): string[] {
+  return model.deltaDecorations(decorationIds, []);
 }
 
 function isSsmlElement(node: SsmlNode): node is SsmlElement {
@@ -1610,10 +1625,15 @@ function getSelectionOverlayState(editor: MonacoEditor): SelectionOverlayState {
     return { ...info, position: null, placement: "above" };
   }
 
+  const editorHeight = editor.getLayoutInfo().height;
+  if (position.top + position.height < 0 || position.top > editorHeight) {
+    return { ...info, position: null, placement: "above" };
+  }
+
   return {
     ...info,
     position,
-    placement: position.top >= 4 * position.height ? "above" : "below",
+    placement: position.top >= SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES * position.height ? "above" : "below",
   };
 }
 
@@ -1654,6 +1674,12 @@ function getSelectedSsml(editor: MonacoEditor, document: SsmlDocument): string |
 function getNativePreviewText(value: string, lang: string): string {
   const text = getPlainText(parseEditableText(value, lang)).trim();
   return text || value.replace(/<[^>]*>/g, "").trim();
+}
+
+function isNativePreviewAvailable(): boolean {
+  return (
+    typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined"
+  );
 }
 
 function acquireSsmlHoverProvider(monaco: Monaco): () => void {
@@ -1814,6 +1840,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const onPreviewSelectionRef = useRef(onPreviewSelection);
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
   const [isDark, setIsDark] = useState(false);
+  const [nativePreviewAvailable, setNativePreviewAvailable] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   draftDocumentRef.current = draftDocument;
@@ -1904,6 +1931,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
 
   useEffect(() => {
     injectEditorTheme();
+    setNativePreviewAvailable(isNativePreviewAvailable());
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     setIsDark(mq.matches);
     const handler = (e: MediaQueryListEvent): void => setIsDark(e.matches);
@@ -1921,7 +1949,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       const model = editorRef.current?.getModel();
       if (model && monacoRef.current) {
         updateSsmlMarkers(monacoRef.current, model, model.getValue(), null);
-        inlineDecorationIdsRef.current = model.deltaDecorations(inlineDecorationIdsRef.current, []);
+        inlineDecorationIdsRef.current = clearSsmlInlineDecorations(model, inlineDecorationIdsRef.current);
       }
       selectionChangeRef.current?.dispose();
       selectionChangeRef.current = null;
@@ -1961,8 +1989,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     onSsmlChange?.(buildSsml(nextDocument));
   };
 
-  const nativePreviewAvailable =
-    typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined";
   const canPreviewSelection = onPreviewSelection !== undefined || nativePreviewAvailable;
   const previewSelection = (): void => {
     const editor = editorRef.current;
@@ -2010,15 +2036,14 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     [],
   );
 
-  const quickInsertionButtons: readonly {
-    id: QuickInsertionId;
-    icon: string;
-    label: string;
-  }[] = [
-    { id: "break", icon: "⏸", label: copy.quickBreak },
-    { id: "prosody", icon: "↗", label: copy.quickProsody },
-    { id: "express-as", icon: "☺", label: copy.quickExpressAs },
-  ];
+  const quickInsertionButtons = useMemo(
+    () => [
+      { id: "break" as const, icon: "⏸", label: copy.quickBreak },
+      { id: "prosody" as const, icon: "↗", label: copy.quickProsody },
+      { id: "express-as" as const, icon: "☺", label: copy.quickExpressAs },
+    ],
+    [copy],
+  );
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
     <details key={insertion.id} style={styles.toolbarDropdown}>
@@ -2351,7 +2376,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                 transform:
                   selectionOverlay.placement === "above"
                     ? "translateY(calc(-100% - 0.5rem))"
-                    : `translateY(${selectionOverlay.position.height + 8}px)`,
+                    : `translateY(calc(${selectionOverlay.position.height}px + 0.5rem))`,
               }}
               onMouseDown={(event) => event.preventDefault()}
             >
@@ -2373,26 +2398,28 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                 {copy.previewSelection}
               </button>
               <span style={styles.selectionActionsDivider} aria-hidden="true" />
-              <span style={styles.selectionCount}>{copy.quickInsertions}</span>
-              {quickInsertionButtons.map((button) => (
-                <button
-                  key={button.id}
-                  type="button"
-                  style={styles.selectionActionButton}
-                  title={`<${button.id}>`}
-                  disabled={isReadOnly}
-                  onClick={() => {
-                    if (!isReadOnly && editorRef.current) {
-                      applySsmlTemplate(editorRef.current, QUICK_INSERTION_TEMPLATES[button.id]);
-                    }
-                  }}
-                >
-                  <span style={styles.selectionActionIcon} aria-hidden="true">
-                    {button.icon}
-                  </span>
-                  {button.label}
-                </button>
-              ))}
+              <fieldset aria-label={copy.quickInsertions} style={styles.selectionQuickGroup}>
+                <span style={styles.selectionCount}>{copy.quickInsertions}</span>
+                {quickInsertionButtons.map((button) => (
+                  <button
+                    key={button.id}
+                    type="button"
+                    style={styles.selectionActionButton}
+                    title={`<${button.id}>`}
+                    disabled={isReadOnly}
+                    onClick={() => {
+                      if (!isReadOnly && editorRef.current) {
+                        applySsmlTemplate(editorRef.current, QUICK_INSERTION_TEMPLATES[button.id]);
+                      }
+                    }}
+                  >
+                    <span style={styles.selectionActionIcon} aria-hidden="true">
+                      {button.icon}
+                    </span>
+                    {button.label}
+                  </button>
+                ))}
+              </fieldset>
             </div>
           )}
         </div>
