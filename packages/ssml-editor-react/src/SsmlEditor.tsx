@@ -1447,7 +1447,7 @@ function ToolbarDecorationsSwitch({
     <div style={styles.toolbarSwitch}>
       {showToolbarIcons && (
         <span style={styles.toolbarIcon} aria-hidden="true">
-          ✧
+          ☆
         </span>
       )}
       {showToolbarText && <span>{copy.decorations}</span>}
