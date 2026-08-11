@@ -12,6 +12,7 @@ import type {
   VoiceElement,
 } from "@ssml-builder/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
+import { clearSsmlDocument } from "./clearSsmlDocument";
 import { formatXmlFragment } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
@@ -768,7 +769,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     editorAriaLabel: "SSMLエディター",
     toolbarAriaLabel: "SSMLツールバー",
     clearAll: "全てクリア",
-    clearAllTitle: "XML要素を削除して本文を残す",
+    clearAllTitle: "音声設定を保持してXML要素を削除し本文を残す",
     undo: "元に戻す",
     undoTitle: "直前の変更を元に戻す",
     redo: "やり直す",
@@ -793,7 +794,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     editorAriaLabel: "SSML editor",
     toolbarAriaLabel: "SSML toolbar",
     clearAll: "Clear all",
-    clearAllTitle: "Remove XML elements and keep the text",
+    clearAllTitle: "Remove non-voice XML elements and keep the text and voice settings",
     undo: "Undo",
     undoTitle: "Undo the last change",
     redo: "Redo",
@@ -1678,31 +1679,12 @@ function updateFirstElement<T extends SsmlElement>(
   return { nodes: nextNodes, updated };
 }
 
-function getPlainText(nodes: SsmlNode[]): string {
-  return nodes
-    .map((node) => {
-      if (typeof node === "string") {
-        return node;
-      }
-      if (node.type === "text") {
-        return node.value;
-      }
-      return getPlainText(node.children ?? []);
-    })
-    .join("");
-}
-
 function withChildren(document: SsmlDocument, children: SsmlNode[]): SsmlDocument {
   const nextDocument: SsmlDocument = { ...document, children };
   if (nextDocument.content !== undefined) {
     delete nextDocument.content;
   }
   return nextDocument;
-}
-
-function clearDocument(document: SsmlDocument): SsmlDocument {
-  const text = getPlainText(getDocumentChildren(document));
-  return withChildren(document, text === "" ? [] : [text]);
 }
 
 function parseEditableText(value: string, lang: string): SsmlNode[] {
@@ -2298,7 +2280,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           disabled={isReadOnly}
           onClick={() => {
             if (!isReadOnly) {
-              commit(clearDocument(draftDocument));
+              commit(clearSsmlDocument(draftDocument));
             }
           }}
         >
