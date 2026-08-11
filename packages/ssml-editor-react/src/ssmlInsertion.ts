@@ -1,5 +1,5 @@
 // @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
-import { SSML_INSERTION_MODES } from "./constants/ssmlPresets.ts";
+import { SSML_INSERTION_MODES } from "./constants/ui.ts";
 
 export type SsmlInsertionMode = (typeof SSML_INSERTION_MODES)[keyof typeof SSML_INSERTION_MODES];
 

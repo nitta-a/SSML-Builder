@@ -297,8 +297,3 @@ export const SILENCE_VALUE_DESCRIPTIONS = {
     en: "Inserts one second of leading silence.",
   },
 } as const satisfies Readonly<Record<(typeof SILENCE_VALUE_PRESETS)[number], SsmlPresetDescription>>;
-
-export const SSML_INSERTION_MODES = {
-  insert: "insert",
-  wrap: "wrap",
-} as const;
