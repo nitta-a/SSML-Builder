@@ -470,7 +470,6 @@ const styles: Record<string, CSSProperties> = {
   },
   helpPanel: {
     display: "grid",
-    flexBasis: "100%",
     gap: "0.5rem",
     width: "100%",
     padding: "0.75rem",
@@ -1166,6 +1165,12 @@ export function SsmlEditor({
             {showToolbarText && <span>{copy.format}</span>}
           </button>
         )}
+      </div>
+      <div
+        className={displayClassName}
+        style={{ ...styles.display, ...displayStyle }}
+        data-ssml-editor-display=""
+      >
         {isHelpOpen && isSsmlEditorButtonVisible(buttonVisibility, "help") && (
           <section
             id={helpPanelId}
@@ -1213,12 +1218,6 @@ export function SsmlEditor({
             )}
           </section>
         )}
-      </div>
-      <div
-        className={displayClassName}
-        style={{ ...styles.display, ...displayStyle }}
-        data-ssml-editor-display=""
-      >
         <div style={styles.editor}>
           <Editor
             height="8rem"
