@@ -1386,7 +1386,7 @@ const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
   placement: "above",
 };
 
-const hoverProviderRegistrations = new WeakMap<MonacoLanguages, Map<SsmlEditorLanguage, HoverProviderRegistration>>();
+const hoverProviderRegistrations = new WeakMap<MonacoLanguages, Map<SsmlEditorLocale, HoverProviderRegistration>>();
 
 function updateSsmlMarkers(
   monaco: Monaco,
@@ -1765,14 +1765,14 @@ function getCurrentLineSsml(editor: MonacoEditor, document: SsmlDocument): strin
   return currentLineText === null ? null : buildPartialSsml(currentLineText, getPartialContext(document));
 }
 
-function acquireSsmlHoverProvider(monaco: Monaco, language: SsmlEditorLanguage): () => void {
+function acquireSsmlHoverProvider(monaco: Monaco, locale: SsmlEditorLocale): () => void {
   const languages = monaco.languages;
   let registrations = hoverProviderRegistrations.get(languages);
   if (!registrations) {
     registrations = new Map();
     hoverProviderRegistrations.set(languages, registrations);
   }
-  let registration = registrations.get(language);
+  let registration = registrations.get(locale);
 
   if (!registration) {
     const provider: Parameters<MonacoLanguages["registerHoverProvider"]>[1] = {
@@ -1787,7 +1787,7 @@ function acquireSsmlHoverProvider(monaco: Monaco, language: SsmlEditorLanguage):
             {
               isTrusted: false,
               supportHtml: false,
-              value: formatSsmlHover(target, language),
+              value: formatSsmlHover(target, locale),
             },
           ],
           range: target.range,
@@ -1798,7 +1798,7 @@ function acquireSsmlHoverProvider(monaco: Monaco, language: SsmlEditorLanguage):
       ...provider,
     });
     registration = { disposable, references: 0 };
-    registrations.set(language, registration);
+    registrations.set(locale, registration);
   }
 
   registration.references += 1;
@@ -1810,7 +1810,7 @@ function acquireSsmlHoverProvider(monaco: Monaco, language: SsmlEditorLanguage):
     released = true;
 
     const currentRegistrations = hoverProviderRegistrations.get(languages);
-    const current = currentRegistrations?.get(language);
+    const current = currentRegistrations?.get(locale);
     if (!current) {
       return;
     }
@@ -1818,7 +1818,7 @@ function acquireSsmlHoverProvider(monaco: Monaco, language: SsmlEditorLanguage):
     current.references -= 1;
     if (current.references === 0) {
       current.disposable.dispose();
-      currentRegistrations?.delete(language);
+      currentRegistrations?.delete(locale);
       if (currentRegistrations?.size === 0) {
         hoverProviderRegistrations.delete(languages);
       }
