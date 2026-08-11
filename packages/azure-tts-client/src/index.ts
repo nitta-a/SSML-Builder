@@ -19,27 +19,34 @@ export interface AzureTtsClientOptions {
 }
 
 export class AzureTtsError extends Error {
-  readonly status: number | null;
-  readonly statusText: string | null;
+  readonly status: number;
+  readonly statusText: string;
   readonly responseBody: string;
   readonly requestId: string | null;
 
   constructor(
-    status: number | null,
-    statusText: string | null,
+    status: number,
+    statusText: string,
     responseBody: string,
     requestId: string | null,
   ) {
-    super(
-      status === null
-        ? `Azure TTS synthesis failed: ${responseBody}`
-        : `Azure TTS request failed: ${status} ${statusText}`,
-    );
+    super(`Azure TTS request failed: ${status} ${statusText}`);
     this.name = "AzureTtsError";
     this.status = status;
     this.statusText = statusText;
     this.responseBody = responseBody;
     this.requestId = requestId;
+  }
+}
+
+export class AzureTtsSdkError extends AzureTtsError {
+  readonly errorDetails: string;
+
+  constructor(errorDetails: string) {
+    super(0, "Speech SDK", errorDetails, null);
+    this.name = "AzureTtsSdkError";
+    this.message = `Azure TTS synthesis failed: ${errorDetails}`;
+    this.errorDetails = errorDetails;
   }
 }
 
@@ -166,9 +173,9 @@ function closeSpeechResources(
   } catch {}
 }
 
-function createSpeechSdkError(error: unknown): AzureTtsError {
+function createSpeechSdkError(error: unknown): AzureTtsSdkError {
   const message = error instanceof Error ? error.message : String(error);
-  return new AzureTtsError(null, null, message, null);
+  return new AzureTtsSdkError(message);
 }
 
 export async function synthesizeSpeech(

@@ -4,6 +4,7 @@ import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 import {
   AzureTtsClient,
   AzureTtsError,
+  AzureTtsSdkError,
   synthesizeSpeech,
 } from "../src/index.ts";
 
@@ -148,14 +149,16 @@ test("synthesize reports Speech SDK synthesis errors", async (t) => {
     }).synthesize("<speak>Hello</speak>"),
     (error: unknown) => {
       assert.ok(error instanceof AzureTtsError);
+      assert.ok(error instanceof AzureTtsSdkError);
       assert.equal(
         error.message,
         "Azure TTS synthesis failed: The SSML is invalid.",
       );
-      assert.equal(error.status, null);
-      assert.equal(error.statusText, null);
+      assert.equal(error.status, 0);
+      assert.equal(error.statusText, "Speech SDK");
       assert.equal(error.responseBody, errorDetails);
       assert.equal(error.requestId, null);
+      assert.equal(error.errorDetails, errorDetails);
       return true;
     },
   );
