@@ -1,19 +1,10 @@
 import { buildSsml } from "./builder.ts";
 import { parseSsml } from "./parser.ts";
-import type {
-  ProsodyElement,
-  SsmlAttributes,
-  SsmlDocument,
-  SsmlNode,
-  VoiceElement,
-} from "./types.ts";
+import type { ProsodyElement, SsmlAttributes, SsmlDocument, SsmlNode, VoiceElement } from "./types.ts";
 
 export type SsmlPartialVoice = Pick<VoiceElement, "name" | "effect" | "attributes">;
 
-export type SsmlPartialProsody = Pick<
-  ProsodyElement,
-  "rate" | "pitch" | "volume" | "contour" | "range" | "attributes"
->;
+export type SsmlPartialProsody = Pick<ProsodyElement, "rate" | "pitch" | "volume" | "contour" | "range" | "attributes">;
 
 export interface SsmlPartialContext {
   version?: string;
@@ -118,7 +109,7 @@ export function buildPartialSsml(
   contextOrText?: SsmlPartialContext | string,
 ): string {
   if (typeof textOrOptionsOrContext === "string") {
-    return serializePartialSsml(textOrOptionsOrContext, contextOrText as SsmlPartialContext | undefined);
+    return serializePartialSsml(textOrOptionsOrContext, (contextOrText as SsmlPartialContext | undefined) ?? {});
   }
 
   if (typeof contextOrText === "string") {

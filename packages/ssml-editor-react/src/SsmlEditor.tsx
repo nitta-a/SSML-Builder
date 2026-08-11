@@ -1528,38 +1528,41 @@ function applySsmlInsertion(editor: MonacoEditor, insertion: SsmlInsertion, opti
   editor.focus();
 }
 
-export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function SsmlEditor({
-  document,
-  onChange,
-  onSsmlChange,
-  onSelectionChange,
-  language = DEFAULT_LANGUAGE,
-  showToolbarIcons = true,
-  showToolbarLabels = false,
-  buttonVisibility,
-  editorOptions,
-  settings,
-  height,
-  minHeight,
-  readOnly,
-  theme,
-  fontSize,
-  wordWrap,
-  lineNumbers,
-  minimap,
-  automaticLayout,
-  insertionOrder,
-  insertionGroups,
-  customInsertions,
-  additionalInsertions,
-  emotionStyles,
-  className,
-  style,
-  toolbarClassName,
-  toolbarStyle,
-  displayClassName,
-  displayStyle,
-}: SsmlEditorProps, ref): ReactElement {
+export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function SsmlEditor(
+  {
+    document,
+    onChange,
+    onSsmlChange,
+    onSelectionChange,
+    language = DEFAULT_LANGUAGE,
+    showToolbarIcons = true,
+    showToolbarLabels = false,
+    buttonVisibility,
+    editorOptions,
+    settings,
+    height,
+    minHeight,
+    readOnly,
+    theme,
+    fontSize,
+    wordWrap,
+    lineNumbers,
+    minimap,
+    automaticLayout,
+    insertionOrder,
+    insertionGroups,
+    customInsertions,
+    additionalInsertions,
+    emotionStyles,
+    className,
+    style,
+    toolbarClassName,
+    toolbarStyle,
+    displayClassName,
+    displayStyle,
+  }: SsmlEditorProps,
+  ref,
+): ReactElement {
   const resolvedEditorOptions: SsmlEditorOptions = {
     ...settings,
     ...editorOptions,
@@ -1667,7 +1670,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       getSelectedSsml: () => {
         const editor = editorRef.current;
         const selectedText = editor ? getSelectedText(editor) : null;
-        return selectedText === null ? null : buildPartialSsml(selectedText, getPartialContext(draftDocumentRef.current));
+        return selectedText === null
+          ? null
+          : buildPartialSsml(selectedText, getPartialContext(draftDocumentRef.current));
       },
       getFullSsml: () => buildSsml(getCurrentDocument(draftDocumentRef.current, editorRef.current)),
     }),
