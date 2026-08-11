@@ -1,16 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  isSsmlEditorButtonVisible,
-  type SsmlEditorButtonVisibility,
-} from "../src/buttonVisibility.ts";
+import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "../src/buttonVisibility.ts";
 import { formatXml } from "../src/formatXml.ts";
-import {
-  SSML_TAG_DEFINITIONS,
-  findSsmlHoverTarget,
-  formatSsmlHover,
-  getSsmlTagDefinition,
-} from "../src/ssmlHover.ts";
+import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 
 test("shows editor buttons by default and hides configured buttons", () => {
   const visibility: SsmlEditorButtonVisibility = {
@@ -22,32 +14,19 @@ test("shows editor buttons by default and hides configured buttons", () => {
   assert.equal(isSsmlEditorButtonVisible(visibility, "rate"), false);
   assert.equal(isSsmlEditorButtonVisible(visibility, "pitch"), true);
   assert.equal(isSsmlEditorButtonVisible(visibility, "format"), true);
-  assert.equal(
-    isSsmlEditorButtonVisible({ "mstts:silence": false }, "mstts:silence"),
-    false,
-  );
-  assert.equal(
-    isSsmlEditorButtonVisible({ customTag: false }, "customTag"),
-    false,
-  );
+  assert.equal(isSsmlEditorButtonVisible({ "mstts:silence": false }, "mstts:silence"), false);
+  assert.equal(isSsmlEditorButtonVisible({ customTag: false }, "customTag"), false);
 });
 
 test("defines the supported SSML tags", () => {
   assert.ok(SSML_TAG_DEFINITIONS.length > 0);
   assert.equal(getSsmlTagDefinition("prosody")?.name, "prosody");
-  assert.equal(
-    getSsmlTagDefinition("mstts:express-as")?.name,
-    "mstts:express-as",
-  );
+  assert.equal(getSsmlTagDefinition("mstts:express-as")?.name, "mstts:express-as");
   assert.equal(getSsmlTagDefinition("express-as")?.name, "mstts:express-as");
 });
 
 test("finds a tag name and returns its range", () => {
-  const target = findSsmlHoverTarget(
-    '<prosody rate="fast">Hello</prosody>',
-    1,
-    3,
-  );
+  const target = findSsmlHoverTarget('<prosody rate="fast">Hello</prosody>', 1, 3);
 
   assert.equal(target?.kind, "tag");
   assert.equal(target?.tagName, "prosody");
@@ -83,8 +62,7 @@ test("finds attributes and quoted attribute values", () => {
 });
 
 test("supports namespaced tags, hyphenated attributes, and closing tags", () => {
-  const source =
-    '<mstts:express-as style-degree="1.5">Hello</mstts:express-as>';
+  const source = '<mstts:express-as style-degree="1.5">Hello</mstts:express-as>';
   const tag = findSsmlHoverTarget(source, 1, 5);
   const parameter = findSsmlHoverTarget(source, 1, 24);
   const closingTag = findSsmlHoverTarget(source, 1, 48);
@@ -107,18 +85,9 @@ test("supports multiline and incomplete start tags", () => {
 });
 
 test("does not provide help for unknown tags, attributes, or text", () => {
-  assert.equal(
-    findSsmlHoverTarget('<custom answer="42">text</custom>', 1, 3),
-    undefined,
-  );
-  assert.equal(
-    findSsmlHoverTarget('<prosody unknown="42">text</prosody>', 1, 11),
-    undefined,
-  );
-  assert.equal(
-    findSsmlHoverTarget("<prosody>text</prosody>", 1, 11),
-    undefined,
-  );
+  assert.equal(findSsmlHoverTarget('<custom answer="42">text</custom>', 1, 3), undefined);
+  assert.equal(findSsmlHoverTarget('<prosody unknown="42">text</prosody>', 1, 11), undefined);
+  assert.equal(findSsmlHoverTarget("<prosody>text</prosody>", 1, 11), undefined);
 });
 
 test("formats tag and parameter documentation as safe markdown", () => {
@@ -145,9 +114,7 @@ test("formats nested XML with readable line breaks", () => {
 
 test("puts text-only SSML content on a readable line", () => {
   assert.equal(
-    formatXml(
-      '<speak version="1.0" xml:lang="en-US">Welcome to the Builder .</speak>',
-    ),
+    formatXml('<speak version="1.0" xml:lang="en-US">Welcome to the Builder .</speak>'),
     '<speak version="1.0" xml:lang="en-US">\n  Welcome to the Builder .\n</speak>',
   );
 });

@@ -34,8 +34,7 @@ export interface SsmlHoverTarget {
 const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "voice",
-    description:
-      "Selects the voice and optional voice effect used to synthesize the enclosed text.",
+    description: "Selects the voice and optional voice effect used to synthesize the enclosed text.",
     parameters: [
       {
         name: "name",
@@ -50,8 +49,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   },
   {
     name: "prosody",
-    description:
-      "Changes the speaking rate, pitch, volume, or pitch contour of the enclosed text.",
+    description: "Changes the speaking rate, pitch, volume, or pitch contour of the enclosed text.",
     parameters: [
       {
         name: "rate",
@@ -61,21 +59,18 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       },
       {
         name: "pitch",
-        description:
-          "Adjusts pitch using a named value, percentage, frequency, or semitone value.",
+        description: "Adjusts pitch using a named value, percentage, frequency, or semitone value.",
         example: "+2st",
       },
       {
         name: "volume",
-        description:
-          "Controls loudness using a named value, percentage, or decibel value.",
+        description: "Controls loudness using a named value, percentage, or decibel value.",
         values: ["silent", "x-soft", "soft", "medium", "loud", "x-loud"],
         example: "loud",
       },
       {
         name: "contour",
-        description:
-          "Defines a sequence of relative pitch changes at positions in the text.",
+        description: "Defines a sequence of relative pitch changes at positions in the text.",
         example: "(0%,+0st) (100%,+2st)",
       },
       {
@@ -104,13 +99,11 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "mstts:express-as",
     aliases: ["express-as", "expressAs"],
-    description:
-      "Applies a speaking style, style degree, or role to the enclosed text.",
+    description: "Applies a speaking style, style degree, or role to the enclosed text.",
     parameters: [
       {
         name: "style",
-        description:
-          "The speaking style supported by the selected voice, such as `cheerful`.",
+        description: "The speaking style supported by the selected voice, such as `cheerful`.",
         example: "cheerful",
       },
       {
@@ -121,8 +114,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       },
       {
         name: "role",
-        description:
-          "Changes the speaking role when supported by the selected voice.",
+        description: "Changes the speaking role when supported by the selected voice.",
         example: "YoungAdultFemale",
       },
     ],
@@ -134,8 +126,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
     parameters: [
       {
         name: "interpret-as",
-        description:
-          "Specifies the interpretation, such as characters, digits, date, or time.",
+        description: "Specifies the interpretation, such as characters, digits, date, or time.",
         example: "characters",
       },
       {
@@ -144,15 +135,13 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       },
       {
         name: "detail",
-        description:
-          "Provides an additional detail hint for the selected interpretation.",
+        description: "Provides an additional detail hint for the selected interpretation.",
       },
     ],
   },
   {
     name: "phoneme",
-    description:
-      "Replaces normal pronunciation with the supplied phonetic pronunciation.",
+    description: "Replaces normal pronunciation with the supplied phonetic pronunciation.",
     parameters: [
       {
         name: "alphabet",
@@ -270,8 +259,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   },
   {
     name: "lexicon",
-    description:
-      "Associates a pronunciation lexicon with the synthesized document.",
+    description: "Associates a pronunciation lexicon with the synthesized document.",
     parameters: [
       {
         name: "uri",
@@ -298,20 +286,12 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "mstts:silence",
     aliases: ["silence"],
-    description:
-      "Adds a specified silence before or after text or at a punctuation boundary.",
+    description: "Adds a specified silence before or after text or at a punctuation boundary.",
     parameters: [
       {
         name: "type",
         description: "The silence position or punctuation boundary.",
-        values: [
-          "Leading",
-          "Tailing",
-          "Sentenceboundary",
-          "Comma",
-          "Semicolon",
-          "Enumerationcomma",
-        ],
+        values: ["Leading", "Tailing", "Sentenceboundary", "Comma", "Semicolon", "Enumerationcomma"],
       },
       {
         name: "value",
@@ -375,17 +355,8 @@ function isXmlWhitespace(value: string | undefined): boolean {
   return value === " " || value === "\t" || value === "\r" || value === "\n";
 }
 
-function positionToOffset(
-  source: string,
-  lineNumber: number,
-  column: number,
-): number | undefined {
-  if (
-    !Number.isInteger(lineNumber) ||
-    !Number.isInteger(column) ||
-    lineNumber < 1 ||
-    column < 1
-  ) {
+function positionToOffset(source: string, lineNumber: number, column: number): number | undefined {
+  if (!Number.isInteger(lineNumber) || !Number.isInteger(column) || lineNumber < 1 || column < 1) {
     return undefined;
   }
 
@@ -399,8 +370,7 @@ function positionToOffset(
   }
 
   const lineEnd = source.indexOf("\n", lineStart);
-  const lineLength =
-    lineEnd === -1 ? source.length - lineStart : lineEnd - lineStart;
+  const lineLength = lineEnd === -1 ? source.length - lineStart : lineEnd - lineStart;
   if (column > lineLength + 1) {
     return undefined;
   }
@@ -455,12 +425,7 @@ function findTagEnd(source: string, start: number): number | undefined {
   return undefined;
 }
 
-function parseTag(
-  source: string,
-  start: number,
-  contentEnd: number,
-  tokenEnd: number,
-): TagToken | undefined {
+function parseTag(source: string, start: number, contentEnd: number, tokenEnd: number): TagToken | undefined {
   let index = start + 1;
   let closing = false;
   if (source[index] === "/") {
@@ -526,11 +491,7 @@ function parseTag(
           }
         } else {
           const valueStart = index;
-          while (
-            index < contentEnd &&
-            !isXmlWhitespace(source[index]) &&
-            source[index] !== "/"
-          ) {
+          while (index < contentEnd && !isXmlWhitespace(source[index]) && source[index] !== "/") {
             index += 1;
           }
           value = { start: valueStart, end: index };
@@ -607,27 +568,17 @@ function findTagAtOffset(source: string, offset: number): TagToken | undefined {
   return undefined;
 }
 
-function findParameter(
-  definition: SsmlTagDefinition,
-  name: string,
-): SsmlParameterDefinition | undefined {
+function findParameter(definition: SsmlTagDefinition, name: string): SsmlParameterDefinition | undefined {
   return definition.parameters.find(
-    (parameter) =>
-      parameter.name === name || parameter.aliases?.includes(name) === true,
+    (parameter) => parameter.name === name || parameter.aliases?.includes(name) === true,
   );
 }
 
-export function getSsmlTagDefinition(
-  name: string,
-): SsmlTagDefinition | undefined {
+export function getSsmlTagDefinition(name: string): SsmlTagDefinition | undefined {
   return definitionsByName.get(name);
 }
 
-export function findSsmlHoverTarget(
-  source: string,
-  lineNumber: number,
-  column: number,
-): SsmlHoverTarget | undefined {
+export function findSsmlHoverTarget(source: string, lineNumber: number, column: number): SsmlHoverTarget | undefined {
   const offset = positionToOffset(source, lineNumber, column);
   if (offset === undefined) {
     return undefined;
@@ -655,10 +606,7 @@ export function findSsmlHoverTarget(
 
   for (const attribute of tag.attributes) {
     if (containsOffset(attribute.name, offset)) {
-      const parameter = findParameter(
-        definition,
-        source.slice(attribute.name.start, attribute.name.end),
-      );
+      const parameter = findParameter(definition, source.slice(attribute.name.start, attribute.name.end));
       if (!parameter) {
         return undefined;
       }
@@ -673,10 +621,7 @@ export function findSsmlHoverTarget(
     }
 
     if (attribute.value && containsOffset(attribute.value, offset)) {
-      const parameter = findParameter(
-        definition,
-        source.slice(attribute.name.start, attribute.name.end),
-      );
+      const parameter = findParameter(definition, source.slice(attribute.name.start, attribute.name.end));
       if (!parameter) {
         return undefined;
       }
@@ -700,44 +645,25 @@ function code(value: string): string {
 
 function formatParameter(parameter: SsmlParameterDefinition): string {
   const values =
-    parameter.values && parameter.values.length > 0
-      ? ` Allowed values: ${parameter.values.map(code).join(", ")}.`
-      : "";
-  const example = parameter.example
-    ? ` Example: ${code(parameter.example)}.`
-    : "";
+    parameter.values && parameter.values.length > 0 ? ` Allowed values: ${parameter.values.map(code).join(", ")}.` : "";
+  const example = parameter.example ? ` Example: ${code(parameter.example)}.` : "";
   return `- ${code(parameter.name)}: ${parameter.description}${values}${example}`;
 }
 
 export function formatSsmlHover(target: SsmlHoverTarget): string {
-  const tagSyntax = target.isClosingTag
-    ? `</${target.tagName}>`
-    : `<${target.tagName}>`;
+  const tagSyntax = target.isClosingTag ? `</${target.tagName}>` : `<${target.tagName}>`;
   const lines = [`### ${code(tagSyntax)}`, "", target.definition.description];
 
   if (target.parameter) {
-    lines.push(
-      "",
-      `**Parameter ${code(target.parameter.name)}**`,
-      "",
-      target.parameter.description,
-    );
+    lines.push("", `**Parameter ${code(target.parameter.name)}**`, "", target.parameter.description);
     if (target.parameter.values && target.parameter.values.length > 0) {
-      lines.push(
-        "",
-        `Allowed values: ${target.parameter.values.map(code).join(", ")}.`,
-      );
+      lines.push("", `Allowed values: ${target.parameter.values.map(code).join(", ")}.`);
     }
     if (target.parameter.example) {
       lines.push("", `Example: ${code(target.parameter.example)}.`);
     }
   } else if (target.definition.parameters.length > 0) {
-    lines.push(
-      "",
-      "**Parameters**",
-      "",
-      ...target.definition.parameters.map(formatParameter),
-    );
+    lines.push("", "**Parameters**", "", ...target.definition.parameters.map(formatParameter));
   } else {
     lines.push("", "This element has no parameters.");
   }

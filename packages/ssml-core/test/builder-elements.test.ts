@@ -90,18 +90,9 @@ test("buildSsml serializes all supported element attributes", () => {
     /<prosody rate="120" pitch="\+2st" volume="-3" contour="\(0%,\+0st\) \(100%,\+2st\)" range="medium">/,
   );
   assert.match(xml, /<break time="500" strength="weak"\/>/);
-  assert.match(
-    xml,
-    /<mstts:express-as style="cheerful" styledegree="1.5" role="YoungAdultFemale">/,
-  );
-  assert.match(
-    xml,
-    /<say-as interpret-as="date" format="ymd" detail="1">2026-08-11<\/say-as>/,
-  );
-  assert.match(
-    xml,
-    /<phoneme alphabet="ipa" ph="konnichiwa">こんにちは<\/phoneme>/,
-  );
+  assert.match(xml, /<mstts:express-as style="cheerful" styledegree="1.5" role="YoungAdultFemale">/);
+  assert.match(xml, /<say-as interpret-as="date" format="ymd" detail="1">2026-08-11<\/say-as>/);
+  assert.match(xml, /<phoneme alphabet="ipa" ph="konnichiwa">こんにちは<\/phoneme>/);
   assert.match(xml, /<emphasis level="strong">重要<\/emphasis>/);
   assert.match(
     xml,

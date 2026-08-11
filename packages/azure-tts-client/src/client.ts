@@ -1,6 +1,8 @@
 import { synthesizeSpeech } from "./synthesis.ts";
 import type { AzureTtsClientOptions } from "./types.ts";
 
+const ENDPOINT_TEMPLATE = "https://{region}.tts.speech.microsoft.com/cognitiveservices/v1";
+
 export class AzureTtsClient {
   readonly #options: AzureTtsClientOptions;
 
@@ -9,13 +11,11 @@ export class AzureTtsClient {
   }
 
   async synthesize(ssml: string): Promise<ArrayBuffer> {
-    return synthesizeSpeech(ssml, {
-      endpoint:
-        this.#options.endpoint ??
-        `https://${this.#options.region}.tts.speech.microsoft.com/cognitiveservices/v1`,
-      subscriptionKey: this.#options.subscriptionKey,
-      region: this.#options.region,
-      outputFormat: this.#options.outputFormat,
-    });
+    const { region, subscriptionKey, outputFormat } = this.#options;
+    const endpoint = this.#options.endpoint ?? ENDPOINT_TEMPLATE.replace("{region}", region);
+    console.debug("Using Azure TTS endpoint:", endpoint);
+
+    const config = { endpoint, region, subscriptionKey, outputFormat };
+    return synthesizeSpeech(ssml, config);
   }
 }

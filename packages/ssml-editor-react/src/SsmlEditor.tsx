@@ -2,17 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
-import type {
-  ProsodyElement,
-  SsmlDocument,
-  SsmlElement,
-  SsmlNode,
-  VoiceElement,
-} from "@ssml-builder/ssml-core";
-import {
-  isSsmlEditorButtonVisible,
-  type SsmlEditorButtonVisibility,
-} from "./buttonVisibility";
+import type { ProsodyElement, SsmlDocument, SsmlElement, SsmlNode, VoiceElement } from "@ssml-builder/ssml-core";
+import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { formatXml } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
@@ -23,9 +14,7 @@ const EDITABLE_SSML_SUFFIX = "</speak>";
 
 export type SsmlEditorLanguage = "ja" | "en";
 
-export type SsmlEditorLocalizedText = Readonly<
-  Record<SsmlEditorLanguage, string>
->;
+export type SsmlEditorLocalizedText = Readonly<Record<SsmlEditorLanguage, string>>;
 
 export type SsmlEditorInsertionMode = "insert" | "wrap";
 
@@ -67,9 +56,7 @@ export interface SsmlEditorCustomInsertionDefinition {
   mode?: SsmlEditorInsertionMode;
 }
 
-export type SsmlEditorCustomInsertion =
-  | SsmlEditorInsertionDefinition
-  | SsmlEditorCustomInsertionDefinition;
+export type SsmlEditorCustomInsertion = SsmlEditorInsertionDefinition | SsmlEditorCustomInsertionDefinition;
 
 export type SsmlEditorCustomInsertionCollection =
   | readonly SsmlEditorCustomInsertion[]
@@ -127,19 +114,12 @@ export function createSsmlEditorInsertionDefinition(
     selfClosing: mode === "insert",
     labels: definition.labels,
     titles: definition.titles,
-    descriptions:
-      definition.descriptions ??
-      localizedText(`Inserts the <${definition.tagName}> element.`),
+    descriptions: definition.descriptions ?? localizedText(`Inserts the <${definition.tagName}> element.`),
     parameterDescription:
-      definition.parameterDescription ??
-      localizedText(
-        `Selects the value for the <${definition.tagName}> element.`,
-      ),
+      definition.parameterDescription ?? localizedText(`Selects the value for the <${definition.tagName}> element.`),
     options: definition.options,
     createTemplate: (value) => {
-      const attributeValue = definition.attribute
-        ? `${attribute}${escapeXmlAttribute(value)}"`
-        : "";
+      const attributeValue = definition.attribute ? `${attribute}${escapeXmlAttribute(value)}"` : "";
       if (mode === "wrap") {
         return {
           prefix: `<${definition.tagName}${attributeValue}>`,
@@ -561,10 +541,7 @@ export const SSML_INSERTIONS = [
       ja: "音声ファイルの URI を選択します。",
       en: "Selects the URI of the audio file.",
     },
-    options: createInsertionOptions([
-      "https://example.com/audio.wav",
-      "https://example.com/audio.mp3",
-    ]),
+    options: createInsertionOptions(["https://example.com/audio.wav", "https://example.com/audio.mp3"]),
     createTemplate: (value) => ({
       prefix: `<audio src="${value}">`,
       suffix: "</audio>",
@@ -706,10 +683,7 @@ function getInsertionCollection(
 
   return Array.isArray(collection)
     ? collection
-    : Object.values(collection).filter(
-        (insertion): insertion is SsmlEditorCustomInsertion =>
-          insertion !== undefined,
-      );
+    : Object.values(collection).filter((insertion): insertion is SsmlEditorCustomInsertion => insertion !== undefined);
 }
 
 function getConfiguredInsertions(
@@ -729,12 +703,8 @@ function getConfiguredInsertions(
     insertions.set(insertion.id, insertion);
   }
 
-  const normalizeInsertion = (
-    insertion: SsmlEditorCustomInsertion,
-  ): SsmlInsertionDefinition =>
-    "createTemplate" in insertion
-      ? insertion
-      : createSsmlEditorInsertionDefinition(insertion);
+  const normalizeInsertion = (insertion: SsmlEditorCustomInsertion): SsmlInsertionDefinition =>
+    "createTemplate" in insertion ? insertion : createSsmlEditorInsertionDefinition(insertion);
 
   for (const insertion of getInsertionCollection(additionalInsertions)) {
     const normalized = normalizeInsertion(insertion);
@@ -759,9 +729,7 @@ function orderInsertions(
     return insertions;
   }
 
-  const insertionsById = new Map(
-    insertions.map((insertion) => [insertion.id, insertion]),
-  );
+  const insertionsById = new Map(insertions.map((insertion) => [insertion.id, insertion]));
   const ordered: SsmlInsertionDefinition[] = [];
   const included = new Set<string>();
   for (const id of insertionOrder) {
@@ -781,17 +749,12 @@ function orderInsertions(
   return ordered;
 }
 
-function getInsertionTitle(
-  insertion: SsmlInsertionDefinition,
-  language: SsmlEditorLanguage,
-): string {
+function getInsertionTitle(insertion: SsmlInsertionDefinition, language: SsmlEditorLanguage): string {
   if (insertion.titles) {
     return insertion.titles[language];
   }
 
-  const tag = insertion.tagName
-    ? ` <${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`
-    : "";
+  const tag = insertion.tagName ? ` <${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}` : "";
   return `${insertion.labels[language]}${tag} — ${insertion.descriptions[language]}`;
 }
 
@@ -828,8 +791,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     help: "説明",
     helpTitle: "ボタンとパラメータの説明を表示",
     helpHeading: "ボタンとパラメータの説明",
-    helpDescription:
-      "各コントロールと本文ツールバーの機能、パラメータを確認できます。",
+    helpDescription: "各コントロールと本文ツールバーの機能、パラメータを確認できます。",
     parameters: "パラメータ",
     toolbarActions: "本文ツールバーのボタン",
     format: "フォーマット",
@@ -848,8 +810,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     help: "Help",
     helpTitle: "Show button and parameter descriptions",
     helpHeading: "Button and parameter descriptions",
-    helpDescription:
-      "Learn what each control and text toolbar action does, including its parameters.",
+    helpDescription: "Learn what each control and text toolbar action does, including its parameters.",
     parameters: "Parameters",
     toolbarActions: "Text toolbar buttons",
     format: "Format",
@@ -1171,9 +1132,7 @@ type MonacoEditor = Parameters<OnMount>[0];
 type SsmlInsertion = SsmlInsertionDefinition;
 type MonacoLanguages = Monaco["languages"];
 type MonacoModel = NonNullable<ReturnType<MonacoEditor["getModel"]>>;
-type MonacoHoverProvider = Parameters<
-  MonacoLanguages["registerHoverProvider"]
->[1];
+type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
 type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
 type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
 
@@ -1182,10 +1141,7 @@ interface HoverProviderRegistration {
   references: number;
 }
 
-const hoverProviderRegistrations = new WeakMap<
-  MonacoLanguages,
-  HoverProviderRegistration
->();
+const hoverProviderRegistrations = new WeakMap<MonacoLanguages, HoverProviderRegistration>();
 
 function updateSsmlMarkers(
   monaco: Monaco,
@@ -1198,8 +1154,7 @@ function updateSsmlMarkers(
     return;
   }
 
-  const startOffset =
-    value.length === 0 ? 0 : Math.min(syntaxError.offset, value.length - 1);
+  const startOffset = value.length === 0 ? 0 : Math.min(syntaxError.offset, value.length - 1);
   const endOffset = Math.min(startOffset + 1, value.length);
   const start = model.getPositionAt(startOffset);
   const end = model.getPositionAt(endOffset);
@@ -1229,10 +1184,7 @@ function isProsody(element: SsmlElement): element is ProsodyElement {
 }
 
 function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
-  return (
-    document.children ??
-    (document.content === undefined ? [] : [document.content])
-  );
+  return document.children ?? (document.content === undefined ? [] : [document.content]);
 }
 
 function findFirstElement<T extends SsmlElement>(
@@ -1301,10 +1253,7 @@ function getPlainText(nodes: SsmlNode[]): string {
     .join("");
 }
 
-function withChildren(
-  document: SsmlDocument,
-  children: SsmlNode[],
-): SsmlDocument {
+function withChildren(document: SsmlDocument, children: SsmlNode[]): SsmlDocument {
   const nextDocument: SsmlDocument = { ...document, children };
   if (nextDocument.content !== undefined) {
     delete nextDocument.content;
@@ -1325,9 +1274,7 @@ function parseEditableText(value: string, lang: string): SsmlNode[] {
       children: [],
     });
     const openingTagEnd = wrapper.indexOf(">") + 1;
-    const children =
-      parseSsml(`${wrapper.slice(0, openingTagEnd)}${value}</speak>`)
-        .children ?? [];
+    const children = parseSsml(`${wrapper.slice(0, openingTagEnd)}${value}</speak>`).children ?? [];
     return children.some(isSsmlElement) ? children : [value];
   } catch {
     return [value];
@@ -1352,10 +1299,7 @@ function validateEditableText(value: string): SsmlSyntaxError | null {
 
   return {
     message: validationError.message,
-    offset: Math.min(
-      Math.max(validationError.position - EDITABLE_SSML_PREFIX.length, 0),
-      value.length,
-    ),
+    offset: Math.min(Math.max(validationError.position - EDITABLE_SSML_PREFIX.length, 0), value.length),
   };
 }
 
@@ -1375,9 +1319,7 @@ function serializeEditableText(nodes: SsmlNode[], lang: string): string {
 
 function getEditableChildren(document: SsmlDocument): SsmlNode[] {
   const children = getDocumentChildren(document);
-  const element =
-    findFirstElement(children, isProsody) ??
-    findFirstElement(children, isVoice);
+  const element = findFirstElement(children, isProsody) ?? findFirstElement(children, isVoice);
   return element?.children ?? children;
 }
 
@@ -1415,11 +1357,7 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
   if (!registration) {
     const provider: Parameters<MonacoLanguages["registerHoverProvider"]>[1] = {
       provideHover(model: MonacoHoverModel, position: MonacoHoverPosition) {
-        const target = findSsmlHoverTarget(
-          model.getValue(),
-          position.lineNumber,
-          position.column,
-        );
+        const target = findSsmlHoverTarget(model.getValue(), position.lineNumber, position.column);
         if (!target) {
           return undefined;
         }
@@ -1464,11 +1402,7 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
   };
 }
 
-function applySsmlInsertion(
-  editor: MonacoEditor,
-  insertion: SsmlInsertion,
-  option: SsmlInsertionOption,
-): void {
+function applySsmlInsertion(editor: MonacoEditor, insertion: SsmlInsertion, option: SsmlInsertionOption): void {
   const model = editor.getModel();
   const selection = editor.getSelection();
   if (!model || !selection) {
@@ -1496,12 +1430,8 @@ function applySsmlInsertion(
     return;
   }
 
-  const nextSelectionStart = model.getPositionAt(
-    startOffset + template.prefix.length,
-  );
-  const nextSelectionEnd = model.getPositionAt(
-    endOffset + template.prefix.length,
-  );
+  const nextSelectionStart = model.getPositionAt(startOffset + template.prefix.length);
+  const nextSelectionEnd = model.getPositionAt(endOffset + template.prefix.length);
   editor.setSelection({
     selectionStartLineNumber: nextSelectionStart.lineNumber,
     selectionStartColumn: nextSelectionStart.column,
@@ -1572,39 +1502,23 @@ export function SsmlEditor({
   const toolbarButtonStyle = showToolbarText
     ? styles.toolbarButton
     : { ...styles.toolbarButton, ...styles.toolbarIconOnly };
-  const configuredInsertions = getConfiguredInsertions(
-    emotionStyles,
-    customInsertions,
-    additionalInsertions,
-  );
-  const visibleInsertions = orderInsertions(
-    configuredInsertions,
-    insertionOrder,
-  ).filter((insertion) =>
+  const configuredInsertions = getConfiguredInsertions(emotionStyles, customInsertions, additionalInsertions);
+  const visibleInsertions = orderInsertions(configuredInsertions, insertionOrder).filter((insertion) =>
     isSsmlEditorButtonVisible(buttonVisibility, insertion.id),
   );
-  const insertionById = new Map(
-    visibleInsertions.map((insertion) => [insertion.id, insertion]),
-  );
+  const insertionById = new Map(visibleInsertions.map((insertion) => [insertion.id, insertion]));
   const visibleInsertionGroups = (insertionGroups ?? [])
     .map((group) => ({
       group,
       insertions: group.insertionIds
         .map((id) => insertionById.get(id))
-        .filter(
-          (insertion): insertion is SsmlInsertionDefinition =>
-            insertion !== undefined,
-        ),
+        .filter((insertion): insertion is SsmlInsertionDefinition => insertion !== undefined),
     }))
     .filter(({ insertions }) => insertions.length > 0);
   const groupedInsertionIds = new Set(
-    visibleInsertionGroups.flatMap(({ insertions }) =>
-      insertions.map((insertion) => insertion.id),
-    ),
+    visibleInsertionGroups.flatMap(({ insertions }) => insertions.map((insertion) => insertion.id)),
   );
-  const ungroupedInsertions = visibleInsertions.filter(
-    (insertion) => !groupedInsertionIds.has(insertion.id),
-  );
+  const ungroupedInsertions = visibleInsertions.filter((insertion) => !groupedInsertionIds.has(insertion.id));
 
   useEffect(() => {
     injectEditorTheme();
@@ -1671,21 +1585,14 @@ export function SsmlEditor({
           ▾
         </span>
       </summary>
-      <div
-        style={styles.toolbarMenu}
-        role="menu"
-        aria-label={insertion.labels[language]}
-      >
+      <div style={styles.toolbarMenu} role="menu" aria-label={insertion.labels[language]}>
         {insertion.options.map((option) => (
           <button
             key={option.value}
             type="button"
             role="menuitem"
             style={styles.toolbarOption}
-            title={
-              option.descriptions?.[language] ??
-              insertion.descriptions[language]
-            }
+            title={option.descriptions?.[language] ?? insertion.descriptions[language]}
             disabled={isReadOnly}
             onMouseDown={(event) => event.preventDefault()}
             onClick={(event) => {
@@ -1739,14 +1646,8 @@ export function SsmlEditor({
             </button>
           )}
           {visibleInsertionGroups.map(({ group, insertions }) => (
-            <fieldset
-              key={group.id}
-              style={styles.toolbarGroup}
-              aria-label={group.labels[language]}
-            >
-              <legend style={styles.toolbarGroupLegend}>
-                {group.labels[language]}
-              </legend>
+            <fieldset key={group.id} style={styles.toolbarGroup} aria-label={group.labels[language]}>
+              <legend style={styles.toolbarGroupLegend}>{group.labels[language]}</legend>
               {insertions.map(renderInsertion)}
             </fieldset>
           ))}
@@ -1825,9 +1726,7 @@ export function SsmlEditor({
               disabled={isReadOnly}
               onClick={() => {
                 if (!isReadOnly) {
-                  const value =
-                    editorRef.current?.getValue() ??
-                    getEditableText(draftDocument);
+                  const value = editorRef.current?.getValue() ?? getEditableText(draftDocument);
                   commit(updateText(draftDocument, formatXml(value)));
                 }
               }}
@@ -1842,17 +1741,9 @@ export function SsmlEditor({
           )}
         </div>
       </div>
-      <div
-        className={displayClassName}
-        style={{ ...styles.display, ...displayStyle }}
-        data-ssml-editor-display=""
-      >
+      <div className={displayClassName} style={{ ...styles.display, ...displayStyle }} data-ssml-editor-display="">
         {isHelpOpen && isSsmlEditorButtonVisible(buttonVisibility, "help") && (
-          <section
-            id={helpPanelId}
-            style={styles.helpPanel}
-            aria-label={copy.helpHeading}
-          >
+          <section id={helpPanelId} style={styles.helpPanel} aria-label={copy.helpHeading}>
             <h3 style={styles.helpHeading}>{copy.helpHeading}</h3>
             <p style={styles.helpDescription}>{copy.helpDescription}</p>
             {visibleInsertions.length > 0 && (
@@ -1861,14 +1752,8 @@ export function SsmlEditor({
                 <ul style={styles.helpList}>
                   {visibleInsertions.map((insertion) => (
                     <li key={insertion.id} style={styles.helpItem}>
-                      <details
-                        className="ssml-editor-help-settings-accordion"
-                        style={styles.helpSettingsAccordion}
-                      >
-                        <summary
-                          className="ssml-editor-help-settings-summary"
-                          style={styles.helpSettingsSummary}
-                        >
+                      <details className="ssml-editor-help-settings-accordion" style={styles.helpSettingsAccordion}>
+                        <summary className="ssml-editor-help-settings-summary" style={styles.helpSettingsSummary}>
                           <span style={styles.helpIcon} aria-hidden="true">
                             {insertion.icon}
                           </span>
@@ -1876,26 +1761,20 @@ export function SsmlEditor({
                             <strong>{insertion.labels[language]}</strong>{" "}
                             {insertion.tagName && (
                               <>
-                                <code>
-                                  {`<${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`}
-                                </code>{" "}
-                                —{" "}
+                                <code>{`<${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`}</code> —{" "}
                               </>
                             )}
                             {insertion.descriptions[language]}
                           </span>
                         </summary>
                         <p style={styles.helpSettingsDescription}>
-                          <strong>{copy.parameters}:</strong>{" "}
-                          {insertion.parameterDescription[language]}
+                          <strong>{copy.parameters}:</strong> {insertion.parameterDescription[language]}
                         </p>
                         <ul style={styles.helpSettingsList}>
                           {insertion.options.map((option) => (
                             <li key={option.value}>
                               <strong>{option.labels[language]}</strong>
-                              {option.descriptions && (
-                                <> — {option.descriptions[language]}</>
-                              )}
+                              {option.descriptions && <> — {option.descriptions[language]}</>}
                             </li>
                           ))}
                         </ul>
@@ -1911,11 +1790,7 @@ export function SsmlEditor({
           <Editor
             height={editorHeight}
             language="xml"
-            theme={
-              resolvedTheme === "dark" || (resolvedTheme === "system" && isDark)
-                ? "vs-dark"
-                : "light"
-            }
+            theme={resolvedTheme === "dark" || (resolvedTheme === "system" && isDark) ? "vs-dark" : "light"}
             options={{
               automaticLayout: resolvedEditorOptions.automaticLayout ?? true,
               fontSize: resolvedEditorOptions.fontSize,
@@ -1932,18 +1807,12 @@ export function SsmlEditor({
               editorRef.current = editor;
               monacoRef.current = monaco;
               releaseHoverProviderRef.current?.();
-              releaseHoverProviderRef.current =
-                acquireSsmlHoverProvider(monaco);
+              releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco);
               const model = editor.getModel();
               const nextSyntaxError = validateEditableText(editor.getValue());
               setSyntaxError(nextSyntaxError);
               if (model) {
-                updateSsmlMarkers(
-                  monaco,
-                  model,
-                  editor.getValue(),
-                  nextSyntaxError,
-                );
+                updateSsmlMarkers(monaco, model, editor.getValue(), nextSyntaxError);
               }
             }}
             onChange={(value) => commit(updateText(draftDocument, value ?? ""))}

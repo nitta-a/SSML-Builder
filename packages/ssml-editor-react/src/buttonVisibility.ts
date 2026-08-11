@@ -25,9 +25,7 @@ export type SsmlEditorButton =
   | "format"
   | (string & {});
 
-export type SsmlEditorButtonVisibility = Readonly<
-  Partial<Record<string, boolean>>
->;
+export type SsmlEditorButtonVisibility = Readonly<Partial<Record<string, boolean>>>;
 
 export function isSsmlEditorButtonVisible(
   buttonVisibility: SsmlEditorButtonVisibility | undefined,

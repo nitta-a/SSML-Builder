@@ -124,10 +124,7 @@ test("parseSsml decodes text, CDATA, and custom elements", () => {
 });
 
 test("validateSsml returns no error for valid SSML", () => {
-  assert.equal(
-    validateSsml('<speak version="1.0" xml:lang="en-US">Hello</speak>'),
-    null,
-  );
+  assert.equal(validateSsml('<speak version="1.0" xml:lang="en-US">Hello</speak>'), null);
 });
 
 test("validateSsml returns a message and parser position for invalid SSML", () => {

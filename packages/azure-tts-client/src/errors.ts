@@ -4,12 +4,7 @@ export class AzureTtsError extends Error {
   readonly responseBody: string;
   readonly requestId: string | null;
 
-  constructor(
-    status: number,
-    statusText: string,
-    responseBody: string,
-    requestId: string | null,
-  ) {
+  constructor(status: number, statusText: string, responseBody: string, requestId: string | null) {
     super(`Azure TTS request failed: ${status} ${statusText}`);
     this.name = "AzureTtsError";
     this.status = status;
