@@ -692,9 +692,9 @@ const styles: Record<string, CSSProperties> = {
     gap: "0.375rem",
     margin: 0,
     paddingLeft: "1.25rem",
-    listStyleType: "none",
   },
   helpItem: {
+    listStyleType: "none",
     lineHeight: 1.45,
   },
   helpIcon: {
