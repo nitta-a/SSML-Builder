@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
@@ -10,7 +10,11 @@ import type {
   SsmlPartialContext,
   VoiceElement,
 } from "@ssml-builder/ssml-core";
-import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "./buttonVisibility";
+import {
+  isSsmlEditorButtonVisible,
+  type SsmlEditorButton,
+  type SsmlEditorButtonVisibility,
+} from "./buttonVisibility";
 import { formatXml } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
@@ -73,6 +77,11 @@ export interface SsmlEditorInsertionGroup {
   id: string;
   labels: SsmlEditorLocalizedText;
   insertionIds: readonly string[];
+}
+
+export interface SsmlEditorToolbarGroup {
+  id: string;
+  buttonIds: readonly SsmlEditorButton[];
 }
 
 export type SsmlEditorTheme = "system" | "light" | "dark";
@@ -594,6 +603,29 @@ const DEFAULT_INSERTION_GROUPS = [
   },
 ] satisfies readonly SsmlEditorInsertionGroup[];
 
+function createDefaultToolbarGroups(
+  insertionGroups: readonly SsmlEditorInsertionGroup[],
+): readonly SsmlEditorToolbarGroup[] {
+  return [
+    {
+      id: "history",
+      buttonIds: ["undo", "redo"],
+    },
+    ...insertionGroups.map(({ id, insertionIds }) => ({
+      id,
+      buttonIds: insertionIds,
+    })),
+    {
+      id: "document",
+      buttonIds: ["clearAll", "format"],
+    },
+    {
+      id: "help",
+      buttonIds: ["help"],
+    },
+  ];
+}
+
 function getInsertionCollection(
   collection: SsmlEditorCustomInsertionCollection | undefined,
 ): readonly SsmlEditorCustomInsertion[] {
@@ -669,6 +701,30 @@ function orderInsertions(
   return ordered;
 }
 
+function orderToolbarButtons(buttonIds: readonly string[], toolbarOrder: readonly string[] | undefined): readonly string[] {
+  if (!toolbarOrder || toolbarOrder.length === 0) {
+    return buttonIds;
+  }
+
+  const available = new Set(buttonIds);
+  const ordered: string[] = [];
+  const included = new Set<string>();
+  for (const id of toolbarOrder) {
+    if (available.has(id) && !included.has(id)) {
+      ordered.push(id);
+      included.add(id);
+    }
+  }
+
+  for (const id of buttonIds) {
+    if (!included.has(id)) {
+      ordered.push(id);
+    }
+  }
+
+  return ordered;
+}
+
 function getInsertionTitle(insertion: SsmlInsertionDefinition, language: SsmlEditorLanguage): string {
   if (insertion.titles) {
     return insertion.titles[language];
@@ -692,8 +748,6 @@ type EditorCopy = {
   helpHeading: string;
   helpDescription: string;
   parameters: string;
-  historyGroup: string;
-  documentGroup: string;
   format: string;
   formatTitle: string;
   syntaxError: string;
@@ -714,8 +768,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     helpHeading: "ボタンとパラメータの説明",
     helpDescription: "各コントロールの機能とパラメータを確認できます。",
     parameters: "パラメータ",
-    historyGroup: "履歴",
-    documentGroup: "ドキュメント",
     format: "フォーマット",
     formatTitle: "本文のXMLを改行して見やすく表示",
     syntaxError: "構文エラー",
@@ -734,8 +786,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     helpHeading: "Button and parameter descriptions",
     helpDescription: "Review what each control does and its parameters.",
     parameters: "Parameters",
-    historyGroup: "History",
-    documentGroup: "Document",
     format: "Format",
     formatTitle: "Format the XML in the editor",
     syntaxError: "Syntax error",
@@ -838,9 +888,13 @@ export interface SsmlEditorProps {
   minimap?: boolean;
   /** Whether Monaco automatically lays out when its container changes size. */
   automaticLayout?: boolean;
+  /** Reorders all toolbar controls. Unlisted controls follow. */
+  toolbarOrder?: readonly SsmlEditorButton[];
+  /** Adds vertical separators between configured toolbar groups. */
+  toolbarGroups?: readonly SsmlEditorToolbarGroup[];
   /** Reorders built-in and custom insertion menus. Unlisted insertions follow. */
   insertionOrder?: readonly string[];
-  /** Visually groups insertion menus in the toolbar. */
+  /** Visually groups insertion menus when toolbarGroups is not supplied. */
   insertionGroups?: readonly SsmlEditorInsertionGroup[];
   /** Replaces built-in insertion definitions with custom definitions by ID. */
   customInsertions?: SsmlEditorCustomInsertionCollection;
@@ -895,25 +949,11 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: "wrap",
     gap: "0.5rem",
   },
-  toolbarGroup: {
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-    padding: "0.25rem",
-    border: "1px solid var(--ssml-editor-border)",
-    borderRadius: "0.25rem",
-  },
-  toolbarGroupLegend: {
-    position: "absolute",
+  toolbarSeparator: {
     width: "1px",
-    height: "1px",
-    margin: "-1px",
-    padding: 0,
-    overflow: "hidden",
-    border: 0,
-    clip: "rect(0 0 0 0)",
-    whiteSpace: "nowrap",
+    height: "2.25rem",
+    margin: "0 0.25rem",
+    backgroundColor: "var(--ssml-editor-border)",
   },
   toolbarDropdown: {
     position: "relative",
@@ -1462,6 +1502,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     lineNumbers,
     minimap,
     automaticLayout,
+    toolbarOrder,
+    toolbarGroups,
     insertionOrder,
     insertionGroups,
     customInsertions,
@@ -1516,18 +1558,56 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     isSsmlEditorButtonVisible(buttonVisibility, insertion.id),
   );
   const insertionById = new Map(visibleInsertions.map((insertion) => [insertion.id, insertion]));
-  const visibleInsertionGroups = (insertionGroups ?? DEFAULT_INSERTION_GROUPS)
-    .map((group) => ({
-      group,
-      insertions: group.insertionIds
-        .map((id) => insertionById.get(id))
-        .filter((insertion): insertion is SsmlInsertionDefinition => insertion !== undefined),
-    }))
+  const configuredInsertionGroups = insertionGroups ?? DEFAULT_INSERTION_GROUPS;
+  const groupedInsertionIds = new Set<string>();
+  const visibleInsertionGroups = configuredInsertionGroups
+    .map((group) => {
+      const groupInsertionIds = new Set(group.insertionIds);
+      const candidates =
+        insertionOrder && insertionOrder.length > 0
+          ? visibleInsertions.filter((insertion) => groupInsertionIds.has(insertion.id))
+          : group.insertionIds
+              .map((id) => insertionById.get(id))
+              .filter((insertion): insertion is SsmlInsertionDefinition => insertion !== undefined);
+      const insertions = candidates.filter((insertion) => {
+        if (groupedInsertionIds.has(insertion.id)) {
+          return false;
+        }
+        groupedInsertionIds.add(insertion.id);
+        return true;
+      });
+
+      return { group, insertions };
+    })
     .filter(({ insertions }) => insertions.length > 0);
-  const groupedInsertionIds = new Set(
-    visibleInsertionGroups.flatMap(({ insertions }) => insertions.map((insertion) => insertion.id)),
-  );
   const ungroupedInsertions = visibleInsertions.filter((insertion) => !groupedInsertionIds.has(insertion.id));
+  const toolbarActionIds = ["undo", "redo", "clearAll", "format", "help"] as const;
+  const defaultToolbarOrder = [
+    "undo",
+    "redo",
+    ...visibleInsertionGroups.flatMap(({ insertions }) => insertions.map((insertion) => insertion.id)),
+    ...ungroupedInsertions.map((insertion) => insertion.id),
+    "clearAll",
+    "format",
+    "help",
+  ];
+  const visibleToolbarIds = new Set<string>([
+    ...visibleInsertions.map((insertion) => insertion.id),
+    ...toolbarActionIds.filter((id) => isSsmlEditorButtonVisible(buttonVisibility, id)),
+  ]);
+  const toolbarItemIds = orderToolbarButtons(
+    defaultToolbarOrder.filter((id) => visibleToolbarIds.has(id)),
+    toolbarOrder,
+  );
+  const effectiveToolbarGroups = toolbarGroups ?? createDefaultToolbarGroups(configuredInsertionGroups);
+  const toolbarGroupByButtonId = new Map<string, string>();
+  for (const group of effectiveToolbarGroups) {
+    for (const buttonId of group.buttonIds) {
+      if (!toolbarGroupByButtonId.has(buttonId)) {
+        toolbarGroupByButtonId.set(buttonId, group.id);
+      }
+    }
+  }
 
   useEffect(() => {
     injectEditorTheme();
@@ -1637,6 +1717,137 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     </details>
   );
 
+  const toolbarItemRenderers = new Map<string, () => ReactElement>([
+    [
+      "undo",
+      () => (
+        <button
+          key="undo"
+          type="button"
+          style={toolbarButtonStyle}
+          aria-label={copy.undo}
+          title={copy.undoTitle}
+          disabled={isReadOnly}
+          onClick={() => {
+            if (!isReadOnly) {
+              editorRef.current?.trigger("toolbar", "undo", null);
+              editorRef.current?.focus();
+            }
+          }}
+        >
+          {showToolbarIcons && (
+            <span style={styles.toolbarIcon} aria-hidden="true">
+              ↩
+            </span>
+          )}
+          {showToolbarText && <span>{copy.undo}</span>}
+        </button>
+      ),
+    ],
+    [
+      "redo",
+      () => (
+        <button
+          key="redo"
+          type="button"
+          style={toolbarButtonStyle}
+          aria-label={copy.redo}
+          title={copy.redoTitle}
+          disabled={isReadOnly}
+          onClick={() => {
+            if (!isReadOnly) {
+              editorRef.current?.trigger("toolbar", "redo", null);
+              editorRef.current?.focus();
+            }
+          }}
+        >
+          {showToolbarIcons && (
+            <span style={styles.toolbarIcon} aria-hidden="true">
+              ↪
+            </span>
+          )}
+          {showToolbarText && <span>{copy.redo}</span>}
+        </button>
+      ),
+    ],
+    [
+      "clearAll",
+      () => (
+        <button
+          key="clearAll"
+          type="button"
+          style={toolbarButtonStyle}
+          aria-label={copy.clearAll}
+          title={copy.clearAllTitle}
+          disabled={isReadOnly}
+          onClick={() => {
+            if (!isReadOnly) {
+              commit(clearDocument(draftDocument));
+            }
+          }}
+        >
+          {showToolbarIcons && (
+            <span style={styles.toolbarIcon} aria-hidden="true">
+              ×
+            </span>
+          )}
+          {showToolbarText && <span>{copy.clearAll}</span>}
+        </button>
+      ),
+    ],
+    [
+      "format",
+      () => (
+        <button
+          key="format"
+          type="button"
+          style={toolbarButtonStyle}
+          aria-label={copy.format}
+          title={copy.formatTitle}
+          disabled={isReadOnly}
+          onClick={() => {
+            if (!isReadOnly) {
+              const value = editorRef.current?.getValue() ?? getEditableText(draftDocument);
+              commit(updateText(draftDocument, formatXml(value)));
+            }
+          }}
+        >
+          {showToolbarIcons && (
+            <span style={styles.toolbarIcon} aria-hidden="true">
+              ≡
+            </span>
+          )}
+          {showToolbarText && <span>{copy.format}</span>}
+        </button>
+      ),
+    ],
+    [
+      "help",
+      () => (
+        <button
+          key="help"
+          type="button"
+          style={toolbarButtonStyle}
+          aria-label={copy.help}
+          title={copy.helpTitle}
+          aria-expanded={isHelpOpen}
+          aria-controls={helpPanelId}
+          onClick={() => setIsHelpOpen((open) => !open)}
+        >
+          {showToolbarIcons && (
+            <span style={styles.toolbarIcon} aria-hidden="true">
+              ?
+            </span>
+          )}
+          {showToolbarText && <span>{copy.help}</span>}
+        </button>
+      ),
+    ],
+  ]);
+  for (const insertion of visibleInsertions) {
+    toolbarItemRenderers.set(insertion.id, () => renderInsertion(insertion));
+  }
+
   return (
     <section
       className={className}
@@ -1655,130 +1866,20 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           aria-label={copy.toolbarAriaLabel}
           data-ssml-editor-toolbar-actions=""
         >
-          {(isSsmlEditorButtonVisible(buttonVisibility, "undo") ||
-            isSsmlEditorButtonVisible(buttonVisibility, "redo")) && (
-            <fieldset style={styles.toolbarGroup} aria-label={copy.historyGroup}>
-              <legend style={styles.toolbarGroupLegend}>{copy.historyGroup}</legend>
-              {isSsmlEditorButtonVisible(buttonVisibility, "undo") && (
-                <button
-                  type="button"
-                  style={toolbarButtonStyle}
-                  aria-label={copy.undo}
-                  title={copy.undoTitle}
-                  disabled={isReadOnly}
-                  onClick={() => {
-                    if (!isReadOnly) {
-                      editorRef.current?.trigger("toolbar", "undo", null);
-                      editorRef.current?.focus();
-                    }
-                  }}
-                >
-                  {showToolbarIcons && (
-                    <span style={styles.toolbarIcon} aria-hidden="true">
-                      ↩
-                    </span>
-                  )}
-                  {showToolbarText && <span>{copy.undo}</span>}
-                </button>
-              )}
-              {isSsmlEditorButtonVisible(buttonVisibility, "redo") && (
-                <button
-                  type="button"
-                  style={toolbarButtonStyle}
-                  aria-label={copy.redo}
-                  title={copy.redoTitle}
-                  disabled={isReadOnly}
-                  onClick={() => {
-                    if (!isReadOnly) {
-                      editorRef.current?.trigger("toolbar", "redo", null);
-                      editorRef.current?.focus();
-                    }
-                  }}
-                >
-                  {showToolbarIcons && (
-                    <span style={styles.toolbarIcon} aria-hidden="true">
-                      ↪
-                    </span>
-                  )}
-                  {showToolbarText && <span>{copy.redo}</span>}
-                </button>
-              )}
-            </fieldset>
-          )}
-          {visibleInsertionGroups.map(({ group, insertions }) => (
-            <fieldset key={group.id} style={styles.toolbarGroup} aria-label={group.labels[language]}>
-              <legend style={styles.toolbarGroupLegend}>{group.labels[language]}</legend>
-              {insertions.map(renderInsertion)}
-            </fieldset>
-          ))}
-          {ungroupedInsertions.map(renderInsertion)}
-          {(isSsmlEditorButtonVisible(buttonVisibility, "clearAll") ||
-            isSsmlEditorButtonVisible(buttonVisibility, "format")) && (
-            <fieldset style={styles.toolbarGroup} aria-label={copy.documentGroup}>
-              <legend style={styles.toolbarGroupLegend}>{copy.documentGroup}</legend>
-              {isSsmlEditorButtonVisible(buttonVisibility, "clearAll") && (
-                <button
-                  type="button"
-                  style={toolbarButtonStyle}
-                  aria-label={copy.clearAll}
-                  title={copy.clearAllTitle}
-                  disabled={isReadOnly}
-                  onClick={() => {
-                    if (!isReadOnly) {
-                      commit(clearDocument(draftDocument));
-                    }
-                  }}
-                >
-                  {showToolbarIcons && (
-                    <span style={styles.toolbarIcon} aria-hidden="true">
-                      ×
-                    </span>
-                  )}
-                  {showToolbarText && <span>{copy.clearAll}</span>}
-                </button>
-              )}
-              {isSsmlEditorButtonVisible(buttonVisibility, "format") && (
-                <button
-                  type="button"
-                  style={toolbarButtonStyle}
-                  aria-label={copy.format}
-                  title={copy.formatTitle}
-                  disabled={isReadOnly}
-                  onClick={() => {
-                    if (!isReadOnly) {
-                      const value = editorRef.current?.getValue() ?? getEditableText(draftDocument);
-                      commit(updateText(draftDocument, formatXml(value)));
-                    }
-                  }}
-                >
-                  {showToolbarIcons && (
-                    <span style={styles.toolbarIcon} aria-hidden="true">
-                      ≡
-                    </span>
-                  )}
-                  {showToolbarText && <span>{copy.format}</span>}
-                </button>
-              )}
-            </fieldset>
-          )}
-          {isSsmlEditorButtonVisible(buttonVisibility, "help") && (
-            <button
-              type="button"
-              style={toolbarButtonStyle}
-              aria-label={copy.help}
-              title={copy.helpTitle}
-              aria-expanded={isHelpOpen}
-              aria-controls={helpPanelId}
-              onClick={() => setIsHelpOpen((open) => !open)}
-            >
-              {showToolbarIcons && (
-                <span style={styles.toolbarIcon} aria-hidden="true">
-                  ?
-                </span>
-              )}
-              {showToolbarText && <span>{copy.help}</span>}
-            </button>
-          )}
+          {toolbarItemIds.map((id, index) => {
+            const groupId = toolbarGroupByButtonId.get(id);
+            const previousGroupId = index > 0 ? toolbarGroupByButtonId.get(toolbarItemIds[index - 1]) : groupId;
+            const render = toolbarItemRenderers.get(id);
+
+            return (
+              <Fragment key={id}>
+                {index > 0 && groupId !== previousGroupId && (
+                  <span style={styles.toolbarSeparator} aria-hidden="true" />
+                )}
+                {render?.()}
+              </Fragment>
+            );
+          })}
         </div>
       </div>
       <div className={displayClassName} style={{ ...styles.display, ...displayStyle }} data-ssml-editor-display="">
