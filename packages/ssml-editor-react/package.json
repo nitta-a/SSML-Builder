@@ -18,13 +18,14 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test": "vitest run test/randomized-editor-invariants.test.ts && node --experimental-strip-types --test test/index.test.ts test/format-xml-edge-cases.test.ts",
     "typecheck": "tsc --build"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "@monaco-editor/react": "^4.7.0",
