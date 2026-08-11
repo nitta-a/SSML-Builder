@@ -1,4 +1,5 @@
 const INDENT = "  ";
+const FRAGMENT_ROOT = "ssml-builder-fragment";
 const XML_ENTITY_NAMES = new Set(["amp", "apos", "gt", "lt", "quot"]);
 
 type XmlNode = XmlElementNode | XmlTextNode | XmlMarkupNode;
@@ -482,4 +483,44 @@ export function formatXml(xml: string): string {
   } catch {
     return xml;
   }
+}
+
+function unwrapFormattedFragment(formatted: string): string | undefined {
+  const opening = `<${FRAGMENT_ROOT}>`;
+  const closing = `</${FRAGMENT_ROOT}>`;
+
+  if (!formatted.startsWith(opening) || !formatted.endsWith(closing)) {
+    return undefined;
+  }
+
+  if (formatted === `${opening}${closing}`) {
+    return "";
+  }
+
+  const multilineOpening = `${opening}\n`;
+  const multilineClosing = `\n${closing}`;
+  if (formatted.startsWith(multilineOpening) && formatted.endsWith(multilineClosing)) {
+    const content = formatted.slice(multilineOpening.length, -multilineClosing.length);
+    return content
+      .split("\n")
+      .map((line) => (line.startsWith(INDENT) ? line.slice(INDENT.length) : line))
+      .join("\n");
+  }
+
+  return formatted.slice(opening.length, -closing.length);
+}
+
+export function formatXmlFragment(xml: string): string {
+  const source = xml.trim();
+  if (source === "") {
+    return "";
+  }
+
+  const wrapped = `<${FRAGMENT_ROOT}>${source}</${FRAGMENT_ROOT}>`;
+  const formatted = formatXml(wrapped);
+  if (formatted === wrapped) {
+    return xml;
+  }
+
+  return unwrapFormattedFragment(formatted) ?? xml;
 }

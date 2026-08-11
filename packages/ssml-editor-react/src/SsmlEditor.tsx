@@ -11,7 +11,7 @@ import type {
   VoiceElement,
 } from "@ssml-builder/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "./buttonVisibility";
-import { formatXml } from "./formatXml";
+import { formatXmlFragment } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
 const DEFAULT_LANGUAGE = "ja";
@@ -1747,7 +1747,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                   onClick={() => {
                     if (!isReadOnly) {
                       const value = editorRef.current?.getValue() ?? getEditableText(draftDocument);
-                      commit(updateText(draftDocument, formatXml(value)));
+                      commit(updateText(draftDocument, formatXmlFragment(value)));
                     }
                   }}
                 >

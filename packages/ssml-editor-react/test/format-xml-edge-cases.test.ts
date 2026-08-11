@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatXml } from "../src/formatXml.ts";
+import { formatXml, formatXmlFragment } from "../src/formatXml.ts";
 
 test("formatXml keeps declarations, comments, and CDATA at the current depth", () => {
   assert.equal(
@@ -60,4 +60,19 @@ test("formatXml formats empty elements as a stable block", () => {
 
   assert.equal(formatted, "<root>\n  <empty>\n  </empty>\n</root>");
   assert.equal(formatXml(formatted), formatted);
+});
+
+test("formatXmlFragment formats sibling elements from the editor body", () => {
+  assert.equal(
+    formatXmlFragment('<break time="500ms"/><emphasis level="strong">Important</emphasis>'),
+    '<break time="500ms"/>\n<emphasis level="strong">Important</emphasis>',
+  );
+});
+
+test("formatXmlFragment preserves mixed content and malformed input", () => {
+  const mixed = "Hello<break time=\"500ms\"/>world";
+  const malformed = " \n<break><emphasis></break> \n";
+
+  assert.equal(formatXmlFragment(mixed), mixed);
+  assert.equal(formatXmlFragment(malformed), malformed);
 });
