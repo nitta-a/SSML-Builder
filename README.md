@@ -47,6 +47,27 @@ Node.js 24 以降を用意し、リポジトリのルートで依存関係をイ
 npm ci
 ```
 
+### Playground で音声を生成する
+
+`apps/playground` の「音声を生成」ボタンは、現在の SSML をサーバー側の
+Next.js Route Handler に送信し、`@ssml-builder/azure-tts-client` で Azure
+Speech の音声を生成します。Azure のサブスクリプションキーをブラウザへ公開しないため、
+`apps/playground/.env.local` に次の値を設定してください。
+
+```dotenv
+AZURE_SPEECH_KEY=your-subscription-key
+AZURE_SPEECH_REGION=japaneast
+# AZURE_SPEECH_ENDPOINT=https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
+```
+
+`apps/playground/.env.example` をコピーして使用できます。設定後、リポジトリのルートから
+次のコマンドで Playground を起動します。
+
+```sh
+cp apps/playground/.env.example apps/playground/.env.local
+npm run dev --workspace playground
+```
+
 ## `ssml-core` の利用方法
 
 `SsmlDocument` は `version`、`lang`、`children` を持つオブジェクトです。`children` には文字列、テキストノード、SSML 要素を入れられます。`children` を使う形式が推奨され、旧形式の `content` プロパティも `buildSsml` の入力として利用できます。
@@ -251,6 +272,26 @@ Install Node.js 24 or later, then install dependencies from the repository root:
 
 ```sh
 npm ci
+```
+
+### Generating audio in the playground
+
+The **Generate audio** button in `apps/playground` sends the current SSML to a
+server-side Next.js Route Handler, which uses `@ssml-builder/azure-tts-client` to
+generate speech with Azure Speech. To keep the Azure subscription key out of the
+browser, set the following values in `apps/playground/.env.local`:
+
+```dotenv
+AZURE_SPEECH_KEY=your-subscription-key
+AZURE_SPEECH_REGION=japaneast
+# AZURE_SPEECH_ENDPOINT=https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
+```
+
+Copy `apps/playground/.env.example` to get started. Then run the playground from the repository root:
+
+```sh
+cp apps/playground/.env.example apps/playground/.env.local
+npm run dev --workspace playground
 ```
 
 ## Using `ssml-core`

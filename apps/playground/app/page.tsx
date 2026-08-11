@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildSsml } from "@ssml-builder/ssml-core";
 import type { SsmlDocument } from "@ssml-builder/ssml-core";
 import type { SsmlNode } from "@ssml-builder/ssml-core";
@@ -56,6 +56,30 @@ function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
     document.children ??
     (document.content === undefined ? [] : [document.content])
   );
+}
+
+function getNodeText(node: SsmlNode): string {
+  if (typeof node === "string") {
+    return node;
+  }
+
+  if (node.type === "text") {
+    return node.value;
+  }
+
+  return (node.children ?? []).map(getNodeText).join("");
+}
+
+function createCaptionTrack(document: SsmlDocument): string {
+  const text =
+    getDocumentChildren(document)
+      .map(getNodeText)
+      .join("")
+      .trim()
+      .replace(/\s+/g, " ")
+      .replaceAll("-->", "-- >") || "Generated speech";
+  const webVtt = `WEBVTT\n\n00:00:00.000 --> 99:59:59.999\n${text}`;
+  return `data:text/vtt;charset=utf-8,${encodeURIComponent(webVtt)}`;
 }
 
 function updateFirstVoice(
@@ -117,13 +141,91 @@ function updateSpeechSettings(
   return nextDocument;
 }
 
+async function getSynthesisError(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    if (
+      body !== null &&
+      typeof body === "object" &&
+      "error" in body &&
+      typeof body.error === "string"
+    ) {
+      return body.error;
+    }
+  } catch {}
+
+  return `Audio generation failed (${response.status}).`;
+}
+
 export default function Home() {
   const [document, setDocument] = useState<SsmlDocument>(initialDocument);
   const [selectedLanguage, setSelectedLanguage] =
     useState<SpeechLanguage>("en-US");
   const [selectedGender, setSelectedGender] = useState<SpeechGender>("female");
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioCaptionTrack, setAudioCaptionTrack] = useState<string | null>(
+    null,
+  );
+  const [audioCaptionLanguage, setAudioCaptionLanguage] = useState<
+    string | null
+  >(null);
+  const audioUrlRef = useRef<string | null>(null);
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
+  const currentCaptionTrack = createCaptionTrack(document);
+  const captionTrackSource = audioCaptionTrack ?? currentCaptionTrack;
+  const captionLanguage = audioCaptionLanguage ?? document.lang;
+
+  useEffect(() => {
+    return () => {
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+      }
+    };
+  }, []);
+
+  const replaceAudioUrl = (nextAudioUrl: string | null): void => {
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+    }
+    audioUrlRef.current = nextAudioUrl;
+    setAudioUrl(nextAudioUrl);
+  };
+
+  const generateAudio = async (): Promise<void> => {
+    setIsGeneratingAudio(true);
+    setAudioError(null);
+    setAudioCaptionTrack(null);
+    setAudioCaptionLanguage(null);
+    replaceAudioUrl(null);
+
+    try {
+      const response = await fetch("/api/synthesize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ssml }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await getSynthesisError(response));
+      }
+
+      const audioBlob = await response.blob();
+      setAudioCaptionTrack(currentCaptionTrack);
+      setAudioCaptionLanguage(document.lang);
+      replaceAudioUrl(URL.createObjectURL(audioBlob));
+    } catch (error) {
+      setAudioError(
+        error instanceof Error ? error.message : "Audio generation failed.",
+      );
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
 
   return (
     <main className="playground">
@@ -195,6 +297,47 @@ export default function Home() {
         </p>
       </section>
       <SsmlEditor document={document} onChange={setDocument} language="ja" />
+      <section
+        className="audio-generation"
+        aria-labelledby="audio-generation-heading"
+      >
+        <h2 id="audio-generation-heading">Audio preview</h2>
+        <p>
+          Generate audio from the current SSML and listen to it in the browser.
+        </p>
+        <button
+          className="generate-audio"
+          type="button"
+          onClick={generateAudio}
+          disabled={isGeneratingAudio}
+          aria-busy={isGeneratingAudio}
+        >
+          {isGeneratingAudio ? "Generating audio..." : "Generate audio"}
+        </button>
+        {audioError ? (
+          <p className="audio-error" role="alert">
+            {audioError}
+          </p>
+        ) : null}
+        {audioUrl ? (
+          <audio
+            className="audio-player"
+            controls
+            autoPlay
+            src={audioUrl}
+            aria-label="Generated speech audio"
+          >
+            <track
+              kind="captions"
+              label="SSML text"
+              src={captionTrackSource}
+              srcLang={captionLanguage}
+              default
+            />
+            Your browser does not support audio playback.
+          </audio>
+        ) : null}
+      </section>
       <section className="output" aria-labelledby="generated-ssml-heading">
         <h2 id="generated-ssml-heading">Generated SSML</h2>
         <pre>

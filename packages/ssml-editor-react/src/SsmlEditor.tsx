@@ -47,7 +47,7 @@ export interface SsmlEditorInsertionDefinition {
   tagName?: string;
   selfClosing?: boolean;
   labels: SsmlEditorLocalizedText;
-  titles: SsmlEditorLocalizedText;
+  titles?: SsmlEditorLocalizedText;
   descriptions: SsmlEditorLocalizedText;
   parameterDescription: SsmlEditorLocalizedText;
   options: readonly SsmlEditorInsertionOption[];
@@ -126,8 +126,7 @@ export function createSsmlEditorInsertionDefinition(
     tagName: definition.tagName,
     selfClosing: mode === "insert",
     labels: definition.labels,
-    titles:
-      definition.titles ?? localizedText(`Insert <${definition.tagName}>`),
+    titles: definition.titles,
     descriptions:
       definition.descriptions ??
       localizedText(`Inserts the <${definition.tagName}> element.`),
@@ -182,10 +181,6 @@ export const SSML_INSERTIONS = [
     tagName: "break",
     selfClosing: true,
     labels: { ja: "間", en: "Break" },
-    titles: {
-      ja: '500msの間を挿入 (<break time="500ms"/>)',
-      en: 'Insert a 500ms pause with <break time="500ms"/>',
-    },
     descriptions: {
       ja: "指定した時間だけ無音の間を挿入します。",
       en: "Inserts a silent pause for the selected duration.",
@@ -223,10 +218,6 @@ export const SSML_INSERTIONS = [
     icon: "✦",
     tagName: "emphasis",
     labels: { ja: "強調", en: "Emphasis" },
-    titles: {
-      ja: '選択範囲を <emphasis level="strong"> で囲む',
-      en: 'Wrap the selection with <emphasis level="strong">',
-    },
     descriptions: {
       ja: "選択範囲の強調レベルを変更します。",
       en: "Changes the emphasis level of the selected text.",
@@ -264,10 +255,6 @@ export const SSML_INSERTIONS = [
     icon: "↕",
     tagName: "prosody",
     labels: { ja: "速度", en: "Rate" },
-    titles: {
-      ja: '選択範囲を <prosody rate="fast"> で囲む',
-      en: 'Wrap the selection with <prosody rate="fast">',
-    },
     descriptions: {
       ja: "選択範囲の読み上げ速度を変更します。",
       en: "Changes the speech rate of the selected text.",
@@ -309,10 +296,6 @@ export const SSML_INSERTIONS = [
     icon: "↗",
     tagName: "prosody",
     labels: { ja: "高さ", en: "Pitch" },
-    titles: {
-      ja: '選択範囲を <prosody pitch="+2st"> で囲む',
-      en: 'Wrap the selection with <prosody pitch="+2st">',
-    },
     descriptions: {
       ja: "選択範囲の声の高さを変更します。",
       en: "Changes the pitch of the selected text.",
@@ -370,10 +353,6 @@ export const SSML_INSERTIONS = [
     icon: "🔊",
     tagName: "prosody",
     labels: { ja: "音量", en: "Volume" },
-    titles: {
-      ja: '選択範囲を <prosody volume="loud"> で囲む',
-      en: 'Wrap the selection with <prosody volume="loud">',
-    },
     descriptions: {
       ja: "選択範囲の音量を変更します。",
       en: "Changes the volume of the selected text.",
@@ -419,17 +398,13 @@ export const SSML_INSERTIONS = [
     icon: "☺",
     tagName: "mstts:express-as",
     labels: { ja: "感情", en: "Emotion" },
-    titles: {
-      ja: '選択範囲を <mstts:express-as style="cheerful"> で囲む',
-      en: 'Wrap the selection with <mstts:express-as style="cheerful">',
-    },
     descriptions: {
-      ja: "選択範囲に Azure 音声の感情スタイルを適用します。",
-      en: "Applies an Azure voice emotion style to the selected text.",
+      ja: "選択範囲に音声の感情スタイルを適用します。",
+      en: "Applies a voice emotion style to the selected text.",
     },
     parameterDescription: {
-      ja: "選択範囲に適用する Azure 音声の感情スタイルを選択します。",
-      en: "Selects the Azure voice emotion style to apply.",
+      ja: "選択範囲に適用する音声の感情スタイルを選択します。",
+      en: "Selects the voice emotion style to apply.",
     },
     options: createInsertionOptions({
       cheerful: {
@@ -472,10 +447,6 @@ export const SSML_INSERTIONS = [
     icon: "Aa",
     tagName: "say-as",
     labels: { ja: "読み上げ", en: "Say as" },
-    titles: {
-      ja: '選択範囲を <say-as interpret-as="characters"> で囲む',
-      en: 'Wrap the selection with <say-as interpret-as="characters">',
-    },
     descriptions: {
       ja: "数字や日付などの読み上げ方を指定します。",
       en: "Specifies how values such as numbers or dates are spoken.",
@@ -545,10 +516,6 @@ export const SSML_INSERTIONS = [
     icon: "ɑ",
     tagName: "phoneme",
     labels: { ja: "発音", en: "Phoneme" },
-    titles: {
-      ja: '選択範囲を <phoneme alphabet="ipa"> で囲む',
-      en: 'Wrap the selection with <phoneme alphabet="ipa">',
-    },
     descriptions: {
       ja: "選択範囲の発音記号を指定します。",
       en: "Specifies the phonetic pronunciation of the selected text.",
@@ -586,10 +553,6 @@ export const SSML_INSERTIONS = [
     icon: "🔈",
     tagName: "audio",
     labels: { ja: "音声", en: "Audio" },
-    titles: {
-      ja: '選択範囲を <audio src="..."> で囲む',
-      en: 'Wrap the selection with <audio src="...">',
-    },
     descriptions: {
       ja: "選択範囲に音声ファイルを関連付けます。",
       en: "Associates an audio file with the selected text.",
@@ -613,10 +576,6 @@ export const SSML_INSERTIONS = [
     icon: "↔",
     tagName: "sub",
     labels: { ja: "置換", en: "Substitute" },
-    titles: {
-      ja: '選択範囲を <sub alias="..."> で囲む',
-      en: 'Wrap the selection with <sub alias="...">',
-    },
     descriptions: {
       ja: "選択範囲を指定した別名で読み上げます。",
       en: "Speaks the selected text using the supplied alias.",
@@ -637,10 +596,6 @@ export const SSML_INSERTIONS = [
     icon: "文",
     tagName: "lang",
     labels: { ja: "言語", en: "Language" },
-    titles: {
-      ja: '選択範囲を <lang xml:lang="ja-JP"> で囲む',
-      en: 'Wrap the selection with <lang xml:lang="ja-JP">',
-    },
     descriptions: {
       ja: "選択範囲の読み上げ言語を変更します。",
       en: "Changes the speaking language of the selected text.",
@@ -662,10 +617,6 @@ export const SSML_INSERTIONS = [
     tagName: "mark",
     selfClosing: true,
     labels: { ja: "マーク", en: "Mark" },
-    titles: {
-      ja: '<mark name="chapter-1"/> を挿入',
-      en: 'Insert <mark name="chapter-1"/>',
-    },
     descriptions: {
       ja: "音声ストリームにアプリケーション用のマーカーを挿入します。",
       en: "Inserts an application-defined marker into the audio stream.",
@@ -687,10 +638,6 @@ export const SSML_INSERTIONS = [
     tagName: "bookmark",
     selfClosing: true,
     labels: { ja: "しおり", en: "Bookmark" },
-    titles: {
-      ja: '<bookmark mark="chapter-1"/> を挿入',
-      en: 'Insert <bookmark mark="chapter-1"/>',
-    },
     descriptions: {
       ja: "音声ストリームにブックマークを挿入します。",
       en: "Inserts a bookmark into the audio stream.",
@@ -712,10 +659,6 @@ export const SSML_INSERTIONS = [
     tagName: "mstts:silence",
     selfClosing: true,
     labels: { ja: "無音", en: "Silence" },
-    titles: {
-      ja: '<mstts:silence type="Leading" value="300ms"/> を挿入',
-      en: 'Insert <mstts:silence type="Leading" value="300ms"/>',
-    },
     descriptions: {
       ja: "Azure Speech の無音時間を挿入します。",
       en: "Inserts an Azure Speech silence interval.",
@@ -737,10 +680,6 @@ export const SSML_INSERTIONS = [
     tagName: "mstts:viseme",
     selfClosing: true,
     labels: { ja: "口形", en: "Viseme" },
-    titles: {
-      ja: '<mstts:viseme type="redlips_front"/> を挿入',
-      en: 'Insert <mstts:viseme type="redlips_front"/>',
-    },
     descriptions: {
       ja: "Azure Speech の口形素イベントを要求します。",
       en: "Requests Azure Speech viseme events.",
@@ -842,6 +781,20 @@ function orderInsertions(
   return ordered;
 }
 
+function getInsertionTitle(
+  insertion: SsmlInsertionDefinition,
+  language: SsmlEditorLanguage,
+): string {
+  if (insertion.titles) {
+    return insertion.titles[language];
+  }
+
+  const tag = insertion.tagName
+    ? ` <${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`
+    : "";
+  return `${insertion.labels[language]}${tag} — ${insertion.descriptions[language]}`;
+}
+
 type EditorCopy = {
   editorAriaLabel: string;
   toolbarAriaLabel: string;
@@ -928,6 +881,32 @@ const STYLE_CSS = `
     --ssml-editor-error: #fca5a5;
     --ssml-editor-error-bg: #450a0a;
   }
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary {
+  list-style: none;
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary::-webkit-details-marker {
+  display: none;
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary:hover {
+  background-color: var(--ssml-editor-preview-bg);
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary:focus-visible {
+  outline: 2px solid var(--ssml-editor-control-border);
+  outline-offset: -2px;
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary::before {
+  content: "▸";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+[data-ssml-editor]
+  .ssml-editor-help-settings-accordion[open]
+  > .ssml-editor-help-settings-summary::before {
+  content: "▾";
 }
 `.trim();
 
@@ -1130,9 +1109,6 @@ const styles: Record<string, CSSProperties> = {
     paddingLeft: "1.25rem",
   },
   helpItem: {
-    display: "grid",
-    gridTemplateColumns: "1.25rem minmax(0, 1fr)",
-    columnGap: "0.375rem",
     lineHeight: 1.45,
   },
   helpIcon: {
@@ -1142,25 +1118,32 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "1.1rem",
     lineHeight: 1.45,
   },
-  helpItemContent: {
-    minWidth: 0,
-  },
-  helpParameterAccordion: {
+  helpSettingsAccordion: {
     marginTop: "0.375rem",
+    overflow: "hidden",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.25rem",
+    backgroundColor: "var(--ssml-editor-control-bg)",
   },
-  helpParameterSummary: {
-    padding: "0.125rem 0",
-    fontWeight: 600,
+  helpSettingsSummary: {
+    display: "grid",
+    gridTemplateColumns: "1rem 1.25rem minmax(0, 1fr)",
+    columnGap: "0.5rem",
+    alignItems: "start",
+    padding: "0.5rem 0.625rem",
     cursor: "pointer",
   },
-  helpParameterDescription: {
-    margin: "0.375rem 0 0",
+  helpSettingsSummaryContent: {
+    minWidth: 0,
+  },
+  helpSettingsDescription: {
+    margin: "0.5rem 0.75rem 0",
     fontSize: "0.875rem",
   },
-  helpParameterList: {
+  helpSettingsList: {
     display: "grid",
     gap: "0.125rem",
-    margin: "0.25rem 0 0",
+    margin: "0.25rem 0.75rem 0.75rem",
     paddingLeft: "1.25rem",
     fontSize: "0.875rem",
   },
@@ -1673,7 +1656,7 @@ export function SsmlEditor({
           ...toolbarButtonStyle,
           listStyleType: "none",
         }}
-        title={insertion.titles[language]}
+        title={getInsertionTitle(insertion, language)}
         aria-label={insertion.labels[language]}
         aria-haspopup="menu"
       >
@@ -1877,39 +1860,45 @@ export function SsmlEditor({
                 <ul style={styles.helpList}>
                   {visibleInsertions.map((insertion) => (
                     <li key={insertion.id} style={styles.helpItem}>
-                      <span style={styles.helpIcon} aria-hidden="true">
-                        {insertion.icon}
-                      </span>
-                      <div style={styles.helpItemContent}>
-                        <strong>{insertion.labels[language]}</strong>{" "}
-                        {insertion.tagName && (
-                          <>
-                            <code>
-                              {`<${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`}
-                            </code>{" "}
-                            —{" "}
-                          </>
-                        )}
-                        {insertion.descriptions[language]}
-                        <details style={styles.helpParameterAccordion}>
-                          <summary style={styles.helpParameterSummary}>
-                            {copy.parameters}
-                          </summary>
-                          <p style={styles.helpParameterDescription}>
-                            {insertion.parameterDescription[language]}
-                          </p>
-                          <ul style={styles.helpParameterList}>
-                            {insertion.options.map((option) => (
-                              <li key={option.value}>
-                                <strong>{option.labels[language]}</strong>
-                                {option.descriptions && (
-                                  <> — {option.descriptions[language]}</>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      </div>
+                      <details
+                        className="ssml-editor-help-settings-accordion"
+                        style={styles.helpSettingsAccordion}
+                      >
+                        <summary
+                          className="ssml-editor-help-settings-summary"
+                          style={styles.helpSettingsSummary}
+                        >
+                          <span style={styles.helpIcon} aria-hidden="true">
+                            {insertion.icon}
+                          </span>
+                          <span style={styles.helpSettingsSummaryContent}>
+                            <strong>{insertion.labels[language]}</strong>{" "}
+                            {insertion.tagName && (
+                              <>
+                                <code>
+                                  {`<${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`}
+                                </code>{" "}
+                                —{" "}
+                              </>
+                            )}
+                            {insertion.descriptions[language]}
+                          </span>
+                        </summary>
+                        <p style={styles.helpSettingsDescription}>
+                          <strong>{copy.parameters}:</strong>{" "}
+                          {insertion.parameterDescription[language]}
+                        </p>
+                        <ul style={styles.helpSettingsList}>
+                          {insertion.options.map((option) => (
+                            <li key={option.value}>
+                              <strong>{option.labels[language]}</strong>
+                              {option.descriptions && (
+                                <> — {option.descriptions[language]}</>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
                     </li>
                   ))}
                 </ul>
