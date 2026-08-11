@@ -1528,6 +1528,13 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     visibleInsertionGroups.flatMap(({ insertions }) => insertions.map((insertion) => insertion.id)),
   );
   const ungroupedInsertions = visibleInsertions.filter((insertion) => !groupedInsertionIds.has(insertion.id));
+  const helpInsertions = [
+    ...visibleInsertionGroups.flatMap(({ insertions }) => insertions),
+    ...ungroupedInsertions,
+  ].filter(
+    (insertion, index, insertions) =>
+      insertions.findIndex((candidate) => candidate.id === insertion.id) === index,
+  );
 
   useEffect(() => {
     injectEditorTheme();
@@ -1788,7 +1795,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             <p style={styles.helpDescription}>{copy.helpDescription}</p>
             {visibleInsertions.length > 0 && (
               <ul style={styles.helpList}>
-                {visibleInsertions.map((insertion) => (
+                {helpInsertions.map((insertion) => (
                   <li key={insertion.id} style={styles.helpItem}>
                     <details className="ssml-editor-help-settings-accordion" style={styles.helpSettingsAccordion}>
                       <summary className="ssml-editor-help-settings-summary" style={styles.helpSettingsSummary}>
