@@ -1109,6 +1109,7 @@ const styles: Record<string, CSSProperties> = {
     paddingLeft: "1.25rem",
   },
   helpItem: {
+    listStyleType: "none",
     lineHeight: 1.45,
   },
   helpIcon: {
