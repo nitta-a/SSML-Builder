@@ -14,6 +14,6 @@ test("containsVoiceTag detects nested voice elements", () => {
   );
 });
 
-test("containsVoiceTag rejects documents without voice elements", () => {
+test("containsVoiceTag returns false when no voice elements are present", () => {
   assert.equal(containsVoiceTag(["Hello", { type: "break", time: "500ms" }]), false);
 });
