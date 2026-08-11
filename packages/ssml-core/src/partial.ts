@@ -12,6 +12,7 @@ export interface SsmlPartialContext {
   lang?: string;
   /** Preferred voice name. The `voice` object takes precedence when both are supplied. */
   voiceName?: string;
+  /** Optional Azure voice effect used with `voiceName` or a string `voice` shorthand. */
   voiceEffect?: string;
   /** A voice name shorthand or a voice object whose attributes are preserved. */
   voice?: string | SsmlPartialVoice;
@@ -35,7 +36,7 @@ function getPartialTextNodes(text: string, version: string, lang: string): SsmlN
       lang,
       children: [],
     });
-    const openingTagEnd = wrapper.indexOf(">") + 1;
+    const openingTagEnd = wrapper.indexOf(">", wrapper.indexOf("<speak")) + 1;
     return parseSsml(`${wrapper.slice(0, openingTagEnd)}${text}</speak>`).children ?? [];
   } catch {
     return [{ type: "text", value: text }];
