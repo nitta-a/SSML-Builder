@@ -16,6 +16,7 @@ import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
 const DEFAULT_LANGUAGE = "ja";
 const SSML_MARKER_OWNER = "ssml-builder";
+const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SSML_SUFFIX = "</speak>";
 
@@ -1866,8 +1867,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           data-ssml-editor-toolbar-actions=""
         >
           {toolbarItemIds.map((id, index) => {
-            const groupId = toolbarGroupByButtonId.get(id);
-            const previousGroupId = index > 0 ? toolbarGroupByButtonId.get(toolbarItemIds[index - 1]) : groupId;
+            const groupId = toolbarGroupByButtonId.get(id) ?? UNGROUPED_TOOLBAR_GROUP;
+            const previousGroupId =
+              index > 0 ? (toolbarGroupByButtonId.get(toolbarItemIds[index - 1]) ?? UNGROUPED_TOOLBAR_GROUP) : groupId;
             const render = toolbarItemRenderers.get(id);
 
             return (
