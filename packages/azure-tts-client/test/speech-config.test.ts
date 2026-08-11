@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
-import {
-  createSpeechConfig,
-  resolveEndpoint,
-} from "../src/speechConfig.ts";
+import { createSpeechConfig, resolveEndpoint } from "../src/speechConfig.ts";
 
 test("replaces and URL-encodes every endpoint region placeholder", () => {
   assert.equal(

@@ -28,7 +28,10 @@ test("AzureTtsSdkError preserves SDK error details", () => {
 
   assert.ok(error instanceof AzureTtsError);
   assert.equal(error.name, "AzureTtsSdkError");
-  assert.equal(error.message, "Azure TTS synthesis failed: The SSML is invalid.");
+  assert.equal(
+    error.message,
+    "Azure TTS synthesis failed: The SSML is invalid.",
+  );
   assert.equal(error.status, 0);
   assert.equal(error.statusText, "Speech SDK");
   assert.equal(error.responseBody, "The SSML is invalid.");
