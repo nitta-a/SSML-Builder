@@ -2078,7 +2078,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const [isDark, setIsDark] = useState(false);
   const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
   const [quickInsertionPopover, setQuickInsertionPopover] = useState<QuickInsertionPopoverState | null>(null);
-  const quickInsertionAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const quickInsertionAnchorRef = useRef<HTMLDivElement | null>(null);
   const quickInsertionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
@@ -2703,7 +2703,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               <fieldset aria-label={copy.quickInsertions} style={styles.selectionQuickGroup}>
                 <span style={styles.selectionCount}>{copy.quickInsertions}</span>
                 {quickInsertionButtons.map((button) => (
-                  <span
+                  <div
                     key={button.id}
                     ref={quickInsertionPopover?.definition.id === button.id ? quickInsertionAnchorRef : undefined}
                     style={styles.quickInsertionPopoverAnchor}
@@ -2732,7 +2732,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                       {button.label}
                     </button>
                     {quickInsertionPopover?.definition.id === button.id && (
-                      <fieldset
+                      <section
                         id={`${quickInsertionPopoverId}-${button.id}`}
                         aria-labelledby={`${quickInsertionPopoverId}-${button.id}-title`}
                         style={styles.quickInsertionPopover}
@@ -2807,9 +2807,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                             {copy.quickInsertionApply}
                           </button>
                         </div>
-                      </fieldset>
+                      </section>
                     )}
-                  </span>
+                  </div>
                 ))}
               </fieldset>
             </div>
