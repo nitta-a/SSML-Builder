@@ -37,6 +37,7 @@ type SsmlInsertionTemplate = {
 type SsmlInsertionDefinition = {
   id: SsmlEditorInsertionButton;
   icon: string;
+  tagName: string;
   labels: LocalizedText;
   titles: LocalizedText;
   descriptions: LocalizedText;
@@ -59,6 +60,7 @@ const SSML_INSERTIONS = [
   {
     id: "break",
     icon: "⏸",
+    tagName: "break",
     labels: { ja: "間", en: "Break" },
     titles: {
       ja: '500msの間を挿入 (<break time="500ms"/>)',
@@ -99,6 +101,7 @@ const SSML_INSERTIONS = [
   {
     id: "emphasis",
     icon: "✦",
+    tagName: "emphasis",
     labels: { ja: "強調", en: "Emphasis" },
     titles: {
       ja: '選択範囲を <emphasis level="strong"> で囲む',
@@ -139,6 +142,7 @@ const SSML_INSERTIONS = [
   {
     id: "rate",
     icon: "↕",
+    tagName: "prosody",
     labels: { ja: "速度", en: "Rate" },
     titles: {
       ja: '選択範囲を <prosody rate="fast"> で囲む',
@@ -183,6 +187,7 @@ const SSML_INSERTIONS = [
   {
     id: "pitch",
     icon: "↗",
+    tagName: "prosody",
     labels: { ja: "高さ", en: "Pitch" },
     titles: {
       ja: '選択範囲を <prosody pitch="+2st"> で囲む',
@@ -243,6 +248,7 @@ const SSML_INSERTIONS = [
   {
     id: "volume",
     icon: "🔊",
+    tagName: "prosody",
     labels: { ja: "音量", en: "Volume" },
     titles: {
       ja: '選択範囲を <prosody volume="loud"> で囲む',
@@ -291,6 +297,7 @@ const SSML_INSERTIONS = [
   {
     id: "emotion",
     icon: "☺",
+    tagName: "mstts:express-as",
     labels: { ja: "感情", en: "Emotion" },
     titles: {
       ja: '選択範囲を <mstts:express-as style="cheerful"> で囲む',
@@ -343,6 +350,7 @@ const SSML_INSERTIONS = [
   {
     id: "say-as",
     icon: "Aa",
+    tagName: "say-as",
     labels: { ja: "読み上げ", en: "Say as" },
     titles: {
       ja: '選択範囲を <say-as interpret-as="characters"> で囲む',
@@ -415,6 +423,7 @@ const SSML_INSERTIONS = [
   {
     id: "phoneme",
     icon: "ɑ",
+    tagName: "phoneme",
     labels: { ja: "発音", en: "Phoneme" },
     titles: {
       ja: '選択範囲を <phoneme alphabet="ipa"> で囲む',
@@ -1351,7 +1360,8 @@ export function SsmlEditor({
                             {insertion.icon}
                           </span>
                           <span>
-                            <strong>{insertion.labels[language]}</strong> —{" "}
+                            <strong>{insertion.labels[language]}</strong>{" "}
+                            <code>{`<${insertion.tagName}>`}</code> —{" "}
                             {insertion.descriptions[language]}
                           </span>
                         </summary>
