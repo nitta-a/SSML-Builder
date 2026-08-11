@@ -40,7 +40,6 @@ type SsmlInsertionDefinition = {
   tagName: string;
   selfClosing?: boolean;
   labels: LocalizedText;
-  titles: LocalizedText;
   descriptions: LocalizedText;
   settingsDescription: LocalizedText;
   options: readonly SsmlInsertionOption[];
@@ -64,10 +63,6 @@ const SSML_INSERTIONS = [
     tagName: "break",
     selfClosing: true,
     labels: { ja: "間", en: "Break" },
-    titles: {
-      ja: '500msの間を挿入 (<break time="500ms"/>)',
-      en: 'Insert a 500ms pause with <break time="500ms"/>',
-    },
     descriptions: {
       ja: "指定した時間だけ無音の間を挿入します。",
       en: "Inserts a silent pause for the selected duration.",
@@ -105,10 +100,6 @@ const SSML_INSERTIONS = [
     icon: "✦",
     tagName: "emphasis",
     labels: { ja: "強調", en: "Emphasis" },
-    titles: {
-      ja: '選択範囲を <emphasis level="strong"> で囲む',
-      en: 'Wrap the selection with <emphasis level="strong">',
-    },
     descriptions: {
       ja: "選択範囲の強調レベルを変更します。",
       en: "Changes the emphasis level of the selected text.",
@@ -146,10 +137,6 @@ const SSML_INSERTIONS = [
     icon: "↕",
     tagName: "prosody",
     labels: { ja: "速度", en: "Rate" },
-    titles: {
-      ja: '選択範囲を <prosody rate="fast"> で囲む',
-      en: 'Wrap the selection with <prosody rate="fast">',
-    },
     descriptions: {
       ja: "選択範囲の読み上げ速度を変更します。",
       en: "Changes the speech rate of the selected text.",
@@ -191,10 +178,6 @@ const SSML_INSERTIONS = [
     icon: "↗",
     tagName: "prosody",
     labels: { ja: "高さ", en: "Pitch" },
-    titles: {
-      ja: '選択範囲を <prosody pitch="+2st"> で囲む',
-      en: 'Wrap the selection with <prosody pitch="+2st">',
-    },
     descriptions: {
       ja: "選択範囲の声の高さを変更します。",
       en: "Changes the pitch of the selected text.",
@@ -252,10 +235,6 @@ const SSML_INSERTIONS = [
     icon: "🔊",
     tagName: "prosody",
     labels: { ja: "音量", en: "Volume" },
-    titles: {
-      ja: '選択範囲を <prosody volume="loud"> で囲む',
-      en: 'Wrap the selection with <prosody volume="loud">',
-    },
     descriptions: {
       ja: "選択範囲の音量を変更します。",
       en: "Changes the volume of the selected text.",
@@ -301,10 +280,6 @@ const SSML_INSERTIONS = [
     icon: "☺",
     tagName: "mstts:express-as",
     labels: { ja: "感情", en: "Emotion" },
-    titles: {
-      ja: '選択範囲を <mstts:express-as style="cheerful"> で囲む',
-      en: 'Wrap the selection with <mstts:express-as style="cheerful">',
-    },
     descriptions: {
       ja: "選択範囲に Azure 音声の感情スタイルを適用します。",
       en: "Applies an Azure voice emotion style to the selected text.",
@@ -354,10 +329,6 @@ const SSML_INSERTIONS = [
     icon: "Aa",
     tagName: "say-as",
     labels: { ja: "読み上げ", en: "Say as" },
-    titles: {
-      ja: '選択範囲を <say-as interpret-as="characters"> で囲む',
-      en: 'Wrap the selection with <say-as interpret-as="characters">',
-    },
     descriptions: {
       ja: "数字や日付などの読み上げ方を指定します。",
       en: "Specifies how values such as numbers or dates are spoken.",
@@ -427,10 +398,6 @@ const SSML_INSERTIONS = [
     icon: "ɑ",
     tagName: "phoneme",
     labels: { ja: "発音", en: "Phoneme" },
-    titles: {
-      ja: '選択範囲を <phoneme alphabet="ipa"> で囲む',
-      en: 'Wrap the selection with <phoneme alphabet="ipa">',
-    },
     descriptions: {
       ja: "選択範囲の発音記号を指定します。",
       en: "Specifies the phonetic pronunciation of the selected text.",
@@ -1214,7 +1181,7 @@ export function SsmlEditor({
                   ...toolbarButtonStyle,
                   listStyleType: "none",
                 }}
-                title={insertion.titles[language]}
+                title={`${insertion.labels[language]} <${insertion.tagName}${insertion.selfClosing ? "/>" : ">"} — ${insertion.descriptions[language]}`}
                 aria-label={insertion.labels[language]}
                 aria-haspopup="menu"
               >
