@@ -1,6 +1,7 @@
 import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
+import { createPortal } from "react-dom";
 import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
 import type {
   ProsodyElement,
@@ -1106,18 +1107,18 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1,
   },
   toolbarMenu: {
-    position: "absolute",
-    top: "calc(100% + 0.25rem)",
-    left: 0,
-    zIndex: 10,
+    position: "fixed",
+    zIndex: 9999,
     display: "grid",
     minWidth: "max-content",
+    maxHeight: "min(24rem, calc(100vh - 1rem))",
     gap: "0.125rem",
     padding: "0.25rem",
     border: "1px solid var(--ssml-editor-control-border)",
     borderRadius: "0.25rem",
     backgroundColor: "var(--ssml-editor-control-bg)",
     boxShadow: "0 0.25rem 0.75rem rgb(0 0 0 / 20%)",
+    overflowY: "auto",
   },
   toolbarOption: {
     padding: "0.375rem 0.5rem",
@@ -1204,7 +1205,7 @@ const styles: Record<string, CSSProperties> = {
   },
   selectionActions: {
     position: "absolute",
-    zIndex: 20,
+    zIndex: 9999,
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
@@ -1259,7 +1260,7 @@ const styles: Record<string, CSSProperties> = {
   },
   quickInsertionDialog: {
     position: "absolute",
-    zIndex: 30,
+    zIndex: 9999,
     top: "0.5rem",
     right: "0.5rem",
     display: "grid",
@@ -1367,6 +1368,141 @@ interface QuickInsertionDialogState {
   definition: QuickInsertionDefinition;
   values: QuickInsertionValues;
   error: string | null;
+}
+
+interface ToolbarInsertionMenuProps {
+  insertion: SsmlInsertion;
+  language: SsmlEditorLanguage;
+  isDarkTheme: boolean;
+  showToolbarIcons: boolean;
+  showToolbarText: boolean;
+  toolbarButtonStyle: CSSProperties;
+  isReadOnly: boolean;
+  onApply: (insertion: SsmlInsertion, option: SsmlInsertionOption) => void;
+}
+
+function ToolbarInsertionMenu({
+  insertion,
+  language,
+  isDarkTheme,
+  showToolbarIcons,
+  showToolbarText,
+  toolbarButtonStyle,
+  isReadOnly,
+  onApply,
+}: ToolbarInsertionMenuProps): ReactElement {
+  const menuId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMenuPosition(null);
+      return;
+    }
+
+    const updateMenuPosition = (): void => {
+      const trigger = triggerRef.current;
+      if (!trigger) {
+        return;
+      }
+
+      const triggerBounds = trigger.getBoundingClientRect();
+      setMenuPosition({
+        top: triggerBounds.bottom + 4,
+        left: triggerBounds.left,
+      });
+    };
+
+    const handlePointerDown = (event: PointerEvent): void => {
+      const target = event.target;
+      if (target instanceof Node && !triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const menu = isOpen && menuPosition && typeof document !== "undefined" && (
+    <div
+      ref={menuRef}
+      id={menuId}
+      data-ssml-editor=""
+      data-theme={isDarkTheme ? "dark" : "light"}
+      style={{ ...styles.toolbarMenu, top: menuPosition.top, left: menuPosition.left }}
+      role="menu"
+      aria-label={insertion.labels[language]}
+    >
+      {insertion.options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="menuitem"
+          style={styles.toolbarOption}
+          title={option.descriptions?.[language] ?? insertion.descriptions[language]}
+          disabled={isReadOnly}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            if (!isReadOnly) {
+              onApply(insertion, option);
+            }
+            setIsOpen(false);
+          }}
+        >
+          {option.labels[language]}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <>
+      <div style={styles.toolbarDropdown}>
+        <button
+          ref={triggerRef}
+          type="button"
+          style={toolbarButtonStyle}
+          title={getInsertionTitle(insertion, language)}
+          aria-label={insertion.labels[language]}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? menuId : undefined}
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          {showToolbarIcons && (
+            <span style={styles.toolbarIcon} aria-hidden="true">
+              {insertion.icon}
+            </span>
+          )}
+          {showToolbarText && <span>{insertion.labels[language]}</span>}
+          <span style={styles.toolbarChevron} aria-hidden="true">
+            ▾
+          </span>
+        </button>
+      </div>
+      {menu && createPortal(menu, document.body)}
+    </>
+  );
 }
 
 const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
@@ -2171,48 +2307,21 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   };
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
-    <details key={insertion.id} style={styles.toolbarDropdown}>
-      <summary
-        style={{
-          ...toolbarButtonStyle,
-          listStyleType: "none",
-        }}
-        title={getInsertionTitle(insertion, language)}
-        aria-label={insertion.labels[language]}
-        aria-haspopup="menu"
-      >
-        {showToolbarIcons && (
-          <span style={styles.toolbarIcon} aria-hidden="true">
-            {insertion.icon}
-          </span>
-        )}
-        {showToolbarText && <span>{insertion.labels[language]}</span>}
-        <span style={styles.toolbarChevron} aria-hidden="true">
-          ▾
-        </span>
-      </summary>
-      <div style={styles.toolbarMenu} role="menu" aria-label={insertion.labels[language]}>
-        {insertion.options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="menuitem"
-            style={styles.toolbarOption}
-            title={option.descriptions?.[language] ?? insertion.descriptions[language]}
-            disabled={isReadOnly}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={(event) => {
-              if (!isReadOnly && editorRef.current) {
-                applySsmlInsertion(editorRef.current, insertion, option);
-              }
-              event.currentTarget.closest("details")?.removeAttribute("open");
-            }}
-          >
-            {option.labels[language]}
-          </button>
-        ))}
-      </div>
-    </details>
+    <ToolbarInsertionMenu
+      key={insertion.id}
+      insertion={insertion}
+      language={language}
+      isDarkTheme={isDarkTheme}
+      showToolbarIcons={showToolbarIcons}
+      showToolbarText={showToolbarText}
+      toolbarButtonStyle={toolbarButtonStyle}
+      isReadOnly={isReadOnly}
+      onApply={(selectedInsertion, option) => {
+        if (editorRef.current) {
+          applySsmlInsertion(editorRef.current, selectedInsertion, option);
+        }
+      }}
+    />
   );
 
   const toolbarItemRenderers = new Map<string, () => ReactElement>([
