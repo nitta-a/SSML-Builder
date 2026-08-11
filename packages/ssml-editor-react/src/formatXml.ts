@@ -458,6 +458,23 @@ function stripTrailingWhitespace(value: string): string {
   return value.replace(/[ \t]+$/gm, "");
 }
 
+function renderDocument(document: XmlDocument): string {
+  const lines: string[] = [];
+
+  for (const child of document.children) {
+    if (child.kind === "text") {
+      continue;
+    }
+    if (child.kind === "element") {
+      lines.push(...formatElement(child, 0, child === document.root));
+    } else {
+      lines.push(child.raw);
+    }
+  }
+
+  return stripTrailingWhitespace(lines.join("\n")).trim();
+}
+
 export function formatXml(xml: string): string {
   const source = xml.trim();
   if (source === "") {
@@ -465,21 +482,7 @@ export function formatXml(xml: string): string {
   }
 
   try {
-    const document = parseXml(source);
-    const lines: string[] = [];
-
-    for (const child of document.children) {
-      if (child.kind === "text") {
-        continue;
-      }
-      if (child.kind === "element") {
-        lines.push(...formatElement(child, 0, child === document.root));
-      } else {
-        lines.push(child.raw);
-      }
-    }
-
-    return stripTrailingWhitespace(lines.join("\n")).trim();
+    return renderDocument(parseXml(source));
   } catch {
     return xml;
   }
@@ -517,9 +520,15 @@ export function formatXmlFragment(xml: string): string {
   }
 
   const wrapped = `<${FRAGMENT_ROOT}>${source}</${FRAGMENT_ROOT}>`;
-  const formatted = formatXml(wrapped);
-  if (formatted === wrapped) {
+  let formatted: string;
+  try {
+    formatted = renderDocument(parseXml(wrapped));
+  } catch {
     return xml;
+  }
+
+  if (formatted === wrapped) {
+    return source;
   }
 
   return unwrapFormattedFragment(formatted) ?? xml;

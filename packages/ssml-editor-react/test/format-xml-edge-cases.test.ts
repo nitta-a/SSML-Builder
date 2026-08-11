@@ -74,5 +74,6 @@ test("formatXmlFragment preserves mixed content and malformed input", () => {
   const malformed = " \n<break><emphasis></break> \n";
 
   assert.equal(formatXmlFragment(mixed), mixed);
+  assert.equal(formatXmlFragment(` \n${mixed}\n `), mixed);
   assert.equal(formatXmlFragment(malformed), malformed);
 });
