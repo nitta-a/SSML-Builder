@@ -414,6 +414,9 @@ function formatElement(node: XmlElementNode, depth: number, isRoot: boolean): st
   if (node.selfClosing) {
     return [`${prefix}${node.open}`];
   }
+  if (node.close === undefined) {
+    fail(`Unclosed XML element: <${node.name}>`);
+  }
 
   if (isRoot && hasOnlyTextChildren(node)) {
     const text = node.children
