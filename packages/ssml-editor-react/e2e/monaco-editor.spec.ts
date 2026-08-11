@@ -71,10 +71,7 @@ test.describe("Monaco SSML editor", () => {
       throw new Error("The inserted break tag is not laid out in Monaco.");
     }
 
-    await page.mouse.move(
-      breakLineBox.x + breakLineBox.width / 2,
-      breakLineBox.y + breakLineBox.height / 2,
-    );
+    await page.mouse.move(breakLineBox.x + breakLineBox.width / 2, breakLineBox.y + breakLineBox.height / 2);
 
     const hover = page.locator(".monaco-hover").filter({ hasText: "単語やその他の音声コンテンツ" }).last();
     await expect(hover).toBeVisible();
