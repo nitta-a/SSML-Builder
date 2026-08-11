@@ -246,20 +246,20 @@ export default function Home() {
             <p className="eyebrow">SSML Builder</p>
             <h1>Playground</h1>
           </div>
-          <label className="theme-switch">
+          <div className="theme-switch">
             <span>Dark mode</span>
-            <input
-              type="checkbox"
+            <button
+              className="theme-switch-track"
+              type="button"
               role="switch"
               aria-checked={theme === "dark"}
-              checked={theme === "dark"}
-              onChange={(event) => setTheme(event.currentTarget.checked ? "dark" : "light")}
+              aria-label="Dark mode"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               disabled={theme === null}
-            />
-            <span className="theme-switch-track" aria-hidden="true">
+            >
               <span className="theme-switch-thumb" />
-            </span>
-          </label>
+            </button>
+          </div>
         </div>
         <p>Edit the sample document below to verify the SSML editor and core package together.</p>
       </header>
