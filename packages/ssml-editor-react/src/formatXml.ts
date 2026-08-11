@@ -233,6 +233,10 @@ function appendNode(nodes: XmlNode[], node: XmlNode): void {
   nodes.push(node);
 }
 
+function currentElement(stack: XmlElementNode[]): XmlElementNode | undefined {
+  return stack[stack.length - 1];
+}
+
 function parseXml(source: string): XmlDocument {
   const children: XmlNode[] = [];
   const stack: XmlElementNode[] = [];
@@ -254,7 +258,7 @@ function parseXml(source: string): XmlDocument {
       if (stack.length === 0 && value.trim() !== "") {
         fail("Unexpected text outside the root XML element");
       }
-      appendNode(stack.at(-1)?.children ?? children, { kind: "text", value });
+      appendNode(currentElement(stack)?.children ?? children, { kind: "text", value });
       continue;
     }
 
@@ -267,7 +271,7 @@ function parseXml(source: string): XmlDocument {
       if (content.includes("--") || content.endsWith("-")) {
         fail("Invalid XML comment");
       }
-      appendNode(stack.at(-1)?.children ?? children, {
+      appendNode(currentElement(stack)?.children ?? children, {
         kind: "comment",
         raw: source.slice(index, end + 3),
       });
@@ -283,7 +287,7 @@ function parseXml(source: string): XmlDocument {
       if (stack.length === 0) {
         fail("CDATA is not allowed outside the root XML element");
       }
-      appendNode(stack.at(-1)?.children ?? children, {
+      appendNode(currentElement(stack)?.children ?? children, {
         kind: "cdata",
         raw: source.slice(index, end + 3),
       });
@@ -297,7 +301,7 @@ function parseXml(source: string): XmlDocument {
         fail("Unclosed XML processing instruction");
       }
       parseProcessingInstruction(source, index, end);
-      appendNode(stack.at(-1)?.children ?? children, {
+      appendNode(currentElement(stack)?.children ?? children, {
         kind: "processing-instruction",
         raw: source.slice(index, end + 2),
       });
@@ -308,7 +312,7 @@ function parseXml(source: string): XmlDocument {
     if (source.startsWith("</", index)) {
       const end = findTagEnd(source, index);
       const name = parseClosingTag(source, index, end);
-      const element = stack.at(-1);
+      const element = currentElement(stack);
       if (element === undefined || element.name !== name) {
         fail(`Mismatched closing XML element: </${name}>`);
       }
@@ -321,7 +325,7 @@ function parseXml(source: string): XmlDocument {
     if (source.startsWith("<!", index)) {
       const end = findTagEnd(source, index, true);
       parseDeclaration(source, index, end);
-      appendNode(stack.at(-1)?.children ?? children, {
+      appendNode(currentElement(stack)?.children ?? children, {
         kind: "declaration",
         raw: source.slice(index, end + 1),
       });
@@ -351,7 +355,7 @@ function parseXml(source: string): XmlDocument {
         selfClosing,
         children: [],
       };
-      stack.at(-1)?.children.push(element);
+      currentElement(stack)?.children.push(element);
       if (!selfClosing) {
         stack.push(element);
       }
@@ -366,7 +370,7 @@ function parseXml(source: string): XmlDocument {
   }
 
   if (stack.length > 0) {
-    fail(`Unclosed XML element: <${stack.at(-1)?.name}>`);
+    fail(`Unclosed XML element: <${currentElement(stack)?.name}>`);
   }
   if (root === undefined) {
     fail("XML input does not contain a root element");
@@ -403,27 +407,27 @@ function hasSignificantText(node: XmlElementNode): boolean {
 function formatElement(node: XmlElementNode, depth: number, isRoot: boolean): string[] {
   const prefix = indentation(depth);
 
-  if (node.selfClosing || node.children.length === 0) {
-    return [`${prefix}${node.open}${node.close ?? ""}`];
+  if (node.selfClosing) {
+    return [`${prefix}${node.open}`];
   }
 
   if (isRoot && hasOnlyTextChildren(node)) {
     const text = node.children
       .filter((child): child is XmlTextNode => child.kind === "text")
       .map((child) => child.value)
-      .join("")
-      .trim();
+      .join("");
+    const trimmedText = text.trim();
 
-    if (text === "") {
+    if (trimmedText === "") {
       return [`${prefix}${node.open}`, `${prefix}${node.close}`];
     }
-    if (text.includes("\n") || text.includes("\r")) {
+    if (text.includes("\n") || text.includes("\r") || text !== trimmedText) {
       return [`${prefix}${renderInline(node)}`];
     }
-    return [`${prefix}${node.open}`, `${indentation(depth + 1)}${text}`, `${prefix}${node.close}`];
+    return [`${prefix}${node.open}`, `${indentation(depth + 1)}${trimmedText}`, `${prefix}${node.close}`];
   }
 
-  if (hasOnlyTextChildren(node) || hasSignificantText(node)) {
+  if (hasSignificantText(node)) {
     return [`${prefix}${renderInline(node)}`];
   }
 
