@@ -22,7 +22,6 @@ export interface SsmlPartialContext {
 
 export interface BuildPartialSsmlOptions extends SsmlPartialContext {
   text: string;
-  context?: SsmlPartialContext;
 }
 
 function getPartialTextNodes(text: string, version: string, lang: string): SsmlNode[] {
@@ -56,16 +55,6 @@ function getVoiceContext(context: SsmlPartialContext): SsmlPartialVoice | undefi
   return {
     name: context.voiceName ?? voice,
     effect: context.voiceEffect,
-  };
-}
-
-function normalizeContext(
-  context: SsmlPartialContext | undefined,
-  directOptions: SsmlPartialContext | undefined,
-): SsmlPartialContext {
-  return {
-    ...(context ?? {}),
-    ...(directOptions ?? {}),
   };
 }
 
@@ -115,6 +104,5 @@ export function buildPartialSsml(
     return serializePartialSsml(textOrOptions, context ?? {});
   }
 
-  const { text, context: nestedContext, ...directOptions } = textOrOptions;
-  return serializePartialSsml(text, normalizeContext(nestedContext, directOptions));
+  return serializePartialSsml(textOrOptions.text, textOrOptions);
 }

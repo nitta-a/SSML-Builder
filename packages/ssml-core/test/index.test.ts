@@ -13,10 +13,8 @@ test("buildPartialSsml preserves voice and prosody context", () => {
   assert.equal(
     buildPartialSsml({
       text: "こんにちは",
-      context: {
-        lang: "ja-JP",
-        voiceName: "ja-JP-NanamiNeural",
-      },
+      lang: "ja-JP",
+      voiceName: "ja-JP-NanamiNeural",
       prosody: { rate: "slow", pitch: "+2st" },
     }),
     '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ja-JP"><voice name="ja-JP-NanamiNeural"><prosody rate="slow" pitch="+2st">こんにちは</prosody></voice></speak>',
