@@ -77,7 +77,7 @@ export interface SsmlEditorInsertionGroup {
 
 export interface SsmlEditorToolbarGroup {
   id: string;
-  buttonIds: readonly SsmlEditorButton[];
+  buttonIds: readonly string[];
 }
 
 export type SsmlEditorTheme = "system" | "light" | "dark";
