@@ -6,7 +6,15 @@ export type SsmlEditorInsertionButton =
   | "volume"
   | "emotion"
   | "say-as"
-  | "phoneme";
+  | "phoneme"
+  | "audio"
+  | "sub"
+  | "lang"
+  | "mark"
+  | "bookmark"
+  | "mstts:silence"
+  | "mstts:viseme"
+  | (string & {});
 
 export type SsmlEditorButton =
   | "help"
@@ -14,15 +22,16 @@ export type SsmlEditorButton =
   | "undo"
   | "redo"
   | "clearAll"
-  | "format";
+  | "format"
+  | (string & {});
 
 export type SsmlEditorButtonVisibility = Readonly<
-  Partial<Record<SsmlEditorButton, boolean>>
+  Partial<Record<string, boolean>>
 >;
 
 export function isSsmlEditorButtonVisible(
   buttonVisibility: SsmlEditorButtonVisibility | undefined,
-  button: SsmlEditorButton,
+  button: SsmlEditorButton | string,
 ): boolean {
   return buttonVisibility?.[button] !== false;
 }
