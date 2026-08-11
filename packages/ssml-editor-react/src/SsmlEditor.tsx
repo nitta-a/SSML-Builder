@@ -17,12 +17,7 @@ import {
 import { formatXml } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
-const DEFAULT_VOICE = "en-US-JennyNeural";
-const DEFAULT_PITCH = "0st";
-const DEFAULT_RATE = "medium";
-const DEFAULT_VOLUME = "medium";
 const DEFAULT_LANGUAGE = "ja";
-const VOICE_ICON = "🎙️";
 const SSML_MARKER_OWNER = "ssml-builder";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SSML_SUFFIX = "</speak>";
@@ -288,7 +283,6 @@ const SSML_INSERTIONS = [
 
 type EditorCopy = {
   editorAriaLabel: string;
-  voice: string;
   toolbarAriaLabel: string;
   undo: string;
   undoTitle: string;
@@ -304,15 +298,12 @@ type EditorCopy = {
   toolbarActions: string;
   format: string;
   formatTitle: string;
-  voiceDescription: string;
-  voiceParameter: string;
   syntaxError: string;
 };
 
 const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
   ja: {
     editorAriaLabel: "SSMLエディター",
-    voice: "音声",
     toolbarAriaLabel: "SSMLツールバー",
     clearAll: "全てクリア",
     clearAllTitle: "XML要素を削除して本文を残す",
@@ -329,13 +320,10 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     toolbarActions: "本文ツールバーのボタン",
     format: "フォーマット",
     formatTitle: "本文のXMLを改行して見やすく表示",
-    voiceDescription: "使用する Azure 音声の名前を指定します。",
-    voiceParameter: "音声名（例: en-US-JennyNeural）",
     syntaxError: "構文エラー",
   },
   en: {
     editorAriaLabel: "SSML editor",
-    voice: "Voice",
     toolbarAriaLabel: "SSML toolbar",
     clearAll: "Clear all",
     clearAllTitle: "Remove XML elements and keep the text",
@@ -352,8 +340,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     toolbarActions: "Text toolbar buttons",
     format: "Format",
     formatTitle: "Format the XML in the editor",
-    voiceDescription: "Selects the Azure voice name to use.",
-    voiceParameter: "Voice name (for example, en-US-JennyNeural)",
     syntaxError: "Syntax error",
   },
 };
@@ -440,12 +426,6 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     flexWrap: "wrap",
     gap: "0.5rem",
-  },
-  voiceControl: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "0.375rem",
-    marginRight: "auto",
   },
   toolbarDropdown: {
     position: "relative",
@@ -570,17 +550,6 @@ const styles: Record<string, CSSProperties> = {
     margin: "0.25rem 0 0",
     paddingLeft: "1.25rem",
     fontSize: "0.875rem",
-  },
-  input: {
-    boxSizing: "border-box",
-    width: "100%",
-    minHeight: "2.25rem",
-    padding: "0.375rem 0.5rem",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.25rem",
-    font: "inherit",
-    color: "var(--ssml-editor-color)",
-    backgroundColor: "var(--ssml-editor-control-bg)",
   },
   editor: {
     boxSizing: "border-box",
@@ -749,39 +718,6 @@ function withChildren(
 function clearDocument(document: SsmlDocument): SsmlDocument {
   const text = getPlainText(getDocumentChildren(document));
   return withChildren(document, text === "" ? [] : [text]);
-}
-
-function createProsody(
-  children: SsmlNode[],
-  updates: Partial<ProsodyElement> = {},
-): ProsodyElement {
-  return {
-    type: "prosody",
-    rate: DEFAULT_RATE,
-    pitch: DEFAULT_PITCH,
-    volume: DEFAULT_VOLUME,
-    ...updates,
-    children: children.length > 0 ? children : [""],
-  };
-}
-
-function updateVoiceName(document: SsmlDocument, name: string): SsmlDocument {
-  const children = getDocumentChildren(document);
-  const result = updateFirstElement(children, isVoice, (voice) => ({
-    ...voice,
-    name,
-  }));
-  if (result.updated) {
-    return withChildren(document, result.nodes);
-  }
-
-  return withChildren(document, [
-    {
-      type: "voice",
-      name,
-      children: [createProsody(children)],
-    },
-  ]);
 }
 
 function parseEditableText(value: string, lang: string): SsmlNode[] {
@@ -994,7 +930,6 @@ export function SsmlEditor({
   displayStyle,
 }: SsmlEditorProps): ReactElement {
   const helpPanelId = useId();
-  const voiceInputId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -1038,8 +973,6 @@ export function SsmlEditor({
   }, []);
 
   const children = getDocumentChildren(draftDocument);
-  const voice = findFirstElement(children, isVoice);
-  const voiceName = voice?.name ?? DEFAULT_VOICE;
   const text = getEditableText(draftDocument);
 
   useEffect(() => {
@@ -1070,18 +1003,6 @@ export function SsmlEditor({
         style={{ ...styles.toolbarContainer, ...toolbarStyle }}
         data-ssml-editor-toolbar=""
       >
-        <div style={styles.voiceControl}>
-          <label htmlFor={voiceInputId}>{copy.voice}</label>
-          <input
-            id={voiceInputId}
-            style={styles.input}
-            type="text"
-            value={voiceName}
-            onChange={(event) =>
-              commit(updateVoiceName(draftDocument, event.target.value))
-            }
-          />
-        </div>
         <div
           style={styles.toolbarActions}
           role="toolbar"
@@ -1248,24 +1169,6 @@ export function SsmlEditor({
           >
             <h3 style={styles.helpHeading}>{copy.helpHeading}</h3>
             <p style={styles.helpDescription}>{copy.helpDescription}</p>
-            <ul style={styles.helpList}>
-              <li style={styles.helpItem}>
-                <span style={styles.helpIcon} aria-hidden="true">
-                  {VOICE_ICON}
-                </span>
-                <div style={styles.helpItemContent}>
-                  <strong>{copy.voice}</strong> — {copy.voiceDescription}
-                  <details style={styles.helpParameterAccordion}>
-                    <summary style={styles.helpParameterSummary}>
-                      {copy.parameters}
-                    </summary>
-                    <p style={styles.helpParameterDescription}>
-                      {copy.voiceParameter}
-                    </p>
-                  </details>
-                </div>
-              </li>
-            </ul>
             {visibleInsertions.length > 0 && (
               <>
                 <h4 style={styles.helpSubheading}>{copy.toolbarActions}</h4>
