@@ -194,7 +194,7 @@ const audio = await client.synthesize(ssml);
 このプロジェクトは Azure Speech における SSML の実装を主な対象としています。Azure Speech の SSML 実装は W3C の SSML Version 1.0 をベースにしていますが、対応要素や動作は W3C 標準と異なる場合があり、Azure 固有の `mstts:` 拡張も含まれます。
 
 - [Azure Speech SSML のドキュメント構造とイベント（Microsoft Learn）](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-structure)
-- [Azure Speech SSML リファレンス（Microsoft Learn）](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-reference)
+- [Azure Speech SSML リファレンス（Microsoft Learn）](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup)
 - [Speech Synthesis Markup Language (SSML) Version 1.0（W3C Recommendation）](https://www.w3.org/TR/2004/REC-speech-synthesis-20040907/)
 - 参照バージョン: **W3C SSML 1.0**（2004 年 9 月 7 日勧告）。Microsoft Learn の Azure Speech ドキュメントには固定された製品バージョン番号がないため、利用時は上記リンク先の最新の仕様も確認してください。
 
