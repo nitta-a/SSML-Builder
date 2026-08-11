@@ -1247,6 +1247,22 @@ type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
 type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
 type MonacoDecoration = Parameters<MonacoModel["deltaDecorations"]>[1][number];
 
+function syncMonacoEditorValue(editor: MonacoEditor, value: string): void {
+  const model = editor.getModel();
+  if (!model || model.getValue() === value) {
+    return;
+  }
+
+  editor.executeEdits("ssml-editor-value", [
+    {
+      range: model.getFullModelRange(),
+      text: value,
+      forceMoveMarkers: true,
+    },
+  ]);
+  editor.pushUndoStop();
+}
+
 interface HoverProviderRegistration {
   disposable: ReturnType<MonacoLanguages["registerHoverProvider"]>;
   references: number;
@@ -1873,6 +1889,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const selectionChangeRef = useRef<MonacoDisposable | null>(null);
   const selectionLayoutDisposablesRef = useRef<MonacoDisposable[]>([]);
   const inlineDecorationIdsRef = useRef<string[]>([]);
+  const isComposingRef = useRef(false);
+  const pendingEditorValueRef = useRef<string | null>(null);
+  const syncingEditorValueRef = useRef(false);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onPreviewSelectionRef = useRef(onPreviewSelection);
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
@@ -1880,7 +1899,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const [nativePreviewAvailable, setNativePreviewAvailable] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
-  draftDocumentRef.current = draftDocument;
   onSelectionChangeRef.current = onSelectionChange;
   onPreviewSelectionRef.current = onPreviewSelection;
   const copy = EDITOR_COPY[language];
@@ -1995,6 +2013,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
         disposable.dispose();
       }
       selectionLayoutDisposablesRef.current = [];
+      isComposingRef.current = false;
+      pendingEditorValueRef.current = null;
+      syncingEditorValueRef.current = false;
       releaseHoverProviderRef.current?.();
       releaseHoverProviderRef.current = null;
       editorRef.current = null;
@@ -2002,7 +2023,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     };
   }, []);
 
-  const text = getEditableText(draftDocument);
+  const text = getEditableText(draftDocumentRef.current);
 
   useEffect(() => {
     const nextSyntaxError = validateEditableText(text);
@@ -2019,6 +2040,26 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       );
     }
   }, [language, text]);
+
+  const syncEditorValue = (value: string): void => {
+    pendingEditorValueRef.current = value;
+    const editor = editorRef.current;
+    if (!editor || isComposingRef.current) {
+      return;
+    }
+
+    pendingEditorValueRef.current = null;
+    syncingEditorValueRef.current = true;
+    try {
+      syncMonacoEditorValue(editor, value);
+    } finally {
+      syncingEditorValueRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    syncEditorValue(text);
+  }, [text]);
 
   const commit = (nextDocument: SsmlDocument): void => {
     draftDocumentRef.current = nextDocument;
@@ -2194,7 +2235,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           disabled={isReadOnly}
           onClick={() => {
             if (!isReadOnly) {
-              commit(clearDocument(draftDocument));
+              commit(clearDocument(draftDocumentRef.current));
             }
           }}
         >
@@ -2219,8 +2260,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           disabled={isReadOnly}
           onClick={() => {
             if (!isReadOnly) {
-              const value = editorRef.current?.getValue() ?? getEditableText(draftDocument);
-              commit(updateText(draftDocument, formatXmlFragment(value)));
+              const value = editorRef.current?.getValue() ?? getEditableText(draftDocumentRef.current);
+              commit(updateText(draftDocumentRef.current, formatXmlFragment(value)));
             }
           }}
         >
@@ -2365,11 +2406,13 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               readOnly: isReadOnly,
               wordWrap: resolvedEditorOptions.wordWrap,
             }}
-            value={text}
+            defaultValue={text}
             loading={loadingFallback}
             onMount={(editor, monaco) => {
               editorRef.current = editor;
               monacoRef.current = monaco;
+              isComposingRef.current = false;
+              syncEditorValue(text);
               selectionChangeRef.current?.dispose();
               selectionChangeRef.current = editor.onDidChangeCursorSelection(() => {
                 refreshSelectionOverlay(editor, true);
@@ -2381,6 +2424,17 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                 editor.onDidScrollChange(() => refreshSelectionOverlay(editor, false)),
                 editor.onDidLayoutChange(() => refreshSelectionOverlay(editor, false)),
                 editor.onDidContentSizeChange(() => refreshSelectionOverlay(editor, false)),
+                editor.onDidCompositionStart(() => {
+                  isComposingRef.current = true;
+                }),
+                editor.onDidCompositionEnd(() => {
+                  isComposingRef.current = false;
+                  queueMicrotask(() => {
+                    if (!isComposingRef.current) {
+                      syncEditorValue(getEditableText(draftDocumentRef.current));
+                    }
+                  });
+                }),
               ];
               releaseHoverProviderRef.current?.();
               releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco);
@@ -2399,7 +2453,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               refreshSelectionOverlay(editor, true);
             }}
             onChange={(value) => {
-              commit(updateText(draftDocument, value ?? ""));
+              if (!syncingEditorValueRef.current) {
+                commit(updateText(draftDocumentRef.current, value ?? ""));
+              }
               if (editorRef.current) {
                 refreshSelectionOverlay(editorRef.current, false);
               }
