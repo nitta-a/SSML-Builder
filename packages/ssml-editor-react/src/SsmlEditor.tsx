@@ -14,19 +14,18 @@ import type {
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { clearSsmlDocument } from "./clearSsmlDocument";
 import { formatXmlFragment } from "./formatXml";
+import { EDITOR_COPY, type SsmlEditorLanguage, type SsmlEditorLocalizedText } from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
 
-const DEFAULT_LANGUAGE = "ja";
+const DEFAULT_LOCALE = "ja";
 const SSML_MARKER_OWNER = "ssml-builder";
 const SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES = 4;
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SSML_SUFFIX = "</speak>";
 
-export type SsmlEditorLanguage = "ja" | "en";
-
-export type SsmlEditorLocalizedText = Readonly<Record<SsmlEditorLanguage, string>>;
+export type { SsmlEditorLanguage, SsmlEditorLocalizedText } from "./locales";
 
 export type SsmlEditorInsertionMode = "insert" | "wrap";
 
@@ -738,85 +737,6 @@ function getInsertionTitle(insertion: SsmlInsertionDefinition, language: SsmlEdi
   return `${insertion.labels[language]}${tag} — ${insertion.descriptions[language]}`;
 }
 
-type EditorCopy = {
-  editorAriaLabel: string;
-  toolbarAriaLabel: string;
-  undo: string;
-  undoTitle: string;
-  redo: string;
-  redoTitle: string;
-  clearAll: string;
-  clearAllTitle: string;
-  help: string;
-  helpTitle: string;
-  helpHeading: string;
-  helpDescription: string;
-  parameters: string;
-  format: string;
-  formatTitle: string;
-  decorations: string;
-  decorationsShowTitle: string;
-  decorationsHideTitle: string;
-  syntaxError: string;
-  selectionActions: string;
-  selectionCountSuffix: string;
-  previewSelection: string;
-  previewSelectionTitle: string;
-};
-
-const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
-  ja: {
-    editorAriaLabel: "SSMLエディター",
-    toolbarAriaLabel: "SSMLツールバー",
-    clearAll: "全てクリア",
-    clearAllTitle: "音声設定を保持してXML要素を削除し本文を残す",
-    undo: "元に戻す",
-    undoTitle: "直前の変更を元に戻す",
-    redo: "やり直す",
-    redoTitle: "元に戻した変更をやり直す",
-    help: "説明",
-    helpTitle: "ボタンとパラメータの説明を表示",
-    helpHeading: "ボタンとパラメータの説明",
-    helpDescription: "各コントロールの機能とパラメータを確認できます。",
-    parameters: "パラメータ",
-    format: "フォーマット",
-    formatTitle: "本文のXMLを改行して見やすく表示",
-    decorations: "装飾",
-    decorationsShowTitle: "インライン装飾を表示",
-    decorationsHideTitle: "インライン装飾を非表示",
-    syntaxError: "構文エラー",
-    selectionActions: "選択範囲の操作",
-    selectionCountSuffix: "文字",
-    previewSelection: "選択部分を試聴",
-    previewSelectionTitle: "選択部分のSSMLを試聴",
-  },
-  en: {
-    editorAriaLabel: "SSML editor",
-    toolbarAriaLabel: "SSML toolbar",
-    clearAll: "Clear all",
-    clearAllTitle: "Remove non-voice XML elements and keep the text and voice settings",
-    undo: "Undo",
-    undoTitle: "Undo the last change",
-    redo: "Redo",
-    redoTitle: "Redo the last undone change",
-    help: "Help",
-    helpTitle: "Show button and parameter descriptions",
-    helpHeading: "Button and parameter descriptions",
-    helpDescription: "Review what each control does and its parameters.",
-    parameters: "Parameters",
-    format: "Format",
-    formatTitle: "Format the XML in the editor",
-    decorations: "Decorations",
-    decorationsShowTitle: "Show inline decorations",
-    decorationsHideTitle: "Hide inline decorations",
-    syntaxError: "Syntax error",
-    selectionActions: "Selection actions",
-    selectionCountSuffix: " characters",
-    previewSelection: "Preview selection",
-    previewSelectionTitle: "Preview the selected SSML",
-  },
-};
-
 type InlineBadgeCopy = {
   pause: string;
   pitch: string;
@@ -951,6 +871,8 @@ export interface SsmlEditorProps {
   onPreviewSelection?: (ssml: string) => void;
   /** UI language. Japanese is used when omitted. */
   language?: SsmlEditorLanguage;
+  /** UI locale. Japanese is used when omitted; takes precedence over the legacy language prop. */
+  locale?: SsmlEditorLanguage;
   /** Whether toolbar action icons are displayed. */
   showToolbarIcons?: boolean;
   /** Whether toolbar action text labels are displayed. */
@@ -1476,7 +1398,7 @@ const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
   placement: "above",
 };
 
-const hoverProviderRegistrations = new WeakMap<MonacoLanguages, HoverProviderRegistration>();
+const hoverProviderRegistrations = new WeakMap<MonacoLanguages, Map<SsmlEditorLanguage, HoverProviderRegistration>>();
 
 function updateSsmlMarkers(
   monaco: Monaco,
@@ -1855,9 +1777,14 @@ function getCurrentLineSsml(editor: MonacoEditor, document: SsmlDocument): strin
   return currentLineText === null ? null : buildPartialSsml(currentLineText, getPartialContext(document));
 }
 
-function acquireSsmlHoverProvider(monaco: Monaco): () => void {
+function acquireSsmlHoverProvider(monaco: Monaco, language: SsmlEditorLanguage): () => void {
   const languages = monaco.languages;
-  let registration = hoverProviderRegistrations.get(languages);
+  let registrations = hoverProviderRegistrations.get(languages);
+  if (!registrations) {
+    registrations = new Map();
+    hoverProviderRegistrations.set(languages, registrations);
+  }
+  let registration = registrations.get(language);
 
   if (!registration) {
     const provider: Parameters<MonacoLanguages["registerHoverProvider"]>[1] = {
@@ -1872,7 +1799,7 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
             {
               isTrusted: false,
               supportHtml: false,
-              value: formatSsmlHover(target),
+              value: formatSsmlHover(target, language),
             },
           ],
           range: target.range,
@@ -1883,7 +1810,7 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
       ...provider,
     });
     registration = { disposable, references: 0 };
-    hoverProviderRegistrations.set(languages, registration);
+    registrations.set(language, registration);
   }
 
   registration.references += 1;
@@ -1894,7 +1821,8 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
     }
     released = true;
 
-    const current = hoverProviderRegistrations.get(languages);
+    const currentRegistrations = hoverProviderRegistrations.get(languages);
+    const current = currentRegistrations?.get(language);
     if (!current) {
       return;
     }
@@ -1902,7 +1830,10 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
     current.references -= 1;
     if (current.references === 0) {
       current.disposable.dispose();
-      hoverProviderRegistrations.delete(languages);
+      currentRegistrations?.delete(language);
+      if (currentRegistrations?.size === 0) {
+        hoverProviderRegistrations.delete(languages);
+      }
     }
   };
 }
@@ -1952,7 +1883,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     onSsmlChange,
     onSelectionChange,
     onPreviewSelection,
-    language = DEFAULT_LANGUAGE,
+    language: languageProp,
+    locale: localeProp,
     showToolbarIcons = true,
     showToolbarLabels = false,
     showDecorations = false,
@@ -2014,6 +1946,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
+  const language = localeProp ?? languageProp ?? DEFAULT_LOCALE;
   draftDocumentRef.current = draftDocument;
   onSelectionChangeRef.current = onSelectionChange;
   onPreviewSelectionRef.current = onPreviewSelection;
@@ -2139,6 +2072,16 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       monacoRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) {
+      return;
+    }
+
+    releaseHoverProviderRef.current?.();
+    releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, language);
+  }, [language]);
 
   const text = getEditableText(draftDocument);
 
@@ -2483,7 +2426,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                 editor.onDidContentSizeChange(() => refreshSelectionOverlay(editor, false)),
               ];
               releaseHoverProviderRef.current?.();
-              releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco);
+              releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, language);
               const model = editor.getModel();
               const nextSyntaxError = validateEditableText(editor.getValue());
               setSyntaxError(nextSyntaxError);

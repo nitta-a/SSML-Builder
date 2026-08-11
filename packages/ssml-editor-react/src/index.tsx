@@ -31,6 +31,14 @@ export type {
   SsmlInsertionOption,
   SsmlInsertionTemplate,
 } from "./SsmlEditor";
+export { EDITOR_COPY, SSML_HOVER_COPY } from "./locales";
+export type {
+  EditorCopy,
+  SsmlEditorLocale,
+  SsmlHoverLocale,
+  SsmlHoverParameterCopy,
+  SsmlHoverTagCopy,
+} from "./locales";
 export {
   createSsmlEditorInsertionDefinition,
   SSML_INSERTIONS,

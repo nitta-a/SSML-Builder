@@ -1,3 +1,5 @@
+import { SSML_HOVER_COPY, type SsmlEditorLocale } from "./locales";
+
 export interface SsmlParameterDefinition {
   name: string;
   description: string;
@@ -643,29 +645,49 @@ function code(value: string): string {
   return `\`${value.replace(/\\/g, "\\\\").replace(/`/g, "\\`")}\``;
 }
 
-function formatParameter(parameter: SsmlParameterDefinition): string {
+function formatParameter(parameter: SsmlParameterDefinition, tagName: string, locale: SsmlEditorLocale): string {
+  const localizedParameter = SSML_HOVER_COPY[locale].tags[tagName]?.parameters[parameter.name];
+  const description = localizedParameter?.description ?? parameter.description;
   const values =
-    parameter.values && parameter.values.length > 0 ? ` Allowed values: ${parameter.values.map(code).join(", ")}.` : "";
-  const example = parameter.example ? ` Example: ${code(parameter.example)}.` : "";
-  return `- ${code(parameter.name)}: ${parameter.description}${values}${example}`;
+    parameter.values && parameter.values.length > 0
+      ? ` ${SSML_HOVER_COPY[locale].allowedValues}: ${parameter.values.map(code).join(", ")}.`
+      : "";
+  const example = parameter.example ? ` ${SSML_HOVER_COPY[locale].example}: ${code(parameter.example)}.` : "";
+  return `- ${code(parameter.name)}: ${description}${values}${example}`;
 }
 
-export function formatSsmlHover(target: SsmlHoverTarget): string {
+export function formatSsmlHover(target: SsmlHoverTarget, locale: SsmlEditorLocale = "en"): string {
+  const localizedTag = SSML_HOVER_COPY[locale].tags[target.definition.name];
+  const tagTitle = localizedTag?.title ?? target.definition.name;
+  const tagDescription = localizedTag?.description ?? target.definition.description;
   const tagSyntax = target.isClosingTag ? `</${target.tagName}>` : `<${target.tagName}>`;
-  const lines = [`### ${code(tagSyntax)}`, "", target.definition.description];
+  const lines = [`### ${code(tagSyntax)}`, "", `**${tagTitle}**`, "", tagDescription];
 
   if (target.parameter) {
-    lines.push("", `**Parameter ${code(target.parameter.name)}**`, "", target.parameter.description);
+    const localizedParameter = localizedTag?.parameters[target.parameter.name];
+    const parameterTitle = localizedParameter?.title ?? target.parameter.name;
+    const parameterDescription = localizedParameter?.description ?? target.parameter.description;
+    lines.push(
+      "",
+      `**${SSML_HOVER_COPY[locale].parameterHeading} ${code(parameterTitle)}**`,
+      "",
+      parameterDescription,
+    );
     if (target.parameter.values && target.parameter.values.length > 0) {
-      lines.push("", `Allowed values: ${target.parameter.values.map(code).join(", ")}.`);
+      lines.push("", `${SSML_HOVER_COPY[locale].allowedValues}: ${target.parameter.values.map(code).join(", ")}.`);
     }
     if (target.parameter.example) {
-      lines.push("", `Example: ${code(target.parameter.example)}.`);
+      lines.push("", `${SSML_HOVER_COPY[locale].example}: ${code(target.parameter.example)}.`);
     }
   } else if (target.definition.parameters.length > 0) {
-    lines.push("", "**Parameters**", "", ...target.definition.parameters.map(formatParameter));
+    lines.push(
+      "",
+      `**${SSML_HOVER_COPY[locale].parametersHeading}**`,
+      "",
+      ...target.definition.parameters.map((parameter) => formatParameter(parameter, target.definition.name, locale)),
+    );
   } else {
-    lines.push("", "This element has no parameters.");
+    lines.push("", SSML_HOVER_COPY[locale].noParameters);
   }
 
   return lines.join("\n");
