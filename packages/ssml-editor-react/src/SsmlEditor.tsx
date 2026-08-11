@@ -20,15 +20,6 @@ const DEFAULT_LANGUAGE = "ja";
 const SSML_MARKER_OWNER = "ssml-builder";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SSML_SUFFIX = "</speak>";
-const RATE_OPTIONS = ["x-slow", "slow", "medium", "fast", "x-fast"] as const;
-const VOLUME_OPTIONS = [
-  "silent",
-  "x-soft",
-  "soft",
-  "medium",
-  "loud",
-  "x-loud",
-] as const;
 
 export type SsmlEditorLanguage = "ja" | "en";
 
@@ -41,6 +32,7 @@ export type SsmlEditorInsertionMode = "insert" | "wrap";
 export interface SsmlEditorInsertionOption {
   value: string;
   labels: SsmlEditorLocalizedText;
+  descriptions?: SsmlEditorLocalizedText;
 }
 
 export interface SsmlEditorInsertionTemplate {
@@ -52,6 +44,8 @@ export interface SsmlEditorInsertionTemplate {
 export interface SsmlEditorInsertionDefinition {
   id: string;
   icon: string;
+  tagName?: string;
+  selfClosing?: boolean;
   labels: SsmlEditorLocalizedText;
   titles: SsmlEditorLocalizedText;
   descriptions: SsmlEditorLocalizedText;
@@ -129,6 +123,8 @@ export function createSsmlEditorInsertionDefinition(
   return {
     id: definition.id,
     icon: definition.icon ?? "＋",
+    tagName: definition.tagName,
+    selfClosing: mode === "insert",
     labels: definition.labels,
     titles:
       definition.titles ?? localizedText(`Insert <${definition.tagName}>`),
@@ -163,11 +159,19 @@ export function createSsmlEditorInsertionDefinition(
 }
 
 function createInsertionOptions(
-  values: readonly string[],
+  values: readonly string[] | Readonly<Record<string, SsmlEditorLocalizedText>>,
 ): readonly SsmlInsertionOption[] {
-  return values.map((value) => ({
+  if (Array.isArray(values)) {
+    return values.map((value) => ({
+      value,
+      labels: { ja: value, en: value },
+    }));
+  }
+
+  return Object.entries(values).map(([value, descriptions]) => ({
     value,
     labels: { ja: value, en: value },
+    descriptions,
   }));
 }
 
@@ -175,6 +179,8 @@ export const SSML_INSERTIONS = [
   {
     id: "break",
     icon: "⏸",
+    tagName: "break",
+    selfClosing: true,
     labels: { ja: "間", en: "Break" },
     titles: {
       ja: '500msの間を挿入 (<break time="500ms"/>)',
@@ -188,7 +194,24 @@ export const SSML_INSERTIONS = [
       ja: "無音にする時間を選択します。",
       en: "Selects the duration of the silent pause.",
     },
-    options: createInsertionOptions(["500ms", "1s", "2s", "3s"]),
+    options: createInsertionOptions({
+      "500ms": {
+        ja: "500ミリ秒の無音",
+        en: "Inserts 500 milliseconds of silence.",
+      },
+      "1s": {
+        ja: "1秒の無音",
+        en: "Inserts one second of silence.",
+      },
+      "2s": {
+        ja: "2秒の無音",
+        en: "Inserts two seconds of silence.",
+      },
+      "3s": {
+        ja: "3秒の無音",
+        en: "Inserts three seconds of silence.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<break time="${value}"/>`,
       suffix: "",
@@ -198,6 +221,7 @@ export const SSML_INSERTIONS = [
   {
     id: "emphasis",
     icon: "✦",
+    tagName: "emphasis",
     labels: { ja: "強調", en: "Emphasis" },
     titles: {
       ja: '選択範囲を <emphasis level="strong"> で囲む',
@@ -211,7 +235,24 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の強調レベルを選択します。",
       en: "Selects the emphasis level for the selected text.",
     },
-    options: createInsertionOptions(["strong", "moderate", "reduced", "none"]),
+    options: createInsertionOptions({
+      strong: {
+        ja: "強い強調",
+        en: "Applies strong emphasis.",
+      },
+      moderate: {
+        ja: "中程度の強調",
+        en: "Applies moderate emphasis.",
+      },
+      reduced: {
+        ja: "弱めの強調",
+        en: "Applies reduced emphasis.",
+      },
+      none: {
+        ja: "強調なし",
+        en: "Applies no emphasis.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<emphasis level="${value}">`,
       suffix: "</emphasis>",
@@ -221,6 +262,7 @@ export const SSML_INSERTIONS = [
   {
     id: "rate",
     icon: "↕",
+    tagName: "prosody",
     labels: { ja: "速度", en: "Rate" },
     titles: {
       ja: '選択範囲を <prosody rate="fast"> で囲む',
@@ -234,7 +276,28 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の読み上げ速度を選択します。",
       en: "Selects the speech rate for the selected text.",
     },
-    options: createInsertionOptions(RATE_OPTIONS),
+    options: createInsertionOptions({
+      "x-slow": {
+        ja: "最も遅い速度",
+        en: "Uses the slowest speech rate.",
+      },
+      slow: {
+        ja: "遅い速度",
+        en: "Uses a slow speech rate.",
+      },
+      medium: {
+        ja: "標準的な速度",
+        en: "Uses the standard speech rate.",
+      },
+      fast: {
+        ja: "速い速度",
+        en: "Uses a fast speech rate.",
+      },
+      "x-fast": {
+        ja: "最も速い速度",
+        en: "Uses the fastest speech rate.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<prosody rate="${value}">`,
       suffix: "</prosody>",
@@ -244,6 +307,7 @@ export const SSML_INSERTIONS = [
   {
     id: "pitch",
     icon: "↗",
+    tagName: "prosody",
     labels: { ja: "高さ", en: "Pitch" },
     titles: {
       ja: '選択範囲を <prosody pitch="+2st"> で囲む',
@@ -257,17 +321,44 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の声の高さを半音単位で選択します。",
       en: "Selects the pitch adjustment in semitone steps.",
     },
-    options: createInsertionOptions([
-      "+2st",
-      "-2st",
-      "0st",
-      "+4st",
-      "-4st",
-      "+8st",
-      "-8st",
-      "+12st",
-      "-12st",
-    ]),
+    options: createInsertionOptions({
+      "+2st": {
+        ja: "基準の声の高さより2半音上",
+        en: "Raises the pitch by two semitones.",
+      },
+      "-2st": {
+        ja: "基準の声の高さより2半音下",
+        en: "Lowers the pitch by two semitones.",
+      },
+      "0st": {
+        ja: "基準の声の高さ",
+        en: "Keeps the baseline pitch.",
+      },
+      "+4st": {
+        ja: "基準の声の高さより4半音上",
+        en: "Raises the pitch by four semitones.",
+      },
+      "-4st": {
+        ja: "基準の声の高さより4半音下",
+        en: "Lowers the pitch by four semitones.",
+      },
+      "+8st": {
+        ja: "基準の声の高さより8半音上",
+        en: "Raises the pitch by eight semitones.",
+      },
+      "-8st": {
+        ja: "基準の声の高さより8半音下",
+        en: "Lowers the pitch by eight semitones.",
+      },
+      "+12st": {
+        ja: "基準の声の高さより12半音上",
+        en: "Raises the pitch by twelve semitones.",
+      },
+      "-12st": {
+        ja: "基準の声の高さより12半音下",
+        en: "Lowers the pitch by twelve semitones.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<prosody pitch="${value}">`,
       suffix: "</prosody>",
@@ -277,6 +368,7 @@ export const SSML_INSERTIONS = [
   {
     id: "volume",
     icon: "🔊",
+    tagName: "prosody",
     labels: { ja: "音量", en: "Volume" },
     titles: {
       ja: '選択範囲を <prosody volume="loud"> で囲む',
@@ -290,7 +382,32 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の音量レベルを選択します。",
       en: "Selects the volume level for the selected text.",
     },
-    options: createInsertionOptions(VOLUME_OPTIONS),
+    options: createInsertionOptions({
+      silent: {
+        ja: "無音",
+        en: "Makes the selected text silent.",
+      },
+      "x-soft": {
+        ja: "最も小さい音量",
+        en: "Uses the quietest volume.",
+      },
+      soft: {
+        ja: "小さい音量",
+        en: "Uses a soft volume.",
+      },
+      medium: {
+        ja: "標準的な音量",
+        en: "Uses the standard volume.",
+      },
+      loud: {
+        ja: "大きい音量",
+        en: "Uses a loud volume.",
+      },
+      "x-loud": {
+        ja: "最も大きい音量",
+        en: "Uses the loudest volume.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<prosody volume="${value}">`,
       suffix: "</prosody>",
@@ -300,6 +417,7 @@ export const SSML_INSERTIONS = [
   {
     id: "emotion",
     icon: "☺",
+    tagName: "mstts:express-as",
     labels: { ja: "感情", en: "Emotion" },
     titles: {
       ja: '選択範囲を <mstts:express-as style="cheerful"> で囲む',
@@ -313,15 +431,36 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲に適用する Azure 音声の感情スタイルを選択します。",
       en: "Selects the Azure voice emotion style to apply.",
     },
-    options: createInsertionOptions([
-      "cheerful",
-      "friendly",
-      "calm",
-      "sad",
-      "angry",
-      "excited",
-      "serious",
-    ]),
+    options: createInsertionOptions({
+      cheerful: {
+        ja: "明るく元気なスタイル",
+        en: "Uses a cheerful style.",
+      },
+      friendly: {
+        ja: "親しみやすいスタイル",
+        en: "Uses a friendly style.",
+      },
+      calm: {
+        ja: "穏やかなスタイル",
+        en: "Uses a calm style.",
+      },
+      sad: {
+        ja: "悲しげなスタイル",
+        en: "Uses a sad style.",
+      },
+      angry: {
+        ja: "怒ったようなスタイル",
+        en: "Uses an angry style.",
+      },
+      excited: {
+        ja: "興奮したスタイル",
+        en: "Uses an excited style.",
+      },
+      serious: {
+        ja: "真剣なスタイル",
+        en: "Uses a serious style.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<mstts:express-as style="${value}">`,
       suffix: "</mstts:express-as>",
@@ -331,6 +470,7 @@ export const SSML_INSERTIONS = [
   {
     id: "say-as",
     icon: "Aa",
+    tagName: "say-as",
     labels: { ja: "読み上げ", en: "Say as" },
     titles: {
       ja: '選択範囲を <say-as interpret-as="characters"> で囲む',
@@ -344,20 +484,56 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の読み上げ方を選択します。",
       en: "Selects how the selected text is spoken.",
     },
-    options: createInsertionOptions([
-      "characters",
-      "spell-out",
-      "cardinal",
-      "ordinal",
-      "number",
-      "date",
-      "time",
-      "telephone",
-      "fraction",
-      "address",
-      "name",
-      "currency",
-    ]),
+    options: createInsertionOptions({
+      characters: {
+        ja: "1文字ずつの読み上げ",
+        en: "Speaks the characters one by one.",
+      },
+      "spell-out": {
+        ja: "綴りの読み上げ（1文字ずつ）",
+        en: "Spells out the text character by character.",
+      },
+      cardinal: {
+        ja: "基数としての読み上げ",
+        en: "Speaks the value as a cardinal number.",
+      },
+      ordinal: {
+        ja: "序数としての読み上げ",
+        en: "Speaks the value as an ordinal number.",
+      },
+      number: {
+        ja: "数値としての読み上げ",
+        en: "Speaks the value as a number.",
+      },
+      date: {
+        ja: "日付としての読み上げ",
+        en: "Speaks the value as a date.",
+      },
+      time: {
+        ja: "時刻としての読み上げ",
+        en: "Speaks the value as a time.",
+      },
+      telephone: {
+        ja: "電話番号としての読み上げ",
+        en: "Speaks the value as a telephone number.",
+      },
+      fraction: {
+        ja: "分数としての読み上げ",
+        en: "Speaks the value as a fraction.",
+      },
+      address: {
+        ja: "住所としての読み上げ",
+        en: "Speaks the value as an address.",
+      },
+      name: {
+        ja: "名前としての読み上げ",
+        en: "Speaks the value as a name.",
+      },
+      currency: {
+        ja: "通貨としての読み上げ",
+        en: "Speaks the value as currency.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<say-as interpret-as="${value}">`,
       suffix: "</say-as>",
@@ -367,6 +543,7 @@ export const SSML_INSERTIONS = [
   {
     id: "phoneme",
     icon: "ɑ",
+    tagName: "phoneme",
     labels: { ja: "発音", en: "Phoneme" },
     titles: {
       ja: '選択範囲を <phoneme alphabet="ipa"> で囲む',
@@ -380,7 +557,24 @@ export const SSML_INSERTIONS = [
       ja: "発音記号に使用するアルファベットを選択します。",
       en: "Selects the phonetic alphabet used for the pronunciation.",
     },
-    options: createInsertionOptions(["ipa", "sapi", "x-sampa", "ups"]),
+    options: createInsertionOptions({
+      ipa: {
+        ja: "国際音声記号（IPA）",
+        en: "Uses the International Phonetic Alphabet.",
+      },
+      sapi: {
+        ja: "Microsoft Speech API（SAPI）の音声記号",
+        en: "Uses the Microsoft Speech API phonetic alphabet.",
+      },
+      "x-sampa": {
+        ja: "X-SAMPAの音声記号",
+        en: "Uses the X-SAMPA phonetic alphabet.",
+      },
+      ups: {
+        ja: "Universal Phone Set（UPS）",
+        en: "Uses the Universal Phone Set.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<phoneme alphabet="${value}" ph="">`,
       suffix: "</phoneme>",
@@ -390,6 +584,7 @@ export const SSML_INSERTIONS = [
   {
     id: "audio",
     icon: "🔈",
+    tagName: "audio",
     labels: { ja: "音声", en: "Audio" },
     titles: {
       ja: '選択範囲を <audio src="..."> で囲む',
@@ -416,6 +611,7 @@ export const SSML_INSERTIONS = [
   {
     id: "sub",
     icon: "↔",
+    tagName: "sub",
     labels: { ja: "置換", en: "Substitute" },
     titles: {
       ja: '選択範囲を <sub alias="..."> で囲む',
@@ -439,6 +635,7 @@ export const SSML_INSERTIONS = [
   {
     id: "lang",
     icon: "文",
+    tagName: "lang",
     labels: { ja: "言語", en: "Language" },
     titles: {
       ja: '選択範囲を <lang xml:lang="ja-JP"> で囲む',
@@ -462,6 +659,8 @@ export const SSML_INSERTIONS = [
   {
     id: "mark",
     icon: "⚑",
+    tagName: "mark",
+    selfClosing: true,
     labels: { ja: "マーク", en: "Mark" },
     titles: {
       ja: '<mark name="chapter-1"/> を挿入',
@@ -485,6 +684,8 @@ export const SSML_INSERTIONS = [
   {
     id: "bookmark",
     icon: "🔖",
+    tagName: "bookmark",
+    selfClosing: true,
     labels: { ja: "しおり", en: "Bookmark" },
     titles: {
       ja: '<bookmark mark="chapter-1"/> を挿入',
@@ -508,6 +709,8 @@ export const SSML_INSERTIONS = [
   {
     id: "mstts:silence",
     icon: "⏳",
+    tagName: "mstts:silence",
+    selfClosing: true,
     labels: { ja: "無音", en: "Silence" },
     titles: {
       ja: '<mstts:silence type="Leading" value="300ms"/> を挿入',
@@ -531,6 +734,8 @@ export const SSML_INSERTIONS = [
   {
     id: "mstts:viseme",
     icon: "◉",
+    tagName: "mstts:viseme",
+    selfClosing: true,
     labels: { ja: "口形", en: "Viseme" },
     titles: {
       ja: '<mstts:viseme type="redlips_front"/> を挿入',
@@ -1493,7 +1698,10 @@ export function SsmlEditor({
             type="button"
             role="menuitem"
             style={styles.toolbarOption}
-            title={insertion.descriptions[language]}
+            title={
+              option.descriptions?.[language] ??
+              insertion.descriptions[language]
+            }
             disabled={isReadOnly}
             onMouseDown={(event) => event.preventDefault()}
             onClick={(event) => {
@@ -1673,7 +1881,15 @@ export function SsmlEditor({
                         {insertion.icon}
                       </span>
                       <div style={styles.helpItemContent}>
-                        <strong>{insertion.labels[language]}</strong> —{" "}
+                        <strong>{insertion.labels[language]}</strong>{" "}
+                        {insertion.tagName && (
+                          <>
+                            <code>
+                              {`<${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`}
+                            </code>{" "}
+                            —{" "}
+                          </>
+                        )}
                         {insertion.descriptions[language]}
                         <details style={styles.helpParameterAccordion}>
                           <summary style={styles.helpParameterSummary}>
@@ -1685,7 +1901,10 @@ export function SsmlEditor({
                           <ul style={styles.helpParameterList}>
                             {insertion.options.map((option) => (
                               <li key={option.value}>
-                                {option.labels[language]}
+                                <strong>{option.labels[language]}</strong>
+                                {option.descriptions && (
+                                  <> — {option.descriptions[language]}</>
+                                )}
                               </li>
                             ))}
                           </ul>
