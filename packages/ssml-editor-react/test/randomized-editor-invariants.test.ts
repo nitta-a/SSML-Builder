@@ -198,13 +198,7 @@ class RandomizedEditor {
 }
 
 function createOperationPlan(random: RandomSource): OperationName[] {
-  const operations: OperationName[] = [
-    "insert-text",
-    "select-text",
-    "insert-tag",
-    "format-xml",
-    "clear-document",
-  ];
+  const operations: OperationName[] = ["insert-text", "select-text", "insert-tag", "format-xml", "clear-document"];
   const allOperations: OperationName[] = [...operations];
 
   while (allOperations.length < OPERATION_COUNT) {
@@ -219,7 +213,7 @@ function createOperationPlan(random: RandomSource): OperationName[] {
   return allOperations;
 }
 
-function checkInvariants(editor: RandomizedEditor, step: number, operation: OperationName): void {
+function checkInvariants(editor: RandomizedEditor): void {
   const ssml = editor.getFullSsml();
   parseSsml(ssml);
   expect(validateSsml(ssml)).toBeNull();
@@ -266,7 +260,7 @@ test("preserves SSML invariants during randomized editor operations", () => {
           break;
       }
 
-      checkInvariants(editor, step, operation);
+      checkInvariants(editor);
     } catch (error) {
       logFailure(editor, step, operation);
       throw error;
