@@ -72,7 +72,7 @@ test.describe("Monaco SSML editor", () => {
     }
 
     await page.mouse.move(
-      breakLineBox.x + Math.min(24, Math.max(1, breakLineBox.width - 1)),
+      breakLineBox.x + breakLineBox.width / 2,
       breakLineBox.y + breakLineBox.height / 2,
     );
 
@@ -90,7 +90,7 @@ test.describe("Monaco SSML editor", () => {
           bounds.top >= 0 &&
           bounds.right <= window.innerWidth &&
           bounds.bottom <= window.innerHeight,
-        isTopmost: topElement?.closest(".monaco-hover") === element,
+        isTopmost: topElement instanceof Node && element.contains(topElement),
         zIndex: Number.parseInt(getComputedStyle(element).zIndex, 10) || 0,
       };
     });
