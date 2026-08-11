@@ -72,7 +72,7 @@ npm run dev --workspace playground
 
 `SsmlDocument` は `version`、`lang`、`children` を持つオブジェクトです。`children` には文字列、テキストノード、SSML 要素を入れられます。`children` を使う形式が推奨され、旧形式の `content` プロパティも `buildSsml` の入力として利用できます。
 
-`lang` は読み上げ言語を表す BCP-47 タグで、パッケージ外部から `SsmlDocument` に設定します。`SsmlEditor` の `language` は画面表示言語の設定であり、読み上げ言語とは別です。
+`lang` は読み上げ言語を表す BCP-47 タグで、パッケージ外部から `SsmlDocument` に設定します。`SsmlEditor` の `locale` は画面表示言語の設定であり、読み上げ言語とは別です。
 
 ```ts
 import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
@@ -147,7 +147,7 @@ export function App() {
         document={document}
         onChange={setDocument}
         onSsmlChange={setSsml}
-        language="ja"
+        locale="ja"
       />
       <pre>{ssml}</pre>
     </>
@@ -161,7 +161,8 @@ export function App() {
 - `ref`: `SsmlEditorRef` の `getFullSsml()` で全体の SSML、`getSelectedSsml()` で選択範囲（未選択時はカーソル行）の SSML、`getCurrentLineSsml()` で現在行の SSML を取得
 - `onSelectionChange`: 選択テキスト、文字数、選択状態を受け取るコールバック
 - `onPreviewSelection`: フローティングアクションの試聴ボタン押下時に、選択部分の SSML を受け取るコールバック。省略時は試聴ボタンが無効になります。Azure などの音声 API はこのコールバックから呼び出してください
-- `language`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`
+- `locale`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`。ホバーヘルプを含む UI の翻訳にも使用されます
+- `language`: `locale` の旧名称。既存コードとの互換性のため利用できますが、新しいコードでは `locale` を使用してください
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
 - `showDecorations`: 本文中のインライン装飾（バッジや Inlay Hints）の表示（デフォルトは `false`）。ツールバーの「装飾」スイッチで表示・非表示を切り替えられます
@@ -324,7 +325,7 @@ npm run dev --workspace playground
 
 `SsmlDocument` is an object with `version`, `lang`, and `children` properties. `children` can contain strings, text nodes, and SSML elements. The `children` form is recommended; the legacy `content` property is also accepted as input by `buildSsml`.
 
-`lang` is the BCP-47 tag for speech synthesis and is set on `SsmlDocument` by the package consumer. `SsmlEditor`'s `language` prop controls the UI language and is separate from the speech language.
+`lang` is the BCP-47 tag for speech synthesis and is set on `SsmlDocument` by the package consumer. `SsmlEditor`'s `locale` prop controls the UI language and is separate from the speech language.
 
 ```ts
 import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
@@ -399,7 +400,7 @@ export function App() {
         document={document}
         onChange={setDocument}
         onSsmlChange={setSsml}
-        language="en"
+        locale="en"
       />
       <pre>{ssml}</pre>
     </>
@@ -413,7 +414,8 @@ export function App() {
 - `ref`: An `SsmlEditorRef`; `getFullSsml()` returns the full SSML, `getSelectedSsml()` returns the selected text (or the cursor line when no text is selected), and `getCurrentLineSsml()` returns the current cursor line
 - `onSelectionChange`: A callback that receives selected text, its character count, and whether a selection exists
 - `onPreviewSelection`: A callback that receives the selected partial SSML when the floating preview action is pressed. The preview action is disabled when this callback is omitted; call an audio API such as Azure from the callback
-- `language`: The UI language (`"ja"` or `"en"`); defaults to `"ja"`
+- `locale`: The UI language (`"ja"` or `"en"`); defaults to `"ja"` and also controls hover-help translations
+- `language`: Legacy name for `locale`, retained for compatibility; use `locale` in new code
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
 - `showDecorations`: Whether inline decorations such as badges and inlay hints are shown in the text (defaults to `false`); use the **Decorations** toolbar switch to toggle them at runtime

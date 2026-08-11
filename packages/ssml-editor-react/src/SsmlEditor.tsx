@@ -14,7 +14,7 @@ import type {
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { clearSsmlDocument } from "./clearSsmlDocument";
 import { formatXmlFragment } from "./formatXml";
-import { EDITOR_COPY, type SsmlEditorLanguage, type SsmlEditorLocalizedText } from "./locales";
+import { EDITOR_COPY, type EditorCopy, type SsmlEditorLanguage, type SsmlEditorLocalizedText } from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
 
