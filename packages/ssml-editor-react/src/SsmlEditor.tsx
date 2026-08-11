@@ -44,12 +44,7 @@ import {
 } from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
-import {
-  DEFAULT_LOCALE,
-  SELECTION_ACTIONS_Z_INDEX,
-  SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES,
-  TOOLBAR_MENU_Z_INDEX,
-} from "./constants/ui";
+import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES, OVERLAY_Z_INDEX } from "./constants/ui";
 const SSML_MARKER_OWNER = "ssml-builder";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
@@ -822,7 +817,7 @@ const styles: Record<string, CSSProperties> = {
   },
   toolbarMenu: {
     position: "fixed",
-    zIndex: TOOLBAR_MENU_Z_INDEX,
+    zIndex: OVERLAY_Z_INDEX,
     display: "grid",
     minWidth: "max-content",
     maxHeight: "min(24rem, calc(100vh - 1rem))",
@@ -919,7 +914,7 @@ const styles: Record<string, CSSProperties> = {
   },
   selectionActions: {
     position: "absolute",
-    zIndex: SELECTION_ACTIONS_Z_INDEX,
+    zIndex: OVERLAY_Z_INDEX,
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
