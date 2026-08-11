@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "node --experimental-strip-types --test test/index.test.ts",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc --build"
   },
   "devDependencies": {
