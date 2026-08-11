@@ -15,7 +15,7 @@ SSML の XML エスケープや Azure Speech 拡張要素に対応したコア�
 | --- | --- |
 | `@ssml-builder/ssml-core` | SSML の型定義、ドキュメントの生成（`buildSsml`）、XML からの解析（`parseSsml`）、構文検証（`validateSsml`） |
 | `@ssml-builder/ssml-editor-react` | ツールバーと本文の表示エリアを備えた `SsmlEditor` コンポーネント |
-| `@ssml-builder/azure-tts-client` | SSML を Azure Text-to-Speech に送信し、音声データを `ArrayBuffer` で取得するクライアント |
+| `@ssml-builder/azure-tts-client` | Microsoft Speech SDK で SSML を Azure Text-to-Speech に送信し、音声データを `ArrayBuffer` で取得するクライアント |
 
 ## セットアップ
 
@@ -192,10 +192,10 @@ const audio = await client.synthesize(ssml);
 // audio は audio/mpeg の ArrayBuffer
 ```
 
-エンドポイントを明示する場合は `endpoint` を指定できます。省略すると `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` が使用されます。独自エンドポイントに `{region}` を含めた場合は、設定したリージョンに置き換えられます。
-`outputFormat` を指定すると `X-Microsoft-OutputFormat` ヘッダーを設定できます。省略時は `audio-16khz-128kbitrate-mono-mp3` が使用されます。
+内部では Microsoft Cognitive Services Speech SDK の `SpeechSynthesizer` を使用します。エンドポイントを明示する場合は `endpoint` を指定できます。省略すると `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` が使用されます。独自エンドポイントに `{region}` を含めた場合は、設定したリージョンに置き換えられます。
+`outputFormat` には Speech SDK がサポートする出力形式を指定できます。省略時は `audio-16khz-128kbitrate-mono-mp3` が使用されます。
 
-Azure TTS の HTTP エラーでは `AzureTtsError` がスローされ、`status`、`statusText`、`responseBody`、`requestId` から Azure の診断情報を確認できます。Playground のサーバー側ログにもこれらの情報とリージョン、SSML の文字数が出力されます。ログに出力するレスポンス本文は 4,096 文字までに制限されます。サブスクリプションキーや SSML 本文自体はログに出力されません。
+Speech SDK の合成エラーでは `AzureTtsError` がスローされ、`responseBody` から SDK のエラー詳細を確認できます。SDK が HTTP ステータスやリクエスト ID を公開しないため、SDK 経由のエラーでは `status`、`statusText`、`requestId` は `null` です。Playground のサーバー側ログにもこれらの情報とリージョン、SSML の文字数が出力されます。ログに出力するエラー詳細は 4,096 文字までに制限されます。サブスクリプションキーや SSML 本文自体はログに出力されません。
 
 サブスクリプションキーはリクエストヘッダーに含まれるため、ソースコードへハードコードしたりログへ出力したりしないでください。ブラウザから直接呼び出す場合はキーが利用者へ公開されるため、通常はサーバー側で Azure TTS を呼び出す構成にします。
 
@@ -245,7 +245,7 @@ It provides separate packages for a core library with XML escaping and Azure Spe
 | --- | --- |
 | `@ssml-builder/ssml-core` | SSML type definitions, document generation (`buildSsml`), XML parsing (`parseSsml`), and syntax validation (`validateSsml`) |
 | `@ssml-builder/ssml-editor-react` | The `SsmlEditor` component with a toolbar and text display area |
-| `@ssml-builder/azure-tts-client` | A client that sends SSML to Azure Text-to-Speech and returns audio data as an `ArrayBuffer` |
+| `@ssml-builder/azure-tts-client` | A client that uses the Microsoft Speech SDK to send SSML to Azure Text-to-Speech and return audio data as an `ArrayBuffer` |
 
 ## Setup
 
@@ -421,10 +421,10 @@ const audio = await client.synthesize(ssml);
 // audio is an audio/mpeg ArrayBuffer
 ```
 
-Set `endpoint` to use an explicit endpoint. If omitted, `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` is used. If a custom endpoint contains `{region}`, it is replaced with the configured region.
-Set `outputFormat` to configure the `X-Microsoft-OutputFormat` header. If omitted, `audio-16khz-128kbitrate-mono-mp3` is used.
+Internally, the client uses the Microsoft Cognitive Services Speech SDK's `SpeechSynthesizer`. Set `endpoint` to use an explicit endpoint. If omitted, `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` is used. If a custom endpoint contains `{region}`, it is replaced with the configured region.
+Set `outputFormat` to a format supported by the Speech SDK. If omitted, `audio-16khz-128kbitrate-mono-mp3` is used.
 
-HTTP errors from Azure TTS throw `AzureTtsError`, whose `status`, `statusText`, `responseBody`, and `requestId` fields expose Azure's diagnostic information. The playground's server-side logs include these fields along with the region and SSML character count. Logged response bodies are limited to 4,096 characters. The subscription key and SSML content itself are not written to logs.
+Speech SDK synthesis errors throw `AzureTtsError`; its `responseBody` field contains the SDK error details. Because the SDK does not expose HTTP status or request IDs, `status`, `statusText`, and `requestId` are `null` for SDK errors. The playground's server-side logs include these fields along with the region and SSML character count. Logged error details are limited to 4,096 characters. The subscription key and SSML content itself are not written to logs.
 
 The subscription key is sent in a request header, so do not hard-code it in source code or write it to logs. Calling Azure TTS directly from a browser exposes the key to users; a server-side Azure TTS integration is normally recommended.
 

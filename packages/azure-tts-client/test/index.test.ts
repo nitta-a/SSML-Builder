@@ -148,9 +148,12 @@ test("synthesize reports Speech SDK synthesis errors", async (t) => {
     }).synthesize("<speak>Hello</speak>"),
     (error: unknown) => {
       assert.ok(error instanceof AzureTtsError);
-      assert.equal(error.message, "Azure TTS request failed: 0 Speech SDK");
-      assert.equal(error.status, 0);
-      assert.equal(error.statusText, "Speech SDK");
+      assert.equal(
+        error.message,
+        "Azure TTS synthesis failed: The SSML is invalid.",
+      );
+      assert.equal(error.status, null);
+      assert.equal(error.statusText, null);
       assert.equal(error.responseBody, errorDetails);
       assert.equal(error.requestId, null);
       return true;
