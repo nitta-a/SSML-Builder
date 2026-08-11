@@ -1,4 +1,17 @@
 // @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
+import {
+  BREAK_STRENGTH_PRESETS,
+  BREAK_TIME_PRESETS,
+  EMPHASIS_LEVEL_PRESETS,
+  EXPRESS_AS_STYLE_PRESETS,
+  PHONEME_ALPHABET_PRESETS,
+  PROSODY_PITCH_PRESETS,
+  PROSODY_RATE_VALUES,
+  PROSODY_VOLUME_PRESETS,
+  SILENCE_TYPE_PRESETS,
+  SILENCE_VALUE_PRESETS,
+  VISEME_TYPE_PRESETS,
+} from "./constants/ssmlPresets.ts";
 import { SSML_HOVER_COPY, type SsmlEditorLocale } from "./locales.ts";
 
 export interface SsmlParameterDefinition {
@@ -57,19 +70,19 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "rate",
         description: "Controls speaking speed.",
-        values: ["x-slow", "slow", "medium", "fast", "x-fast", "percentage"],
-        example: "fast",
+        values: PROSODY_RATE_VALUES,
+        example: PROSODY_RATE_PRESETS[3],
       },
       {
         name: "pitch",
         description: "Adjusts pitch using a named value, percentage, frequency, or semitone value.",
-        example: "+2st",
+        example: PROSODY_PITCH_PRESETS[0],
       },
       {
         name: "volume",
         description: "Controls loudness using a named value, percentage, or decibel value.",
-        values: ["silent", "x-soft", "soft", "medium", "loud", "x-loud"],
-        example: "loud",
+        values: PROSODY_VOLUME_PRESETS,
+        example: PROSODY_VOLUME_PRESETS[4],
       },
       {
         name: "contour",
@@ -90,12 +103,12 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "time",
         description: "The pause duration, for example `500ms` or `1s`.",
-        example: "500ms",
+        example: BREAK_TIME_PRESETS[0],
       },
       {
         name: "strength",
         description: "The relative pause strength.",
-        values: ["none", "x-weak", "weak", "medium", "strong", "x-strong"],
+        values: BREAK_STRENGTH_PRESETS,
       },
     ],
   },
@@ -107,7 +120,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "style",
         description: "The speaking style supported by the selected voice, such as `cheerful`.",
-        example: "cheerful",
+        example: EXPRESS_AS_STYLE_PRESETS[0],
       },
       {
         name: "styledegree",
@@ -149,8 +162,8 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "alphabet",
         description: "The phonetic alphabet used by the `ph` value.",
-        values: ["ipa", "sapi", "ups", "x-sampa"],
-        example: "ipa",
+        values: PHONEME_ALPHABET_PRESETS,
+        example: PHONEME_ALPHABET_PRESETS[0],
       },
       {
         name: "ph",
@@ -166,7 +179,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "level",
         description: "Controls the amount of emphasis.",
-        values: ["strong", "moderate", "reduced", "none"],
+        values: EMPHASIS_LEVEL_PRESETS,
       },
     ],
   },
@@ -294,12 +307,12 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "type",
         description: "The silence position or punctuation boundary.",
-        values: ["Leading", "Tailing", "Sentenceboundary", "Comma", "Semicolon", "Enumerationcomma"],
+        values: SILENCE_TYPE_PRESETS,
       },
       {
         name: "value",
         description: "The silence duration, for example `300ms`.",
-        example: "300ms",
+        example: SILENCE_VALUE_PRESETS[0],
       },
     ],
   },
@@ -311,7 +324,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "type",
         description: "The viseme event format.",
-        values: ["redlips_front", "FacialExpression"],
+        values: VISEME_TYPE_PRESETS,
       },
     ],
   },

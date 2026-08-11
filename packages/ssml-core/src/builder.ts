@@ -6,10 +6,7 @@ import type {
   SsmlElementBase,
   SsmlNode,
 } from "./types.ts";
-
-const SYNTHESIS_NAMESPACE = "http://www.w3.org/2001/10/synthesis";
-const MSTTS_NAMESPACE = "http://www.w3.org/2001/mstts";
-const XML_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
+import { DEFAULT_SSML_LANGUAGE, DEFAULT_SSML_VERSION, MSTTS_NAMESPACE, SYNTHESIS_NAMESPACE, XML_NAME_PATTERN } from "./constants/ssml.ts";
 
 function escapeText(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -203,10 +200,13 @@ function serializeDocument(document: SsmlDocument): string {
 
 export function buildSsml(document: SsmlDocument): string;
 export function buildSsml(content: string, lang?: string): SsmlDocument;
-export function buildSsml(documentOrContent: SsmlDocument | string, lang = "en-US"): string | SsmlDocument {
+export function buildSsml(
+  documentOrContent: SsmlDocument | string,
+  lang = DEFAULT_SSML_LANGUAGE,
+): string | SsmlDocument {
   if (typeof documentOrContent === "string") {
     return {
-      version: "1.0",
+      version: DEFAULT_SSML_VERSION,
       lang,
       content: documentOrContent,
     };

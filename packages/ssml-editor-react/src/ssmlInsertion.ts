@@ -1,4 +1,6 @@
-export type SsmlInsertionMode = "insert" | "wrap";
+import { SSML_INSERTION_MODES } from "./constants/ssmlPresets.ts";
+
+export type SsmlInsertionMode = (typeof SSML_INSERTION_MODES)[keyof typeof SSML_INSERTION_MODES];
 
 export interface SsmlInsertionTemplate {
   prefix: string;
@@ -35,7 +37,7 @@ export function createSsmlInsertionEdit(
 ): SsmlInsertionEdit {
   const selectedText = source.slice(startOffset, endOffset);
 
-  if (template.mode === "wrap") {
+  if (template.mode === SSML_INSERTION_MODES.wrap) {
     return {
       replacement: `${template.prefix}${selectedText}${template.suffix}`,
       selectionOffset: template.prefix.length,

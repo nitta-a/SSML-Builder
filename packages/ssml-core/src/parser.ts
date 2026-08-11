@@ -23,10 +23,7 @@ import type {
   VoiceElement,
   WordElement,
 } from "./types.ts";
-
-const SYNTHESIS_NAMESPACE = "http://www.w3.org/2001/10/synthesis";
-const MSTTS_NAMESPACE = "http://www.w3.org/2001/mstts";
-const MAX_NESTING_DEPTH = 1000;
+import { MAX_NESTING_DEPTH, MSTTS_NAMESPACE, SYNTHESIS_NAMESPACE } from "./constants/ssml.ts";
 
 interface XmlElementNode {
   name: string;
