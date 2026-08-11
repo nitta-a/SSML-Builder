@@ -38,6 +38,7 @@ type SsmlInsertionDefinition = {
   id: SsmlEditorInsertionButton;
   icon: string;
   tagName: string;
+  selfClosing?: boolean;
   labels: LocalizedText;
   titles: LocalizedText;
   descriptions: LocalizedText;
@@ -61,6 +62,7 @@ const SSML_INSERTIONS = [
     id: "break",
     icon: "⏸",
     tagName: "break",
+    selfClosing: true,
     labels: { ja: "間", en: "Break" },
     titles: {
       ja: '500msの間を挿入 (<break time="500ms"/>)',
@@ -1361,8 +1363,10 @@ export function SsmlEditor({
                           </span>
                           <span>
                             <strong>{insertion.labels[language]}</strong>{" "}
-                            <code>{`<${insertion.tagName}>`}</code> —{" "}
-                            {insertion.descriptions[language]}
+                            <code>
+                              {`<${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`}
+                            </code>{" "}
+                            — {insertion.descriptions[language]}
                           </span>
                         </summary>
                         <p style={styles.helpSettingsDescription}>
