@@ -1,4 +1,4 @@
-# @ssml-builder/azure-tts-client
+# @ssml-builder-js/azure-tts-client
 
 ## 1.0.0
 

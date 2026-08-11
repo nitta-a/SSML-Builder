@@ -1,4 +1,4 @@
-import type { SsmlDocument, SsmlNode } from "@ssml-builder/ssml-core";
+import type { SsmlDocument, SsmlNode } from "@ssml-builder-js/ssml-core";
 
 function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
   return document.children ?? (document.content === undefined ? [] : [document.content]);

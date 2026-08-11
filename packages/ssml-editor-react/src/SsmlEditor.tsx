@@ -2,7 +2,7 @@ import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, us
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { createPortal } from "react-dom";
-import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
+import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder-js/ssml-core";
 import type {
   ProsodyElement,
   SsmlDocument,
@@ -10,7 +10,7 @@ import type {
   SsmlNode,
   SsmlPartialContext,
   VoiceElement,
-} from "@ssml-builder/ssml-core";
+} from "@ssml-builder-js/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { clearSsmlDocument } from "./clearSsmlDocument";
 import { formatXmlFragment } from "./formatXml";

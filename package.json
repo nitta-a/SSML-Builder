@@ -1,5 +1,5 @@
 {
-  "name": "ssml-builder",
+  "name": "ssml-builder-js",
   "private": true,
   "workspaces": [
     "packages/*",

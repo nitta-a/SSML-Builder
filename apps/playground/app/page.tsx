@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { buildSsml, parseSsml } from "@ssml-builder/ssml-core";
-import type { SsmlDocument } from "@ssml-builder/ssml-core";
-import type { SsmlNode } from "@ssml-builder/ssml-core";
-import { SsmlEditor } from "@ssml-builder/ssml-editor-react";
-import type { SsmlEditorRef } from "@ssml-builder/ssml-editor-react";
+import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
+import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
+import type { SsmlNode } from "@ssml-builder-js/ssml-core";
+import { SsmlEditor } from "@ssml-builder-js/ssml-editor-react";
+import type { SsmlEditorRef } from "@ssml-builder-js/ssml-editor-react";
 
 type SpeechLanguage = "ja-JP" | "en-US";
 type SpeechGender = "female" | "male";

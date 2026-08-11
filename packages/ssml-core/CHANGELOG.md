@@ -1,4 +1,4 @@
-# @ssml-builder/ssml-core
+# @ssml-builder-js/ssml-core
 
 ## 1.0.0
 

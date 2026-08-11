@@ -1,5 +1,5 @@
 {
-  "name": "@ssml-builder/ssml-core",
+  "name": "@ssml-builder-js/ssml-core",
   "version": "1.0.0",
   "description": "Core SSML building utilities",
   "main": "dist/index.js",
@@ -11,6 +11,10 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "build": "tsup",

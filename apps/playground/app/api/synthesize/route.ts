@@ -1,5 +1,5 @@
-import { AzureTtsClient, AzureTtsError } from "@ssml-builder/azure-tts-client";
-import { validateSsml } from "@ssml-builder/ssml-core";
+import { AzureTtsClient, AzureTtsError } from "@ssml-builder-js/azure-tts-client";
+import { validateSsml } from "@ssml-builder-js/ssml-core";
 
 export const runtime = "nodejs";
 
