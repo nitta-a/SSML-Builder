@@ -10,11 +10,7 @@ import type {
   SsmlPartialContext,
   VoiceElement,
 } from "@ssml-builder/ssml-core";
-import {
-  isSsmlEditorButtonVisible,
-  type SsmlEditorButton,
-  type SsmlEditorButtonVisibility,
-} from "./buttonVisibility";
+import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { formatXml } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
@@ -701,7 +697,10 @@ function orderInsertions(
   return ordered;
 }
 
-function orderToolbarButtons(buttonIds: readonly string[], toolbarOrder: readonly string[] | undefined): readonly string[] {
+function orderToolbarButtons(
+  buttonIds: readonly string[],
+  toolbarOrder: readonly string[] | undefined,
+): readonly string[] {
   if (!toolbarOrder || toolbarOrder.length === 0) {
     return buttonIds;
   }
