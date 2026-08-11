@@ -32,10 +32,6 @@ async function getZIndex(locator: Locator) {
 }
 
 test.describe("Monaco SSML editor", () => {
-  test.beforeEach(async ({ browserName }) => {
-    test.skip(browserName !== "chromium", "This E2E spec requires Chromium.");
-  });
-
   test("accepts Japanese keyboard input and wraps the selection with prosody", async ({ page }) => {
     await openPlayground(page);
     await replaceEditorText(page, JAPANESE_TEXT);
