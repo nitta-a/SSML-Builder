@@ -166,6 +166,7 @@ export default function Home() {
   const [audioCaptionTrack, setAudioCaptionTrack] = useState<string | null>(null);
   const [audioCaptionLanguage, setAudioCaptionLanguage] = useState<string | null>(null);
   const audioUrlRef = useRef<string | null>(null);
+  const hasManualThemeRef = useRef(false);
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
   const currentCaptionTrack = createCaptionTrack(document);
@@ -187,16 +188,25 @@ export default function Home() {
       return;
     }
 
-    setTheme(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateTheme = (isDark: boolean): void => {
+      if (!hasManualThemeRef.current) {
+        setTheme(isDark ? "dark" : "light");
+      }
+    };
+    const handleChange = (event: MediaQueryListEvent): void => updateTheme(event.matches);
+
+    updateTheme(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
   useEffect(() => {
     if (theme === null) {
       return;
     }
-
     globalThis.document.documentElement.dataset.theme = theme;
-    storeTheme(theme);
+    globalThis.document.documentElement.dataset.theme = theme;
   }, [theme]);
 
   const replaceAudioUrl = (nextAudioUrl: string | null): void => {
@@ -205,6 +215,13 @@ export default function Home() {
     }
     audioUrlRef.current = nextAudioUrl;
     setAudioUrl(nextAudioUrl);
+  };
+
+  const toggleTheme = (): void => {
+    hasManualThemeRef.current = true;
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    storeTheme(nextTheme);
   };
 
   const generateAudio = async (): Promise<void> => {
@@ -254,7 +271,7 @@ export default function Home() {
               role="switch"
               aria-checked={theme === "dark"}
               aria-label="Dark mode"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={toggleTheme}
               disabled={theme === null}
             >
               <span className="theme-switch-thumb" />
