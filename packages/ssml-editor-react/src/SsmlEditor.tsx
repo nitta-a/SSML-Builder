@@ -1018,9 +1018,10 @@ export function SsmlEditor({
         data-ssml-editor-toolbar=""
       >
         <div style={styles.voiceControl}>
-          <label htmlFor={voiceInputId}>{copy.voice}</label>
+          <span aria-hidden="true">{copy.voice}</span>
           <input
             id={voiceInputId}
+            aria-label={copy.voice}
             style={styles.input}
             type="text"
             value={voiceName}
