@@ -135,6 +135,15 @@ test("formats nested XML with readable line breaks", () => {
   );
 });
 
+test("puts text-only SSML content on a readable line", () => {
+  assert.equal(
+    formatXml(
+      '<speak version="1.0" xml:lang="en-US">Welcome to the Builder .</speak>',
+    ),
+    '<speak version="1.0" xml:lang="en-US">\n  Welcome to the Builder .\n</speak>',
+  );
+});
+
 test("keeps formatted XML stable and handles empty input", () => {
   const formatted = "<root>\n  <child>text</child>\n</root>";
 
