@@ -5,6 +5,13 @@
 
 export * from "./types.ts";
 export { buildSsml } from "./builder.ts";
+export { buildPartialSsml } from "./partial.ts";
+export type {
+  BuildPartialSsmlOptions,
+  SsmlPartialContext,
+  SsmlPartialProsody,
+  SsmlPartialVoice,
+} from "./partial.ts";
 export { parseSsml } from "./parser.ts";
 export { validateSsml } from "./validation.ts";
 export type { SsmlValidationError } from "./validation.ts";

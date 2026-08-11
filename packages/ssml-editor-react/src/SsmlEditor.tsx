@@ -1,8 +1,15 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
-import { buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
-import type { ProsodyElement, SsmlDocument, SsmlElement, SsmlNode, VoiceElement } from "@ssml-builder/ssml-core";
+import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
+import type {
+  ProsodyElement,
+  SsmlDocument,
+  SsmlElement,
+  SsmlNode,
+  SsmlPartialContext,
+  VoiceElement,
+} from "@ssml-builder/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { formatXml } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
@@ -884,6 +891,7 @@ export interface SsmlEditorProps {
   document: SsmlDocument;
   onChange?: (document: SsmlDocument) => void;
   onSsmlChange?: (xml: string) => void;
+  onSelectionChange?: (info: SelectionInfo) => void;
   /** UI language. Japanese is used when omitted. */
   language?: SsmlEditorLanguage;
   /** Whether toolbar action icons are displayed. */
@@ -936,6 +944,17 @@ export interface SsmlEditorProps {
   displayClassName?: string;
   /** Inline styles applied to the editor display area. */
   displayStyle?: CSSProperties;
+}
+
+export interface SelectionInfo {
+  selectedText: string;
+  characterCount: number;
+  hasSelection: boolean;
+}
+
+export interface SsmlEditorRef {
+  getSelectedSsml(): string | null;
+  getFullSsml(): string;
 }
 
 const styles: Record<string, CSSProperties> = {
@@ -1132,6 +1151,7 @@ type MonacoEditor = Parameters<OnMount>[0];
 type SsmlInsertion = SsmlInsertionDefinition;
 type MonacoLanguages = Monaco["languages"];
 type MonacoModel = NonNullable<ReturnType<MonacoEditor["getModel"]>>;
+type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
 type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
 type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
 type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
@@ -1185,6 +1205,37 @@ function isProsody(element: SsmlElement): element is ProsodyElement {
 
 function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
   return document.children ?? (document.content === undefined ? [] : [document.content]);
+}
+
+function getPartialContext(document: SsmlDocument): SsmlPartialContext {
+  const children = getDocumentChildren(document);
+  const voice = findFirstElement(children, isVoice);
+  const prosody = findFirstElement(children, isProsody);
+  const context: SsmlPartialContext = {
+    version: document.version,
+    lang: document.lang,
+  };
+
+  if (voice) {
+    context.voice = {
+      name: voice.name,
+      effect: voice.effect,
+      attributes: voice.attributes,
+    };
+  }
+
+  if (prosody) {
+    context.prosody = {
+      rate: prosody.rate,
+      pitch: prosody.pitch,
+      volume: prosody.volume,
+      contour: prosody.contour,
+      range: prosody.range,
+      attributes: prosody.attributes,
+    };
+  }
+
+  return context;
 }
 
 function findFirstElement<T extends SsmlElement>(
@@ -1350,6 +1401,43 @@ function updateText(document: SsmlDocument, value: string): SsmlDocument {
   return withChildren(document, editableChildren);
 }
 
+function getSelectionInfo(editor: MonacoEditor): SelectionInfo {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!model || !selection) {
+    return {
+      selectedText: "",
+      characterCount: 0,
+      hasSelection: false,
+    };
+  }
+
+  const selectedText = model.getValueInRange(selection);
+  return {
+    selectedText,
+    characterCount: selectedText.length,
+    hasSelection: selectedText.length > 0,
+  };
+}
+
+function getCurrentDocument(document: SsmlDocument, editor: MonacoEditor | null): SsmlDocument {
+  const value = editor?.getValue();
+  return value === undefined ? document : updateText(document, value);
+}
+
+function getSelectedText(editor: MonacoEditor): string | null {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!model || !selection) {
+    return null;
+  }
+
+  const selectedText = model.getValueInRange(selection);
+  // Use the cursor line as fallback content when Monaco has no active range.
+  const text = selectedText.length > 0 ? selectedText : model.getLineContent(selection.positionLineNumber);
+  return text.trim().length > 0 ? text : null;
+}
+
 function acquireSsmlHoverProvider(monaco: Monaco): () => void {
   const languages = monaco.languages;
   let registration = hoverProviderRegistrations.get(languages);
@@ -1441,37 +1529,41 @@ function applySsmlInsertion(editor: MonacoEditor, insertion: SsmlInsertion, opti
   editor.focus();
 }
 
-export function SsmlEditor({
-  document,
-  onChange,
-  onSsmlChange,
-  language = DEFAULT_LANGUAGE,
-  showToolbarIcons = true,
-  showToolbarLabels = false,
-  buttonVisibility,
-  editorOptions,
-  settings,
-  height,
-  minHeight,
-  readOnly,
-  theme,
-  fontSize,
-  wordWrap,
-  lineNumbers,
-  minimap,
-  automaticLayout,
-  insertionOrder,
-  insertionGroups,
-  customInsertions,
-  additionalInsertions,
-  emotionStyles,
-  className,
-  style,
-  toolbarClassName,
-  toolbarStyle,
-  displayClassName,
-  displayStyle,
-}: SsmlEditorProps): ReactElement {
+export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function SsmlEditor(
+  {
+    document,
+    onChange,
+    onSsmlChange,
+    onSelectionChange,
+    language = DEFAULT_LANGUAGE,
+    showToolbarIcons = true,
+    showToolbarLabels = false,
+    buttonVisibility,
+    editorOptions,
+    settings,
+    height,
+    minHeight,
+    readOnly,
+    theme,
+    fontSize,
+    wordWrap,
+    lineNumbers,
+    minimap,
+    automaticLayout,
+    insertionOrder,
+    insertionGroups,
+    customInsertions,
+    additionalInsertions,
+    emotionStyles,
+    className,
+    style,
+    toolbarClassName,
+    toolbarStyle,
+    displayClassName,
+    displayStyle,
+  }: SsmlEditorProps,
+  ref,
+): ReactElement {
   const resolvedEditorOptions: SsmlEditorOptions = {
     ...settings,
     ...editorOptions,
@@ -1487,12 +1579,17 @@ export function SsmlEditor({
   };
   const helpPanelId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
+  const draftDocumentRef = useRef(document);
   const editorRef = useRef<MonacoEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
+  const selectionChangeRef = useRef<MonacoDisposable | null>(null);
+  const onSelectionChangeRef = useRef(onSelectionChange);
   const [isDark, setIsDark] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
+  draftDocumentRef.current = draftDocument;
+  onSelectionChangeRef.current = onSelectionChange;
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
   const resolvedTheme = resolvedEditorOptions.theme ?? "system";
@@ -1530,6 +1627,7 @@ export function SsmlEditor({
   }, []);
 
   useEffect(() => {
+    draftDocumentRef.current = document;
     setDraftDocument(document);
   }, [document]);
 
@@ -1539,6 +1637,8 @@ export function SsmlEditor({
       if (model && monacoRef.current) {
         updateSsmlMarkers(monacoRef.current, model, model.getValue(), null);
       }
+      selectionChangeRef.current?.dispose();
+      selectionChangeRef.current = null;
       releaseHoverProviderRef.current?.();
       releaseHoverProviderRef.current = null;
       editorRef.current = null;
@@ -1559,10 +1659,26 @@ export function SsmlEditor({
   }, [text]);
 
   const commit = (nextDocument: SsmlDocument): void => {
+    draftDocumentRef.current = nextDocument;
     setDraftDocument(nextDocument);
     onChange?.(nextDocument);
     onSsmlChange?.(buildSsml(nextDocument));
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getSelectedSsml: () => {
+        const editor = editorRef.current;
+        const selectedText = editor ? getSelectedText(editor) : null;
+        return selectedText === null
+          ? null
+          : buildPartialSsml(selectedText, getPartialContext(draftDocumentRef.current));
+      },
+      getFullSsml: () => buildSsml(getCurrentDocument(draftDocumentRef.current, editorRef.current)),
+    }),
+    [],
+  );
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
     <details key={insertion.id} style={styles.toolbarDropdown}>
@@ -1806,6 +1922,10 @@ export function SsmlEditor({
             onMount={(editor, monaco) => {
               editorRef.current = editor;
               monacoRef.current = monaco;
+              selectionChangeRef.current?.dispose();
+              selectionChangeRef.current = editor.onDidChangeCursorSelection(() => {
+                onSelectionChangeRef.current?.(getSelectionInfo(editor));
+              });
               releaseHoverProviderRef.current?.();
               releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco);
               const model = editor.getModel();
@@ -1814,6 +1934,7 @@ export function SsmlEditor({
               if (model) {
                 updateSsmlMarkers(monaco, model, editor.getValue(), nextSyntaxError);
               }
+              onSelectionChangeRef.current?.(getSelectionInfo(editor));
             }}
             onChange={(value) => commit(updateText(draftDocument, value ?? ""))}
           />
@@ -1826,4 +1947,4 @@ export function SsmlEditor({
       </div>
     </section>
   );
-}
+});

@@ -1,6 +1,47 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildSsml, parseSsml, validateSsml } from "../src/index.ts";
+import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "../src/index.ts";
+
+test("buildPartialSsml creates a minimal playable document", () => {
+  assert.equal(
+    buildPartialSsml("Hello", { lang: "en-US" }),
+    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">Hello</speak>',
+  );
+});
+
+test("buildPartialSsml preserves voice and prosody context", () => {
+  assert.equal(
+    buildPartialSsml({
+      text: "こんにちは",
+      lang: "ja-JP",
+      voiceName: "ja-JP-NanamiNeural",
+      prosody: { rate: "slow", pitch: "+2st" },
+    }),
+    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ja-JP"><voice name="ja-JP-NanamiNeural"><prosody rate="slow" pitch="+2st">こんにちは</prosody></voice></speak>',
+  );
+});
+
+test("buildPartialSsml parses valid XML fragments and escapes invalid fragments", () => {
+  assert.equal(
+    buildPartialSsml('<break time="300ms"/>Hello', { lang: "en-US", voice: "en-US-JennyNeural" }),
+    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural"><break time="300ms"/>Hello</voice></speak>',
+  );
+  assert.equal(
+    buildPartialSsml("1 < 2", { lang: "en-US" }),
+    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">1 &lt; 2</speak>',
+  );
+});
+
+test("buildPartialSsml accepts a voice shorthand in object options", () => {
+  assert.equal(
+    buildPartialSsml({
+      text: "Hello",
+      lang: "en-US",
+      voice: "en-US-JennyNeural",
+    }),
+    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural">Hello</voice></speak>',
+  );
+});
 
 test("buildSsml uses the default language", () => {
   assert.deepEqual(buildSsml("Hello"), {
