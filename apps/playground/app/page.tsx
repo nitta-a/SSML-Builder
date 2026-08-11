@@ -172,6 +172,7 @@ export default function Home() {
   const currentCaptionTrack = createCaptionTrack(document);
   const captionTrackSource = audioCaptionTrack ?? currentCaptionTrack;
   const captionLanguage = audioCaptionLanguage ?? document.lang;
+  const editorTheme = hasManualThemeRef.current && theme !== null ? theme : "system";
 
   useEffect(() => {
     return () => {
@@ -184,6 +185,7 @@ export default function Home() {
   useEffect(() => {
     const storedTheme = getStoredTheme();
     if (storedTheme !== null) {
+      hasManualThemeRef.current = true;
       setTheme(storedTheme);
       return;
     }
@@ -206,7 +208,7 @@ export default function Home() {
       return;
     }
 
-    if (!hasManualThemeRef.current && getStoredTheme() === null) {
+    if (!hasManualThemeRef.current) {
       globalThis.document.documentElement.removeAttribute("data-theme");
       return;
     }
@@ -333,7 +335,7 @@ export default function Home() {
           Voice: <code>{selectedVoice}</code>
         </p>
       </section>
-      <SsmlEditor document={document} onChange={setDocument} language="ja" theme={theme ?? "system"} />
+      <SsmlEditor document={document} onChange={setDocument} language="ja" theme={editorTheme} />
       <section className="audio-generation" aria-labelledby="audio-generation-heading">
         <h2 id="audio-generation-heading">Audio preview</h2>
         <p>Generate audio from the current SSML and listen to it in the browser.</p>
