@@ -33,26 +33,140 @@ const VOLUME_OPTIONS = [
 
 export type SsmlEditorLanguage = "ja" | "en";
 
-type LocalizedText = Record<SsmlEditorLanguage, string>;
-type SsmlInsertionOption = {
+export type SsmlEditorLocalizedText = Readonly<
+  Record<SsmlEditorLanguage, string>
+>;
+
+export type SsmlEditorInsertionMode = "insert" | "wrap";
+
+export interface SsmlEditorInsertionOption {
   value: string;
-  labels: LocalizedText;
-};
-type SsmlInsertionTemplate = {
+  labels: SsmlEditorLocalizedText;
+}
+
+export interface SsmlEditorInsertionTemplate {
   prefix: string;
   suffix: string;
-  mode: "insert" | "wrap";
-};
-type SsmlInsertionDefinition = {
-  id: SsmlEditorInsertionButton;
+  mode: SsmlEditorInsertionMode;
+}
+
+export interface SsmlEditorInsertionDefinition {
+  id: string;
   icon: string;
-  labels: LocalizedText;
-  titles: LocalizedText;
-  descriptions: LocalizedText;
-  parameterDescription: LocalizedText;
-  options: readonly SsmlInsertionOption[];
-  createTemplate: (value: string) => SsmlInsertionTemplate;
-};
+  labels: SsmlEditorLocalizedText;
+  titles: SsmlEditorLocalizedText;
+  descriptions: SsmlEditorLocalizedText;
+  parameterDescription: SsmlEditorLocalizedText;
+  options: readonly SsmlEditorInsertionOption[];
+  createTemplate: (value: string) => SsmlEditorInsertionTemplate;
+}
+
+export interface SsmlEditorCustomInsertionDefinition {
+  id: string;
+  tagName: string;
+  attribute?: string;
+  icon?: string;
+  labels: SsmlEditorLocalizedText;
+  titles?: SsmlEditorLocalizedText;
+  descriptions?: SsmlEditorLocalizedText;
+  parameterDescription?: SsmlEditorLocalizedText;
+  options: readonly SsmlEditorInsertionOption[];
+  mode?: SsmlEditorInsertionMode;
+}
+
+export type SsmlEditorCustomInsertion =
+  | SsmlEditorInsertionDefinition
+  | SsmlEditorCustomInsertionDefinition;
+
+export interface SsmlEditorInsertionGroup {
+  id: string;
+  labels: SsmlEditorLocalizedText;
+  insertionIds: readonly string[];
+}
+
+export type SsmlEditorTheme = "system" | "light" | "dark";
+export type SsmlEditorWordWrap =
+  | "off"
+  | "on"
+  | "wordWrapColumn"
+  | "bounded";
+export type SsmlEditorLineNumbers =
+  | "on"
+  | "off"
+  | "relative"
+  | "interval";
+
+export interface SsmlEditorOptions {
+  height?: string | number;
+  minHeight?: string | number;
+  readOnly?: boolean;
+  theme?: SsmlEditorTheme;
+  fontSize?: number;
+  wordWrap?: SsmlEditorWordWrap;
+  lineNumbers?: SsmlEditorLineNumbers;
+  minimap?: boolean;
+  automaticLayout?: boolean;
+}
+
+type SsmlInsertionOption = SsmlEditorInsertionOption;
+type SsmlInsertionTemplate = SsmlEditorInsertionTemplate;
+type SsmlInsertionDefinition = SsmlEditorInsertionDefinition;
+
+function localizedText(value: string): SsmlEditorLocalizedText {
+  return { ja: value, en: value };
+}
+
+function escapeXmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/'/g, "&apos;");
+}
+
+export function createSsmlEditorInsertionDefinition(
+  definition: SsmlEditorCustomInsertionDefinition,
+): SsmlEditorInsertionDefinition {
+  const mode = definition.mode ?? "wrap";
+  const attribute = definition.attribute
+    ? ` ${definition.attribute}="`
+    : "";
+
+  return {
+    id: definition.id,
+    icon: definition.icon ?? "＋",
+    labels: definition.labels,
+    titles:
+      definition.titles ??
+      localizedText(`Insert <${definition.tagName}>`),
+    descriptions:
+      definition.descriptions ??
+      localizedText(`Inserts the <${definition.tagName}> element.`),
+    parameterDescription:
+      definition.parameterDescription ??
+      localizedText(`Selects the value for the <${definition.tagName}> element.`),
+    options: definition.options,
+    createTemplate: (value) => {
+      const attributeValue = definition.attribute
+        ? `${attribute}${escapeXmlAttribute(value)}"`
+        : "";
+      if (mode === "wrap") {
+        return {
+          prefix: `<${definition.tagName}${attributeValue}>`,
+          suffix: `</${definition.tagName}>`,
+          mode,
+        };
+      }
+
+      return {
+        prefix: `<${definition.tagName}${attributeValue}/>`,
+        suffix: "",
+        mode,
+      };
+    },
+  };
+}
 
 function createInsertionOptions(
   values: readonly string[],
@@ -63,7 +177,7 @@ function createInsertionOptions(
   }));
 }
 
-const SSML_INSERTIONS = [
+export const SSML_INSERTIONS = [
   {
     id: "break",
     icon: "⏸",
@@ -277,6 +391,170 @@ const SSML_INSERTIONS = [
       prefix: `<phoneme alphabet="${value}" ph="">`,
       suffix: "</phoneme>",
       mode: "wrap",
+    }),
+  },
+  {
+    id: "audio",
+    icon: "🔈",
+    labels: { ja: "音声", en: "Audio" },
+    titles: {
+      ja: '選択範囲を <audio src="..."> で囲む',
+      en: 'Wrap the selection with <audio src="...">',
+    },
+    descriptions: {
+      ja: "選択範囲に音声ファイルを関連付けます。",
+      en: "Associates an audio file with the selected text.",
+    },
+    parameterDescription: {
+      ja: "音声ファイルの URI を選択します。",
+      en: "Selects the URI of the audio file.",
+    },
+    options: createInsertionOptions([
+      "https://example.com/audio.wav",
+      "https://example.com/audio.mp3",
+    ]),
+    createTemplate: (value) => ({
+      prefix: `<audio src="${value}">`,
+      suffix: "</audio>",
+      mode: "wrap",
+    }),
+  },
+  {
+    id: "sub",
+    icon: "↔",
+    labels: { ja: "置換", en: "Substitute" },
+    titles: {
+      ja: '選択範囲を <sub alias="..."> で囲む',
+      en: 'Wrap the selection with <sub alias="...">',
+    },
+    descriptions: {
+      ja: "選択範囲を指定した別名で読み上げます。",
+      en: "Speaks the selected text using the supplied alias.",
+    },
+    parameterDescription: {
+      ja: "読み上げる別名を選択します。",
+      en: "Selects the alias to speak.",
+    },
+    options: createInsertionOptions(["World Wide Web", "SSML", "Azure"]),
+    createTemplate: (value) => ({
+      prefix: `<sub alias="${value}">`,
+      suffix: "</sub>",
+      mode: "wrap",
+    }),
+  },
+  {
+    id: "lang",
+    icon: "文",
+    labels: { ja: "言語", en: "Language" },
+    titles: {
+      ja: '選択範囲を <lang xml:lang="ja-JP"> で囲む',
+      en: 'Wrap the selection with <lang xml:lang="ja-JP">',
+    },
+    descriptions: {
+      ja: "選択範囲の読み上げ言語を変更します。",
+      en: "Changes the speaking language of the selected text.",
+    },
+    parameterDescription: {
+      ja: "選択範囲に適用する BCP-47 言語タグを選択します。",
+      en: "Selects the BCP-47 language tag for the selected text.",
+    },
+    options: createInsertionOptions(["ja-JP", "en-US", "de-DE", "fr-FR"]),
+    createTemplate: (value) => ({
+      prefix: `<lang xml:lang="${value}">`,
+      suffix: "</lang>",
+      mode: "wrap",
+    }),
+  },
+  {
+    id: "mark",
+    icon: "⚑",
+    labels: { ja: "マーク", en: "Mark" },
+    titles: {
+      ja: '<mark name="chapter-1"/> を挿入',
+      en: 'Insert <mark name="chapter-1"/>',
+    },
+    descriptions: {
+      ja: "音声ストリームにアプリケーション用のマーカーを挿入します。",
+      en: "Inserts an application-defined marker into the audio stream.",
+    },
+    parameterDescription: {
+      ja: "マーカー名を選択します。",
+      en: "Selects the marker name.",
+    },
+    options: createInsertionOptions(["chapter-1", "section-1", "important"]),
+    createTemplate: (value) => ({
+      prefix: `<mark name="${value}"/>`,
+      suffix: "",
+      mode: "insert",
+    }),
+  },
+  {
+    id: "bookmark",
+    icon: "🔖",
+    labels: { ja: "しおり", en: "Bookmark" },
+    titles: {
+      ja: '<bookmark mark="chapter-1"/> を挿入',
+      en: 'Insert <bookmark mark="chapter-1"/>',
+    },
+    descriptions: {
+      ja: "音声ストリームにブックマークを挿入します。",
+      en: "Inserts a bookmark into the audio stream.",
+    },
+    parameterDescription: {
+      ja: "ブックマーク名を選択します。",
+      en: "Selects the bookmark name.",
+    },
+    options: createInsertionOptions(["chapter-1", "section-1", "important"]),
+    createTemplate: (value) => ({
+      prefix: `<bookmark mark="${value}"/>`,
+      suffix: "",
+      mode: "insert",
+    }),
+  },
+  {
+    id: "mstts:silence",
+    icon: "⏳",
+    labels: { ja: "無音", en: "Silence" },
+    titles: {
+      ja: '<mstts:silence type="Leading" value="300ms"/> を挿入',
+      en: 'Insert <mstts:silence type="Leading" value="300ms"/>',
+    },
+    descriptions: {
+      ja: "Azure Speech の無音時間を挿入します。",
+      en: "Inserts an Azure Speech silence interval.",
+    },
+    parameterDescription: {
+      ja: "無音にする時間を選択します。",
+      en: "Selects the silence duration.",
+    },
+    options: createInsertionOptions(["300ms", "500ms", "1s"]),
+    createTemplate: (value) => ({
+      prefix: `<mstts:silence type="Leading" value="${value}"/>`,
+      suffix: "",
+      mode: "insert",
+    }),
+  },
+  {
+    id: "mstts:viseme",
+    icon: "◉",
+    labels: { ja: "口形", en: "Viseme" },
+    titles: {
+      ja: '<mstts:viseme type="redlips_front"/> を挿入',
+      en: 'Insert <mstts:viseme type="redlips_front"/>',
+    },
+    descriptions: {
+      ja: "Azure Speech の口形素イベントを要求します。",
+      en: "Requests Azure Speech viseme events.",
+    },
+    parameterDescription: {
+      ja: "口形素イベントの形式を選択します。",
+      en: "Selects the viseme event format.",
+    },
+    options: createInsertionOptions(["redlips_front", "FacialExpression"]),
+    createTemplate: (value) => ({
+      prefix: `<mstts:viseme type="${value}"/>`,
+      suffix: "",
+      mode: "insert",
     }),
   },
 ] satisfies readonly SsmlInsertionDefinition[];
