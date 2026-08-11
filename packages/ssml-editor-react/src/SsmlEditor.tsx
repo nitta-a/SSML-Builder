@@ -880,6 +880,7 @@ const STYLE_CSS = `
   --ssml-editor-preview-bg: #f3f4f6;
   --ssml-editor-error: #b91c1c;
   --ssml-editor-error-bg: #fef2f2;
+  --ssml-editor-switch-active: #2563eb;
   --ssml-editor-pause-badge-bg: #e0e7ff;
   --ssml-editor-pause-badge-color: #3730a3;
   --ssml-editor-pause-badge-border: #c7d2fe;
@@ -896,6 +897,7 @@ const STYLE_CSS = `
   --ssml-editor-preview-bg: #111827;
   --ssml-editor-error: #fca5a5;
   --ssml-editor-error-bg: #450a0a;
+  --ssml-editor-switch-active: #60a5fa;
   --ssml-editor-pause-badge-bg: #312e81;
   --ssml-editor-pause-badge-color: #c7d2fe;
   --ssml-editor-pause-badge-border: #6366f1;
@@ -925,6 +927,16 @@ const STYLE_CSS = `
   color: var(--ssml-editor-prosody-badge-color);
   background-color: var(--ssml-editor-prosody-badge-bg);
   border-color: var(--ssml-editor-prosody-badge-border);
+}
+[data-ssml-editor] .ssml-editor-switch-track[aria-checked="true"] {
+  background-color: var(--ssml-editor-switch-active);
+}
+[data-ssml-editor] .ssml-editor-switch-track[aria-checked="true"] .ssml-editor-switch-thumb {
+  transform: translateX(1.25rem);
+}
+[data-ssml-editor] .ssml-editor-switch-track:focus-visible {
+  outline: 2px solid var(--ssml-editor-switch-active);
+  outline-offset: 2px;
 }
 [data-ssml-editor] .ssml-editor-help-settings-summary {
   list-style: none;
@@ -976,7 +988,7 @@ export interface SsmlEditorProps {
   showToolbarIcons?: boolean;
   /** Whether toolbar action text labels are displayed. */
   showToolbarLabels?: boolean;
-  /** Whether inline SSML decorations are displayed. The toolbar menu can change this at runtime. */
+  /** Whether inline SSML decorations are displayed. The toolbar switch can change this at runtime. */
   showDecorations?: boolean;
   /** Controls which editor action buttons are displayed. Unspecified buttons are shown. */
   buttonVisibility?: SsmlEditorButtonVisibility;
@@ -1075,6 +1087,34 @@ const styles: Record<string, CSSProperties> = {
   toolbarDropdown: {
     position: "relative",
     display: "inline-block",
+  },
+  toolbarSwitch: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.375rem",
+    minHeight: "2.25rem",
+    color: "var(--ssml-editor-color)",
+    font: "inherit",
+  },
+  toolbarSwitchTrack: {
+    display: "inline-flex",
+    alignItems: "center",
+    width: "2.75rem",
+    height: "1.5rem",
+    padding: "0.1875rem",
+    border: 0,
+    borderRadius: "999px",
+    backgroundColor: "var(--ssml-editor-control-border)",
+    cursor: "pointer",
+    font: "inherit",
+    transition: "background-color 0.2s ease",
+  },
+  toolbarSwitchThumb: {
+    width: "1.125rem",
+    height: "1.125rem",
+    borderRadius: "50%",
+    backgroundColor: "var(--ssml-editor-bg)",
+    transition: "transform 0.2s ease",
   },
   toolbarButton: {
     display: "inline-flex",
@@ -1494,136 +1534,42 @@ function ToolbarInsertionMenu({
   );
 }
 
-interface ToolbarDecorationsMenuProps {
+interface ToolbarDecorationsSwitchProps {
   copy: EditorCopy;
-  isDarkTheme: boolean;
   showToolbarIcons: boolean;
   showToolbarText: boolean;
-  toolbarButtonStyle: CSSProperties;
   decorationsVisible: boolean;
   onVisibilityChange: (visible: boolean) => void;
 }
 
-function ToolbarDecorationsMenu({
+function ToolbarDecorationsSwitch({
   copy,
-  isDarkTheme,
   showToolbarIcons,
   showToolbarText,
-  toolbarButtonStyle,
   decorationsVisible,
   onVisibilityChange,
-}: ToolbarDecorationsMenuProps): ReactElement {
-  const menuId = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setMenuPosition(null);
-      return;
-    }
-
-    const updateMenuPosition = (): void => {
-      const trigger = triggerRef.current;
-      if (!trigger) {
-        return;
-      }
-
-      const triggerBounds = trigger.getBoundingClientRect();
-      setMenuPosition({
-        top: triggerBounds.bottom + 4,
-        left: triggerBounds.left,
-      });
-    };
-
-    const handlePointerDown = (event: PointerEvent): void => {
-      const target = event.target;
-      if (target instanceof Node && !triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setIsOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-        triggerRef.current?.focus();
-      }
-    };
-
-    updateMenuPosition();
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen]);
-
-  const menu = isOpen && menuPosition && typeof document !== "undefined" && (
-    <div
-      ref={menuRef}
-      id={menuId}
-      data-ssml-editor=""
-      data-theme={isDarkTheme ? "dark" : "light"}
-      style={{ ...styles.toolbarMenu, top: menuPosition.top, left: menuPosition.left }}
-      role="menu"
-      aria-label={copy.decorations}
-    >
-      {[
-        { label: copy.decorationsShowTitle, visible: true },
-        { label: copy.decorationsHideTitle, visible: false },
-      ].map((option) => (
-        <button
-          key={option.label}
-          type="button"
-          role="menuitemradio"
-          aria-checked={decorationsVisible === option.visible}
-          style={styles.toolbarOption}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            onVisibilityChange(option.visible);
-            setIsOpen(false);
-          }}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-
+}: ToolbarDecorationsSwitchProps): ReactElement {
   return (
-    <>
-      <div style={styles.toolbarDropdown}>
-        <button
-          ref={triggerRef}
-          type="button"
-          style={toolbarButtonStyle}
-          aria-label={copy.decorations}
-          title={decorationsVisible ? copy.decorationsHideTitle : copy.decorationsShowTitle}
-          aria-haspopup="menu"
-          aria-expanded={isOpen}
-          aria-controls={isOpen ? menuId : undefined}
-          onClick={() => setIsOpen((open) => !open)}
-        >
-          {showToolbarIcons && (
-            <span style={styles.toolbarIcon} aria-hidden="true">
-              ✧
-            </span>
-          )}
-          {showToolbarText && <span>{copy.decorations}</span>}
-          <span style={styles.toolbarChevron} aria-hidden="true">
-            ▾
-          </span>
-        </button>
-      </div>
-      {menu && createPortal(menu, document.body)}
-    </>
+    <div style={styles.toolbarSwitch}>
+      {showToolbarIcons && (
+        <span style={styles.toolbarIcon} aria-hidden="true">
+          ✧
+        </span>
+      )}
+      {showToolbarText && <span>{copy.decorations}</span>}
+      <button
+        type="button"
+        className="ssml-editor-switch-track"
+        style={styles.toolbarSwitchTrack}
+        role="switch"
+        aria-checked={decorationsVisible}
+        aria-label={copy.decorations}
+        title={decorationsVisible ? copy.decorationsHideTitle : copy.decorationsShowTitle}
+        onClick={() => onVisibilityChange(!decorationsVisible)}
+      >
+        <span className="ssml-editor-switch-thumb" style={styles.toolbarSwitchThumb} aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 
@@ -2589,13 +2535,11 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     [
       "decorations",
       () => (
-        <ToolbarDecorationsMenu
+        <ToolbarDecorationsSwitch
           key="decorations"
           copy={copy}
-          isDarkTheme={isDarkTheme}
           showToolbarIcons={showToolbarIcons}
           showToolbarText={showToolbarText}
-          toolbarButtonStyle={toolbarButtonStyle}
           decorationsVisible={decorationsVisible}
           onVisibilityChange={setDecorationsVisible}
         />
