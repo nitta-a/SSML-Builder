@@ -147,6 +147,16 @@ test("formats tag and parameter documentation as safe markdown", () => {
   assert.doesNotMatch(formatSsmlHover(tag), /<script>/i);
 });
 
+test("formats hover documentation in the selected locale", () => {
+  const target = findSsmlHoverTarget('<break strength="strong"/>', 1, 3);
+
+  assert.ok(target);
+  assert.match(formatSsmlHover(target, "ja"), /間/);
+  assert.match(formatSsmlHover(target, "ja"), /単語やその他の音声コンテンツ/);
+  assert.match(formatSsmlHover(target, "en"), /Break/);
+  assert.match(formatSsmlHover(target, "en"), /Inserts a pause/);
+});
+
 test("formats nested XML with readable line breaks", () => {
   assert.equal(
     formatXml(

@@ -9,7 +9,6 @@ export type {
   SsmlEditorInsertionButton,
 } from "./buttonVisibility";
 export type {
-  SsmlEditorLanguage,
   SsmlEditorLineNumbers,
   SsmlEditorCustomInsertion,
   SsmlEditorCustomInsertionCollection,
@@ -19,7 +18,6 @@ export type {
   SsmlEditorInsertionMode,
   SsmlEditorInsertionOption,
   SsmlEditorInsertionTemplate,
-  SsmlEditorLocalizedText,
   SsmlEditorOptions,
   SsmlEditorRef,
   SsmlEditorProps,
@@ -31,6 +29,17 @@ export type {
   SsmlInsertionOption,
   SsmlInsertionTemplate,
 } from "./SsmlEditor";
+export { EDITOR_COPY, INLINE_BADGE_COPY, SSML_HOVER_COPY } from "./locales";
+export type {
+  EditorCopy,
+  InlineBadgeCopy,
+  SsmlEditorLanguage,
+  SsmlEditorLocale,
+  SsmlEditorLocalizedText,
+  SsmlHoverLocale,
+  SsmlHoverParameterCopy,
+  SsmlHoverTagCopy,
+} from "./locales";
 export {
   createSsmlEditorInsertionDefinition,
   SSML_INSERTIONS,
