@@ -4,9 +4,18 @@ import { validateSsml } from "@ssml-builder/ssml-core";
 export const runtime = "nodejs";
 
 const AUDIO_CONTENT_TYPE = "audio/mpeg";
+const MAX_LOGGED_RESPONSE_BODY_LENGTH = 4096;
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
+}
+
+function truncateForLog(value: string): string {
+  if (value.length <= MAX_LOGGED_RESPONSE_BODY_LENGTH) {
+    return value;
+  }
+
+  return `${value.slice(0, MAX_LOGGED_RESPONSE_BODY_LENGTH)}… [truncated]`;
 }
 
 function describeError(error: unknown): Record<string, unknown> {
@@ -17,7 +26,7 @@ function describeError(error: unknown): Record<string, unknown> {
       status: error.status,
       statusText: error.statusText,
       requestId: error.requestId,
-      responseBody: error.responseBody,
+      responseBody: truncateForLog(error.responseBody),
       stack: error.stack,
     };
   }
