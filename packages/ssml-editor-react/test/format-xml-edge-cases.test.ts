@@ -70,7 +70,7 @@ test("formatXmlFragment formats sibling elements from the editor body", () => {
 });
 
 test("formatXmlFragment preserves mixed content and malformed input", () => {
-  const mixed = "Hello<break time=\"500ms\"/>world";
+  const mixed = 'Hello<break time="500ms"/>world';
   const malformed = " \n<break><emphasis></break> \n";
 
   assert.equal(formatXmlFragment(mixed), mixed);
