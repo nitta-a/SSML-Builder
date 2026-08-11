@@ -1,5 +1,5 @@
 import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ReactElement } from "react";
+import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
 import type {
@@ -951,6 +951,8 @@ export interface SsmlEditorProps {
   editorOptions?: SsmlEditorOptions;
   /** Alias for editorOptions. */
   settings?: SsmlEditorOptions;
+  /** Fallback UI displayed while Monaco is loading. */
+  loadingFallback?: ReactNode;
   /** Height of the Monaco editor. */
   height?: string | number;
   /** Minimum height of the Monaco editor container. */
@@ -1005,6 +1007,7 @@ export interface SelectionInfo {
 
 export interface SsmlEditorRef {
   getSelectedSsml(): string | null;
+  getCurrentLineSsml(): string | null;
   getFullSsml(): string;
 }
 
@@ -1653,6 +1656,17 @@ function getSelectedRangeText(editor: MonacoEditor): string | null {
   return selectedText.length > 0 ? selectedText : null;
 }
 
+function getCurrentLineText(editor: MonacoEditor): string | null {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!model || !selection) {
+    return null;
+  }
+
+  const text = model.getLineContent(selection.positionLineNumber);
+  return text.trim().length > 0 ? text : null;
+}
+
 function getSelectedText(editor: MonacoEditor): string | null {
   const model = editor.getModel();
   const selection = editor.getSelection();
@@ -1661,14 +1675,17 @@ function getSelectedText(editor: MonacoEditor): string | null {
   }
 
   const selectedText = model.getValueInRange(selection);
-  // Use the cursor line as fallback content when Monaco has no active range.
-  const text = selectedText.length > 0 ? selectedText : model.getLineContent(selection.positionLineNumber);
-  return text.trim().length > 0 ? text : null;
+  return selectedText.length > 0 ? selectedText : getCurrentLineText(editor);
 }
 
 function getSelectedSsml(editor: MonacoEditor, document: SsmlDocument): string | null {
-  const selectedText = getSelectedRangeText(editor);
+  const selectedText = getSelectedText(editor);
   return selectedText === null ? null : buildPartialSsml(selectedText, getPartialContext(document));
+}
+
+function getCurrentLineSsml(editor: MonacoEditor, document: SsmlDocument): string | null {
+  const currentLineText = getCurrentLineText(editor);
+  return currentLineText === null ? null : buildPartialSsml(currentLineText, getPartialContext(document));
 }
 
 function getNativePreviewText(value: string, lang: string): string {
@@ -1832,6 +1849,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     toolbarStyle,
     displayClassName,
     displayStyle,
+    loadingFallback,
   }: SsmlEditorProps,
   ref,
 ): ReactElement {
@@ -2047,10 +2065,11 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     () => ({
       getSelectedSsml: () => {
         const editor = editorRef.current;
-        const selectedText = editor ? getSelectedText(editor) : null;
-        return selectedText === null
-          ? null
-          : buildPartialSsml(selectedText, getPartialContext(draftDocumentRef.current));
+        return editor ? getSelectedSsml(editor, draftDocumentRef.current) : null;
+      },
+      getCurrentLineSsml: () => {
+        const editor = editorRef.current;
+        return editor ? getCurrentLineSsml(editor, draftDocumentRef.current) : null;
       },
       getFullSsml: () => buildSsml(getCurrentDocument(draftDocumentRef.current, editorRef.current)),
     }),
@@ -2347,6 +2366,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               wordWrap: resolvedEditorOptions.wordWrap,
             }}
             value={text}
+            loading={loadingFallback}
             onMount={(editor, monaco) => {
               editorRef.current = editor;
               monacoRef.current = monaco;
