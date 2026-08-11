@@ -861,6 +861,8 @@ export interface SsmlEditorProps {
   language?: SsmlEditorLanguage;
   /** UI locale. Japanese is used when omitted; takes precedence over the legacy language prop. */
   locale?: SsmlEditorLocale;
+  /** Whether the toolbar is displayed. */
+  showToolbar?: boolean;
   /** Whether toolbar action icons are displayed. */
   showToolbarIcons?: boolean;
   /** Whether toolbar action text labels are displayed. */
@@ -1873,6 +1875,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     onPreviewSelection,
     language: languageProp,
     locale: localeProp,
+    showToolbar = true,
     showToolbarIcons = true,
     showToolbarLabels = false,
     showDecorations = false,
@@ -2325,20 +2328,22 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       data-ssml-editor=""
       data-theme={isDarkTheme ? "dark" : "light"}
     >
-      <div
-        className={toolbarClassName}
-        style={{ ...styles.toolbarContainer, ...toolbarStyle }}
-        data-ssml-editor-toolbar=""
-      >
+      {showToolbar && (
         <div
-          style={styles.toolbarActions}
-          role="toolbar"
-          aria-label={copy.toolbarAriaLabel}
-          data-ssml-editor-toolbar-actions=""
+          className={toolbarClassName}
+          style={{ ...styles.toolbarContainer, ...toolbarStyle }}
+          data-ssml-editor-toolbar=""
         >
-          {renderToolbarItems()}
+          <div
+            style={styles.toolbarActions}
+            role="toolbar"
+            aria-label={copy.toolbarAriaLabel}
+            data-ssml-editor-toolbar-actions=""
+          >
+            {renderToolbarItems()}
+          </div>
         </div>
-      </div>
+      )}
       <div className={displayClassName} style={{ ...styles.display, ...displayStyle }} data-ssml-editor-display="">
         {isHelpOpen && isSsmlEditorButtonVisible(buttonVisibility, "help") && (
           <section id={helpPanelId} style={styles.helpPanel} aria-label={copy.helpHeading}>
