@@ -939,7 +939,6 @@ export function SsmlEditor({
   displayStyle,
 }: SsmlEditorProps): ReactElement {
   const helpPanelId = useId();
-  const voiceInputId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -1020,7 +1019,6 @@ export function SsmlEditor({
         <div style={styles.voiceControl}>
           <span aria-hidden="true">{copy.voice}</span>
           <input
-            id={voiceInputId}
             aria-label={copy.voice}
             style={styles.input}
             type="text"
