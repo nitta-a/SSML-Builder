@@ -1169,7 +1169,9 @@ export function SsmlEditor({
               aria-label={copy.format}
               title={copy.formatTitle}
               onClick={() => {
-                const value = editorRef.current?.getValue() ?? text;
+                const value =
+                  editorRef.current?.getValue() ??
+                  getEditableText(draftDocument);
                 commit(updateText(draftDocument, formatXml(value)));
               }}
             >
