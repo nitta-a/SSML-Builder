@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "../src/buttonVisibility.ts";
+import { clearSsmlDocument } from "../src/clearSsmlDocument.ts";
 import { formatXml } from "../src/formatXml.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
@@ -167,4 +168,44 @@ test("keeps formatted XML stable and handles empty input", () => {
 
   assert.equal(formatXml(formatted), formatted);
   assert.equal(formatXml(" \n\t "), "");
+});
+
+test("preserves voice elements when clearing SSML markup", () => {
+  const document = {
+    type: "speak" as const,
+    version: "1.0",
+    lang: "en-US",
+    children: [
+      "Before ",
+      {
+        type: "voice" as const,
+        name: "en-US-JennyNeural",
+        effect: "eq_car",
+        attributes: { "data-source": "test" },
+        children: [
+          {
+            type: "prosody" as const,
+            rate: "slow",
+            children: ["Hello ", { type: "break" as const, time: "500ms" }, "world"],
+          },
+        ],
+      },
+      " after",
+    ],
+  };
+
+  assert.deepEqual(clearSsmlDocument(document), {
+    ...document,
+    children: [
+      "Before ",
+      {
+        type: "voice",
+        name: "en-US-JennyNeural",
+        effect: "eq_car",
+        attributes: { "data-source": "test" },
+        children: ["Hello world"],
+      },
+      " after",
+    ],
+  });
 });
