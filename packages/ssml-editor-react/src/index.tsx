@@ -23,6 +23,7 @@ export type {
   SsmlEditorOptions,
   SsmlEditorRef,
   SsmlEditorProps,
+  SsmlEditorToolbarGroup,
   SelectionInfo,
   SsmlEditorTheme,
   SsmlEditorWordWrap,
