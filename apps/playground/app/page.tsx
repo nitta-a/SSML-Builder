@@ -121,8 +121,7 @@ export default function Home() {
   const [document, setDocument] = useState<SsmlDocument>(initialDocument);
   const [selectedLanguage, setSelectedLanguage] =
     useState<SpeechLanguage>("en-US");
-  const [selectedGender, setSelectedGender] =
-    useState<SpeechGender>("female");
+  const [selectedGender, setSelectedGender] = useState<SpeechGender>("female");
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
 
