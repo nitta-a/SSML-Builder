@@ -193,6 +193,7 @@ const audio = await client.synthesize(ssml);
 ```
 
 エンドポイントを明示する場合は `endpoint` を指定できます。省略すると `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` が使用されます。独自エンドポイントに `{region}` を含めた場合は、設定したリージョンに置き換えられます。
+`outputFormat` を指定すると `X-Microsoft-OutputFormat` ヘッダーを設定できます。省略時は `audio-16khz-128kbitrate-mono-mp3` が使用されます。
 
 サブスクリプションキーはリクエストヘッダーに含まれるため、ソースコードへハードコードしたりログへ出力したりしないでください。ブラウザから直接呼び出す場合はキーが利用者へ公開されるため、通常はサーバー側で Azure TTS を呼び出す構成にします。
 
@@ -419,6 +420,7 @@ const audio = await client.synthesize(ssml);
 ```
 
 Set `endpoint` to use an explicit endpoint. If omitted, `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` is used. If a custom endpoint contains `{region}`, it is replaced with the configured region.
+Set `outputFormat` to configure the `X-Microsoft-OutputFormat` header. If omitted, `audio-16khz-128kbitrate-mono-mp3` is used.
 
 The subscription key is sent in a request header, so do not hard-code it in source code or write it to logs. Calling Azure TTS directly from a browser exposes the key to users; a server-side Azure TTS integration is normally recommended.
 

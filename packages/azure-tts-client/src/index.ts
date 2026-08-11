@@ -6,13 +6,17 @@ export interface TtsConfig {
   endpoint: string;
   subscriptionKey: string;
   region: string;
+  outputFormat?: string;
 }
 
 export interface AzureTtsClientOptions {
   subscriptionKey: string;
   region: string;
   endpoint?: string;
+  outputFormat?: string;
 }
+
+const DEFAULT_OUTPUT_FORMAT = "audio-16khz-128kbitrate-mono-mp3";
 
 function resolveEndpoint(config: TtsConfig): string {
   return config.endpoint.replace(
@@ -30,7 +34,8 @@ export async function synthesizeSpeech(
     headers: {
       "Ocp-Apim-Subscription-Key": config.subscriptionKey,
       "Content-Type": "application/ssml+xml",
-      "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
+      "X-Microsoft-OutputFormat":
+        config.outputFormat ?? DEFAULT_OUTPUT_FORMAT,
     },
     body: ssml,
   });
@@ -58,6 +63,7 @@ export class AzureTtsClient {
         `https://${this.#options.region}.tts.speech.microsoft.com/cognitiveservices/v1`,
       subscriptionKey: this.#options.subscriptionKey,
       region: this.#options.region,
+      outputFormat: this.#options.outputFormat,
     });
   }
 }

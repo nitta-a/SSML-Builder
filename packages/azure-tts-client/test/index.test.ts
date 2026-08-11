@@ -34,6 +34,7 @@ function assertAzureRequest(
   endpoint: string,
   subscriptionKey: string,
   ssml: string,
+  outputFormat = "audio-16khz-128kbitrate-mono-mp3",
 ) {
   assert.ok(request);
   assert.equal(request.input, endpoint);
@@ -41,7 +42,7 @@ function assertAzureRequest(
   assert.deepEqual(request.init?.headers, {
     "Ocp-Apim-Subscription-Key": subscriptionKey,
     "Content-Type": "application/ssml+xml",
-    "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
+    "X-Microsoft-OutputFormat": outputFormat,
   });
   assert.equal(request.init?.body, ssml);
 }
@@ -64,6 +65,32 @@ test("synthesizeSpeech sends SSML using the supplied configuration", async () =>
       "https://speech.example.test/cognitiveservices/v1",
       "subscription-key",
       ssml,
+    );
+    assert.strictEqual(audio, mockAudio);
+  } finally {
+    fetchMock.restore();
+  }
+});
+
+test("synthesize uses the configured output format", async () => {
+  const mockAudio = new ArrayBuffer(3);
+  const fetchMock = installFetchMock(mockAudio);
+  const ssml = "<speak>Hello</speak>";
+  const outputFormat = "audio-24khz-160kbitrate-mono-mp3";
+
+  try {
+    const audio = await new AzureTtsClient({
+      subscriptionKey: "subscription-key",
+      region: "japaneast",
+      outputFormat,
+    }).synthesize(ssml);
+
+    assertAzureRequest(
+      fetchMock.request,
+      "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1",
+      "subscription-key",
+      ssml,
+      outputFormat,
     );
     assert.strictEqual(audio, mockAudio);
   } finally {
