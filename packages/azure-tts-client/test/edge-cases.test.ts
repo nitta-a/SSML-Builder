@@ -22,10 +22,7 @@ test("synthesizeSpeech replaces every endpoint region placeholder", async () => 
       region: "japan east",
     });
 
-    assert.equal(
-      requestUrl,
-      "https://japan%20east.example.test/japan%20east",
-    );
+    assert.equal(requestUrl, "https://japan%20east.example.test/japan%20east");
     assert.strictEqual(result, audio);
   } finally {
     globalThis.fetch = originalFetch;

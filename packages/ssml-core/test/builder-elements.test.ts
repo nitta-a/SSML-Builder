@@ -98,7 +98,10 @@ test("buildSsml serializes all supported element attributes", () => {
     xml,
     /<say-as interpret-as="date" format="ymd" detail="1">2026-08-11<\/say-as>/,
   );
-  assert.match(xml, /<phoneme alphabet="ipa" ph="konnichiwa">こんにちは<\/phoneme>/);
+  assert.match(
+    xml,
+    /<phoneme alphabet="ipa" ph="konnichiwa">こんにちは<\/phoneme>/,
+  );
   assert.match(xml, /<emphasis level="strong">重要<\/emphasis>/);
   assert.match(
     xml,

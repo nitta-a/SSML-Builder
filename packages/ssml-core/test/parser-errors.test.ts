@@ -20,18 +20,14 @@ test("parseSsml accepts XML misc content around the speak element", () => {
 
 test("parseSsml decodes named and numeric XML entities", () => {
   assert.deepEqual(
-    parseSsml(
-      `${validSpeak}&quot;A&quot; &#65; &#x1F600; &#9;</speak>`,
-    ).children,
+    parseSsml(`${validSpeak}&quot;A&quot; &#65; &#x1F600; &#9;</speak>`)
+      .children,
     ['"A" A 😀 \t'],
   );
 });
 
 test("parseSsml reports missing or incorrect document structure", () => {
-  assert.throws(
-    () => parseSsml(""),
-    /SSML input is empty at position 0/,
-  );
+  assert.throws(() => parseSsml(""), /SSML input is empty at position 0/);
   assert.throws(
     () => parseSsml("plain text"),
     /SSML input must start with an XML element at position 0/,
@@ -62,12 +58,12 @@ test("parseSsml rejects malformed XML constructs", () => {
       /Duplicate XML attribute: value/,
     ],
     [`${validSpeak}&unknown;</speak>`, /Unknown XML entity: &unknown;/],
-    [
-      `${validSpeak}<![CDATA[unclosed</speak>`,
-      /Unclosed XML CDATA section/,
-    ],
+    [`${validSpeak}<![CDATA[unclosed</speak>`, /Unclosed XML CDATA section/],
     [`${validSpeak}<!-- unclosed</speak>`, /Unclosed XML comment/],
-    [`<!DOCTYPE speak>${validSpeak}</speak>`, /DOCTYPE declarations are not supported/],
+    [
+      `<!DOCTYPE speak>${validSpeak}</speak>`,
+      /DOCTYPE declarations are not supported/,
+    ],
   ];
 
   for (const [input, message] of invalidInputs) {
