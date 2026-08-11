@@ -83,7 +83,7 @@ test("AzureTtsClient reports Speech SDK callback failures", async (t) => {
     (error: unknown) => {
       assert.equal(
         error instanceof Error ? error.message : error,
-          "Azure TTS synthesis failed: network unavailable",
+        "Azure TTS synthesis failed: network unavailable",
       );
       return true;
     },
