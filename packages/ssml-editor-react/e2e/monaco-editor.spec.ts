@@ -6,7 +6,6 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
 test.use({
   baseURL: BASE_URL,
-  browserName: "chromium",
 });
 
 function monacoEditor(page: Page) {
@@ -32,7 +31,8 @@ async function getZIndex(locator: Locator) {
 }
 
 test.describe("Monaco SSML editor", () => {
-  test("accepts Japanese keyboard input and wraps the selection with prosody", async ({ page }) => {
+  test("accepts Japanese keyboard input and wraps the selection with prosody", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "This E2E spec requires Chromium.");
     await openPlayground(page);
     await replaceEditorText(page, JAPANESE_TEXT);
 
@@ -54,7 +54,11 @@ test.describe("Monaco SSML editor", () => {
     await expect(page.locator(".output code")).toContainText(`<prosody rate="slow">${JAPANESE_TEXT}</prosody>`);
   });
 
-  test("keeps the break hover visible and puts toolbar menus above Monaco context actions", async ({ page }) => {
+  test("keeps the break hover visible and puts toolbar menus above Monaco context actions", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "This E2E spec requires Chromium.");
     await openPlayground(page);
 
     const editor = monacoEditor(page);
@@ -76,7 +80,7 @@ test.describe("Monaco SSML editor", () => {
 
     await page.mouse.move(breakLineBox.x + breakLineBox.width / 2, breakLineBox.y + breakLineBox.height / 2);
 
-    const hover = page.locator(".monaco-hover").filter({ hasText: BREAK_HOVER_DESCRIPTION }).last();
+    const hover = page.locator(".monaco-hover:visible").filter({ hasText: BREAK_HOVER_DESCRIPTION }).first();
     await expect(hover).toBeVisible();
     const hoverState = await hover.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
