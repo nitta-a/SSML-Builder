@@ -28,6 +28,12 @@ export interface EditorCopy {
   previewSelectionTitle: string;
 }
 
+export interface InlineBadgeCopy {
+  pause: string;
+  pitch: string;
+  prosody: string;
+}
+
 export interface SsmlHoverParameterCopy {
   title: string;
   description: string;
@@ -98,6 +104,19 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     selectionCountSuffix: " characters",
     previewSelection: "Preview selection",
     previewSelectionTitle: "Preview the selected SSML",
+  },
+};
+
+export const INLINE_BADGE_COPY: Readonly<Record<SsmlEditorLocale, InlineBadgeCopy>> = {
+  ja: {
+    pause: "間",
+    pitch: "ピッチ変化",
+    prosody: "声の調整",
+  },
+  en: {
+    pause: "Pause",
+    pitch: "Pitch change",
+    prosody: "Prosody",
   },
 };
 
@@ -258,9 +277,18 @@ export const SSML_HOVER_COPY: Readonly<Record<SsmlEditorLocale, SsmlHoverLocale>
         description: "Changes the speaking rate, pitch, volume, or pitch contour of the enclosed text.",
         parameters: {
           rate: { title: "rate", description: "Controls speaking speed." },
-          pitch: { title: "pitch", description: "Adjusts pitch using a named value, percentage, frequency, or semitone value." },
-          volume: { title: "volume", description: "Controls loudness using a named value, percentage, or decibel value." },
-          contour: { title: "contour", description: "Defines a sequence of relative pitch changes at positions in the text." },
+          pitch: {
+            title: "pitch",
+            description: "Adjusts pitch using a named value, percentage, frequency, or semitone value.",
+          },
+          volume: {
+            title: "volume",
+            description: "Controls loudness using a named value, percentage, or decibel value.",
+          },
+          contour: {
+            title: "contour",
+            description: "Defines a sequence of relative pitch changes at positions in the text.",
+          },
           range: { title: "range", description: "Adjusts the pitch range of the voice." },
         },
       },
@@ -276,7 +304,10 @@ export const SSML_HOVER_COPY: Readonly<Record<SsmlEditorLocale, SsmlHoverLocale>
         title: "Express-as",
         description: "Applies a speaking style, style degree, or role to the enclosed text.",
         parameters: {
-          style: { title: "style", description: "The speaking style supported by the selected voice, such as `cheerful`." },
+          style: {
+            title: "style",
+            description: "The speaking style supported by the selected voice, such as `cheerful`.",
+          },
           styledegree: { title: "styledegree", description: "Controls the intensity of the selected speaking style." },
           role: { title: "role", description: "Changes the speaking role when supported by the selected voice." },
         },
@@ -285,9 +316,15 @@ export const SSML_HOVER_COPY: Readonly<Record<SsmlEditorLocale, SsmlHoverLocale>
         title: "Say-as",
         description: "Controls how the enclosed text is interpreted and spoken.",
         parameters: {
-          "interpret-as": { title: "interpret-as", description: "Specifies the interpretation, such as characters, digits, date, or time." },
+          "interpret-as": {
+            title: "interpret-as",
+            description: "Specifies the interpretation, such as characters, digits, date, or time.",
+          },
           format: { title: "format", description: "Provides a format hint for the selected interpretation." },
-          detail: { title: "detail", description: "Provides an additional detail hint for the selected interpretation." },
+          detail: {
+            title: "detail",
+            description: "Provides an additional detail hint for the selected interpretation.",
+          },
         },
       },
       phoneme: {
@@ -315,7 +352,10 @@ export const SSML_HOVER_COPY: Readonly<Record<SsmlEditorLocale, SsmlHoverLocale>
           clipEnd: { title: "clipEnd", description: "The ending offset within the audio file." },
           speed: { title: "speed", description: "The playback speed of the audio file." },
           repeatCount: { title: "repeatCount", description: "The number of times to repeat the audio." },
-          repeatDuration: { title: "repeatDuration", description: "The total duration for which the audio may repeat." },
+          repeatDuration: {
+            title: "repeatDuration",
+            description: "The total duration for which the audio may repeat.",
+          },
           soundLevel: { title: "soundLevel", description: "The audio volume adjustment in decibels." },
         },
       },

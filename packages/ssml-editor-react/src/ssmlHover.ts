@@ -1,4 +1,5 @@
-import { SSML_HOVER_COPY, type SsmlEditorLocale } from "./locales";
+// @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
+import { SSML_HOVER_COPY, type SsmlEditorLocale } from "./locales.ts";
 
 export interface SsmlParameterDefinition {
   name: string;
@@ -667,12 +668,7 @@ export function formatSsmlHover(target: SsmlHoverTarget, locale: SsmlEditorLocal
     const localizedParameter = localizedTag?.parameters[target.parameter.name];
     const parameterTitle = localizedParameter?.title ?? target.parameter.name;
     const parameterDescription = localizedParameter?.description ?? target.parameter.description;
-    lines.push(
-      "",
-      `**${SSML_HOVER_COPY[locale].parameterHeading} ${code(parameterTitle)}**`,
-      "",
-      parameterDescription,
-    );
+    lines.push("", `**${SSML_HOVER_COPY[locale].parameterHeading} ${code(parameterTitle)}**`, "", parameterDescription);
     if (target.parameter.values && target.parameter.values.length > 0) {
       lines.push("", `${SSML_HOVER_COPY[locale].allowedValues}: ${target.parameter.values.map(code).join(", ")}.`);
     }

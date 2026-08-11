@@ -14,7 +14,13 @@ import type {
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { clearSsmlDocument } from "./clearSsmlDocument";
 import { formatXmlFragment } from "./formatXml";
-import { EDITOR_COPY, type EditorCopy, type SsmlEditorLanguage, type SsmlEditorLocalizedText } from "./locales";
+import {
+  EDITOR_COPY,
+  INLINE_BADGE_COPY,
+  type EditorCopy,
+  type SsmlEditorLanguage,
+  type SsmlEditorLocalizedText,
+} from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
 
@@ -736,25 +742,6 @@ function getInsertionTitle(insertion: SsmlInsertionDefinition, language: SsmlEdi
   const tag = insertion.tagName ? ` <${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}` : "";
   return `${insertion.labels[language]}${tag} — ${insertion.descriptions[language]}`;
 }
-
-type InlineBadgeCopy = {
-  pause: string;
-  pitch: string;
-  prosody: string;
-};
-
-const INLINE_BADGE_COPY: Record<SsmlEditorLanguage, InlineBadgeCopy> = {
-  ja: {
-    pause: "間",
-    pitch: "ピッチ変化",
-    prosody: "声の調整",
-  },
-  en: {
-    pause: "Pause",
-    pitch: "Pitch change",
-    prosody: "Prosody",
-  },
-};
 
 const STYLE_ID = "ssml-editor-theme";
 const STYLE_CSS = `
