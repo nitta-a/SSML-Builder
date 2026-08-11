@@ -1,5 +1,5 @@
 {
-  "name": "@ssml-builder/ssml-editor-react",
+  "name": "@ssml-builder-js/ssml-editor-react",
   "version": "1.0.0",
   "description": "React-based SSML editor component",
   "main": "dist/index.js",
@@ -37,6 +37,6 @@
     }
   },
   "dependencies": {
-    "@ssml-builder/ssml-core": "*"
+    "@ssml-builder-js/ssml-core": "*"
   }
 }

@@ -9,6 +9,6 @@
 ### Patch Changes
 
 - Updated dependencies [6c78e70]
-  - @ssml-builder/azure-tts-client@1.0.0
-  - @ssml-builder/ssml-core@1.0.0
-  - @ssml-builder/ssml-editor-react@1.0.0
+  - @ssml-builder-js/azure-tts-client@1.0.0
+  - @ssml-builder-js/ssml-core@1.0.0
+  - @ssml-builder-js/ssml-editor-react@1.0.0
