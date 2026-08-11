@@ -1,4 +1,7 @@
-import { AzureTtsClient } from "@ssml-builder/azure-tts-client";
+import {
+  AzureTtsClient,
+  AzureTtsError,
+} from "@ssml-builder/azure-tts-client";
 import { validateSsml } from "@ssml-builder/ssml-core";
 
 export const runtime = "nodejs";
@@ -7,6 +10,30 @@ const AUDIO_CONTENT_TYPE = "audio/mpeg";
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
+}
+
+function describeError(error: unknown): Record<string, unknown> {
+  if (error instanceof AzureTtsError) {
+    return {
+      name: error.name,
+      message: error.message,
+      status: error.status,
+      statusText: error.statusText,
+      requestId: error.requestId,
+      responseBody: error.responseBody,
+      stack: error.stack,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return { value: error };
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -58,7 +85,12 @@ export async function POST(request: Request): Promise<Response> {
         "Content-Type": AUDIO_CONTENT_TYPE,
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("Azure Speech synthesis failed.", {
+      error: describeError(error),
+      region,
+      ssmlLength: ssml.length,
+    });
     return errorResponse("Azure Speech synthesis failed.", 502);
   }
 }

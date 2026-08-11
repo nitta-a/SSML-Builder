@@ -16,6 +16,27 @@ export interface AzureTtsClientOptions {
   outputFormat?: string;
 }
 
+export class AzureTtsError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+  readonly responseBody: string;
+  readonly requestId: string | null;
+
+  constructor(
+    status: number,
+    statusText: string,
+    responseBody: string,
+    requestId: string | null,
+  ) {
+    super(`Azure TTS request failed: ${status} ${statusText}`);
+    this.name = "AzureTtsError";
+    this.status = status;
+    this.statusText = statusText;
+    this.responseBody = responseBody;
+    this.requestId = requestId;
+  }
+}
+
 const DEFAULT_OUTPUT_FORMAT = "audio-16khz-128kbitrate-mono-mp3";
 
 function resolveEndpoint(config: TtsConfig): string {
@@ -40,8 +61,11 @@ export async function synthesizeSpeech(
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Azure TTS request failed: ${response.status} ${response.statusText}`,
+    throw new AzureTtsError(
+      response.status,
+      response.statusText,
+      await response.text(),
+      response.headers.get("x-requestid"),
     );
   }
 
