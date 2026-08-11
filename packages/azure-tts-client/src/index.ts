@@ -41,10 +41,7 @@ export class AzureTtsError extends Error {
 
 const DEFAULT_OUTPUT_FORMAT = "audio-16khz-128kbitrate-mono-mp3";
 
-const OUTPUT_FORMATS: Record<
-  string,
-  SpeechSDK.SpeechSynthesisOutputFormat
-> = {
+const OUTPUT_FORMATS: Record<string, SpeechSDK.SpeechSynthesisOutputFormat> = {
   "raw-8khz-8bit-mono-mulaw":
     SpeechSDK.SpeechSynthesisOutputFormat.Raw8Khz8BitMonoMULaw,
   "riff-16khz-16kbps-mono-siren":
@@ -120,8 +117,7 @@ const OUTPUT_FORMATS: Record<
   "riff-44100hz-16bit-mono-pcm":
     SpeechSDK.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm,
   "amr-wb-16000hz": SpeechSDK.SpeechSynthesisOutputFormat.AmrWb16000Hz,
-  "g722-16khz-64kbps":
-    SpeechSDK.SpeechSynthesisOutputFormat.G72216Khz64Kbps,
+  "g722-16khz-64kbps": SpeechSDK.SpeechSynthesisOutputFormat.G72216Khz64Kbps,
 };
 
 function resolveEndpoint(config: TtsConfig): string {
@@ -136,9 +132,7 @@ function resolveOutputFormat(
 ): SpeechSDK.SpeechSynthesisOutputFormat {
   const resolvedFormat = OUTPUT_FORMATS[outputFormat];
   if (resolvedFormat === undefined) {
-    throw new Error(
-      `Unsupported Azure Speech output format: ${outputFormat}`,
-    );
+    throw new Error(`Unsupported Azure Speech output format: ${outputFormat}`);
   }
 
   return resolvedFormat;
@@ -200,8 +194,7 @@ export async function synthesizeSpeech(
         ssml,
         (result) => {
           if (
-            result.reason !==
-            SpeechSDK.ResultReason.SynthesizingAudioCompleted
+            result.reason !== SpeechSDK.ResultReason.SynthesizingAudioCompleted
           ) {
             rejectWithError(
               result.errorDetails ||

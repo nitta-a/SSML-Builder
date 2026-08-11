@@ -67,10 +67,9 @@ function installSpeechSdkErrorMock(
   testContext.mock.method(
     SpeechSDK.SpeechSynthesizer.prototype,
     "speakSsmlAsync",
-    (ssml, callback, errorCallback) => {
+    (ssml, _callback, errorCallback) => {
       captured.ssml = ssml;
       errorCallback?.(errorDetails);
-      callback;
     },
   );
   return captured;
@@ -149,10 +148,7 @@ test("synthesize reports Speech SDK synthesis errors", async (t) => {
     }).synthesize("<speak>Hello</speak>"),
     (error: unknown) => {
       assert.ok(error instanceof AzureTtsError);
-      assert.equal(
-        error.message,
-        "Azure TTS request failed: 0 Speech SDK",
-      );
+      assert.equal(error.message, "Azure TTS request failed: 0 Speech SDK");
       assert.equal(error.status, 0);
       assert.equal(error.statusText, "Speech SDK");
       assert.equal(error.responseBody, errorDetails);

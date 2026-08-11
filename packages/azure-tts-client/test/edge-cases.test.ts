@@ -45,12 +45,12 @@ test("synthesizeSpeech replaces every endpoint region placeholder", async (t) =>
   const result = await synthesizeSpeech("<speak>Hello</speak>", {
     endpoint: "https://{region}.example.test/{region}",
     subscriptionKey: "subscription-key",
-    region: "japan east",
+    region: "japan-east",
   });
 
   assert.equal(
     speechSdkMock.endpoint?.href,
-    "https://japan%20east.example.test/japan%20east",
+    "https://japan-east.example.test/japan-east",
   );
   assert.strictEqual(result, audio);
 });
@@ -72,11 +72,7 @@ test("AzureTtsClient reports Speech SDK callback failures", async (t) => {
       errorCallback?.(errorDetails);
     },
   );
-  t.mock.method(
-    SpeechSDK.SpeechSynthesizer.prototype,
-    "close",
-    () => {},
-  );
+  t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "close", () => {});
 
   await assert.rejects(
     new AzureTtsClient({
