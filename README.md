@@ -208,7 +208,7 @@ const audio = await client.synthesize(ssml);
 import { synthesizeSpeech } from "@ssml-builder/azure-tts-client";
 
 const audio = await synthesizeSpeech(ssml, {
-  endpoint: "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1",
+  endpoint: "https://japaneast.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1",
   subscriptionKey: process.env.AZURE_SPEECH_KEY!,
   region: "japaneast",
 });
@@ -460,7 +460,7 @@ The lower-level `synthesizeSpeech` function is also available. It requires
 import { synthesizeSpeech } from "@ssml-builder/azure-tts-client";
 
 const audio = await synthesizeSpeech(ssml, {
-  endpoint: "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1",
+  endpoint: "https://japaneast.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1",
   subscriptionKey: process.env.AZURE_SPEECH_KEY!,
   region: "japaneast",
 });
