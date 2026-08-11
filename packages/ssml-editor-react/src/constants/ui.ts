@@ -1,4 +1,4 @@
-import type { SsmlEditorLocale } from "../locales";
+import type { SsmlEditorLocale } from "../locales.ts";
 
 export const DEFAULT_LOCALE: SsmlEditorLocale = "ja";
 export const OVERLAY_Z_INDEX = 9999;
