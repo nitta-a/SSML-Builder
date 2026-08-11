@@ -5,16 +5,12 @@ import { SSML_HOVER_COPY, type SsmlEditorLocale } from "./locales.ts";
 
 const {
   BREAK_STRENGTH_PRESETS,
-  BREAK_TIME_PRESETS,
   EMPHASIS_LEVEL_PRESETS,
-  EXPRESS_AS_STYLE_PRESETS,
   PHONEME_ALPHABET_PRESETS,
-  PROSODY_PITCH_PRESETS,
-  PROSODY_RATE_PRESETS,
   PROSODY_RATE_VALUES,
   PROSODY_VOLUME_PRESETS,
   SILENCE_TYPE_PRESETS,
-  SILENCE_VALUE_PRESETS,
+  SSML_PRESET_EXAMPLES,
   VISEME_TYPE_PRESETS,
 } = SSML_PRESETS;
 
@@ -75,18 +71,18 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
         name: "rate",
         description: "Controls speaking speed.",
         values: PROSODY_RATE_VALUES,
-        example: PROSODY_RATE_PRESETS[3],
+        example: SSML_PRESET_EXAMPLES.prosodyRate,
       },
       {
         name: "pitch",
         description: "Adjusts pitch using a named value, percentage, frequency, or semitone value.",
-        example: PROSODY_PITCH_PRESETS[0],
+        example: SSML_PRESET_EXAMPLES.prosodyPitch,
       },
       {
         name: "volume",
         description: "Controls loudness using a named value, percentage, or decibel value.",
         values: PROSODY_VOLUME_PRESETS,
-        example: PROSODY_VOLUME_PRESETS[4],
+        example: SSML_PRESET_EXAMPLES.prosodyVolume,
       },
       {
         name: "contour",
@@ -107,7 +103,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "time",
         description: "The pause duration, for example `500ms` or `1s`.",
-        example: BREAK_TIME_PRESETS[0],
+        example: SSML_PRESET_EXAMPLES.breakTime,
       },
       {
         name: "strength",
@@ -124,7 +120,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "style",
         description: "The speaking style supported by the selected voice, such as `cheerful`.",
-        example: EXPRESS_AS_STYLE_PRESETS[0],
+        example: SSML_PRESET_EXAMPLES.expressAsStyle,
       },
       {
         name: "styledegree",
@@ -167,7 +163,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
         name: "alphabet",
         description: "The phonetic alphabet used by the `ph` value.",
         values: PHONEME_ALPHABET_PRESETS,
-        example: PHONEME_ALPHABET_PRESETS[0],
+        example: SSML_PRESET_EXAMPLES.phonemeAlphabet,
       },
       {
         name: "ph",
@@ -316,7 +312,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       {
         name: "value",
         description: "The silence duration, for example `300ms`.",
-        example: SILENCE_VALUE_PRESETS[0],
+        example: SSML_PRESET_EXAMPLES.silenceValue,
       },
     ],
   },

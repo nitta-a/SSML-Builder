@@ -37,6 +37,24 @@ export const SILENCE_TYPE_PRESETS = [
 export const PHONEME_ALPHABET_PRESETS = ["ipa", "sapi", "ups", "x-sampa"] as const;
 export const VISEME_TYPE_PRESETS = ["redlips_front", "FacialExpression"] as const;
 
+export const SSML_PRESET_EXAMPLES = {
+  breakTime: "500ms",
+  prosodyRate: "fast",
+  prosodyPitch: "+2st",
+  prosodyVolume: "loud",
+  expressAsStyle: "cheerful",
+  phonemeAlphabet: "ipa",
+  silenceValue: "300ms",
+} as const satisfies {
+  breakTime: (typeof BREAK_TIME_PRESETS)[number];
+  prosodyRate: (typeof PROSODY_RATE_PRESETS)[number];
+  prosodyPitch: (typeof PROSODY_PITCH_PRESETS)[number];
+  prosodyVolume: (typeof PROSODY_VOLUME_PRESETS)[number];
+  expressAsStyle: (typeof EXPRESS_AS_STYLE_PRESETS)[number];
+  phonemeAlphabet: (typeof PHONEME_ALPHABET_PRESETS)[number];
+  silenceValue: (typeof SILENCE_VALUE_PRESETS)[number];
+};
+
 export const BREAK_TIME_DESCRIPTIONS = {
   "500ms": {
     ja: "500ミリ秒の無音",
