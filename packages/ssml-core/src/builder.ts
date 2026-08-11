@@ -128,6 +128,9 @@ function getTagName(element: SsmlElement): string {
     case "expressAs":
     case "mstts:express-as":
       return "mstts:express-as";
+    case "say-as":
+    case "sayAs":
+      return "say-as";
     case "silence":
     case "mstts:silence":
       return "mstts:silence";
