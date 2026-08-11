@@ -773,7 +773,6 @@ type EditorCopy = {
   quickEmphasis: string;
   quickProsody: string;
   quickExpressAs: string;
-  quickInsertionPopoverDescription: string;
   quickInsertionSelectPlaceholder: string;
   quickInsertionCancel: string;
   quickInsertionApply: string;
@@ -810,7 +809,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     quickEmphasis: "emphasis",
     quickProsody: "prosody",
     quickExpressAs: "express-as",
-    quickInsertionPopoverDescription: "挿入する属性をプリセットから選択してください。",
     quickInsertionSelectPlaceholder: "指定しない",
     quickInsertionCancel: "キャンセル",
     quickInsertionApply: "挿入",
@@ -845,7 +843,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     quickEmphasis: "emphasis",
     quickProsody: "prosody",
     quickExpressAs: "express-as",
-    quickInsertionPopoverDescription: "Select the attributes to insert from the available presets.",
     quickInsertionSelectPlaceholder: "Not set",
     quickInsertionCancel: "Cancel",
     quickInsertionApply: "Insert",
@@ -1274,7 +1271,7 @@ const styles: Record<string, CSSProperties> = {
     top: "calc(100% + 0.375rem)",
     left: 0,
     display: "grid",
-    gap: "0.75rem",
+    gap: "0.5rem",
     width: "min(20rem, calc(100vw - 1rem))",
     maxHeight: "min(24rem, calc(100vh - 1rem))",
     overflowY: "auto",
@@ -1286,38 +1283,19 @@ const styles: Record<string, CSSProperties> = {
     backgroundColor: "var(--ssml-editor-control-bg)",
     boxShadow: "0 0.5rem 1.25rem rgb(0 0 0 / 25%)",
   },
-  quickInsertionPopoverHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "0.5rem",
-  },
-  quickInsertionPopoverHeading: {
-    margin: 0,
-    fontSize: "1rem",
-  },
-  quickInsertionPopoverDescription: {
-    margin: 0,
-    fontSize: "0.875rem",
-    lineHeight: 1.5,
-  },
   quickInsertionFields: {
     display: "grid",
-    gap: "0.625rem",
+    gap: "0.5rem",
   },
   quickInsertionField: {
     display: "grid",
-    gap: "0.25rem",
+    gridTemplateColumns: "max-content minmax(0, 1fr)",
+    alignItems: "center",
+    columnGap: "0.5rem",
   },
   quickInsertionFieldLabel: {
-    display: "flex",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    gap: "0.5rem",
-  },
-  quickInsertionFieldDescription: {
-    fontSize: "0.75rem",
-    lineHeight: 1.4,
+    fontSize: "0.875rem",
+    whiteSpace: "nowrap",
   },
   quickInsertionSelect: {
     boxSizing: "border-box",
@@ -2738,42 +2716,18 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                     {quickInsertionPopover?.definition.id === button.id && (
                       <section
                         id={`${quickInsertionPopoverId}-${button.id}`}
-                        aria-labelledby={`${quickInsertionPopoverId}-${button.id}-title`}
+                        aria-label={button.label}
                         style={styles.quickInsertionPopover}
                         onMouseDown={(event) => event.stopPropagation()}
                       >
-                        <div style={styles.quickInsertionPopoverHeader}>
-                          <h3
-                            id={`${quickInsertionPopoverId}-${button.id}-title`}
-                            style={styles.quickInsertionPopoverHeading}
-                          >
-                            {`<${quickInsertionPopover.definition.tagName}>`}
-                          </h3>
-                          <button
-                            type="button"
-                            style={styles.selectionActionButton}
-                            aria-label={copy.quickInsertionCancel}
-                            title={copy.quickInsertionCancel}
-                            onClick={() => setQuickInsertionPopover(null)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                        <p style={styles.quickInsertionPopoverDescription}>{copy.quickInsertionPopoverDescription}</p>
                         <div style={styles.quickInsertionFields}>
                           {quickInsertionPopover.definition.fields.map((field) => {
-                            const descriptionId = `${quickInsertionPopoverId}-${button.id}-${field.attribute}-description`;
                             return (
                               <label key={field.attribute} style={styles.quickInsertionField}>
-                                <span style={styles.quickInsertionFieldLabel}>
-                                  <span>
-                                    <strong>{field.labels[language]}</strong> <code>{field.attribute}</code>
-                                  </span>
-                                </span>
+                                <span style={styles.quickInsertionFieldLabel}>{field.labels[language]}</span>
                                 <select
                                   style={styles.quickInsertionSelect}
                                   value={quickInsertionPopover.values[field.attribute] ?? ""}
-                                  aria-describedby={descriptionId}
                                   onChange={(event) => updateQuickInsertionValue(field.attribute, event.target.value)}
                                 >
                                   <option value="">{copy.quickInsertionSelectPlaceholder}</option>
@@ -2783,9 +2737,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                                     </option>
                                   ))}
                                 </select>
-                                <span id={descriptionId} style={styles.quickInsertionFieldDescription}>
-                                  {field.descriptions[language]}
-                                </span>
                               </label>
                             );
                           })}

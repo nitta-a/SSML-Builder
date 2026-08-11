@@ -5,7 +5,6 @@ export type QuickInsertionLocalizedText = Readonly<Record<"ja" | "en", string>>;
 export interface QuickInsertionField {
   attribute: string;
   labels: QuickInsertionLocalizedText;
-  descriptions: QuickInsertionLocalizedText;
   options: readonly string[];
 }
 
@@ -50,13 +49,11 @@ export const QUICK_INSERTION_DEFINITIONS: readonly QuickInsertionDefinition[] = 
       {
         attribute: "time",
         labels: localizedText("時間", "Time"),
-        descriptions: localizedText("無音にする時間です。", "The duration of the pause."),
         options: ["500ms", "1s", "2s", "3s"],
       },
       {
         attribute: "strength",
         labels: localizedText("強さ", "Strength"),
-        descriptions: localizedText("無音の相対的な強さです。", "The relative strength of the pause."),
         options: ["none", "x-weak", "weak", "medium", "strong", "x-strong"],
       },
     ],
@@ -71,7 +68,6 @@ export const QUICK_INSERTION_DEFINITIONS: readonly QuickInsertionDefinition[] = 
       {
         attribute: "level",
         labels: localizedText("強調レベル", "Emphasis level"),
-        descriptions: localizedText("強調の度合いです。", "The amount of emphasis."),
         options: ["strong", "moderate", "reduced", "none"],
       },
     ],
@@ -85,31 +81,26 @@ export const QUICK_INSERTION_DEFINITIONS: readonly QuickInsertionDefinition[] = 
       {
         attribute: "rate",
         labels: localizedText("速度", "Rate"),
-        descriptions: localizedText("読み上げ速度です。", "The speaking rate."),
         options: ["x-slow", "slow", "medium", "fast", "x-fast"],
       },
       {
         attribute: "pitch",
         labels: localizedText("高さ", "Pitch"),
-        descriptions: localizedText("声の高さです。", "The pitch adjustment."),
         options: ["-12st", "-8st", "-4st", "-2st", "0st", "+2st", "+4st", "+8st", "+12st"],
       },
       {
         attribute: "volume",
         labels: localizedText("音量", "Volume"),
-        descriptions: localizedText("音量レベルです。", "The volume level."),
         options: ["silent", "x-soft", "soft", "medium", "loud", "x-loud"],
       },
       {
         attribute: "contour",
         labels: localizedText("輪郭", "Contour"),
-        descriptions: localizedText("発話中の声の高さの変化です。", "The pitch contour during the utterance."),
         options: ["(0%,+0st) (100%,+0st)", "(0%,+0st) (100%,+2st)", "(0%,+2st) (100%,+0st)", "(0%,-2st) (100%,+2st)"],
       },
       {
         attribute: "range",
         labels: localizedText("範囲", "Range"),
-        descriptions: localizedText("声の高さの範囲です。", "The pitch range."),
         options: ["x-low", "low", "medium", "high", "x-high", "-4st", "0st", "+4st"],
       },
     ],
@@ -123,19 +114,16 @@ export const QUICK_INSERTION_DEFINITIONS: readonly QuickInsertionDefinition[] = 
       {
         attribute: "style",
         labels: localizedText("スタイル", "Style"),
-        descriptions: localizedText("音声スタイルです。", "The speaking style."),
         options: ["cheerful", "friendly", "calm", "sad", "angry", "excited", "serious"],
       },
       {
         attribute: "styledegree",
         labels: localizedText("スタイルの強度", "Style degree"),
-        descriptions: localizedText("音声スタイルの強度です。", "The intensity of the speaking style."),
         options: ["0.5", "1", "1.5", "2"],
       },
       {
         attribute: "role",
         labels: localizedText("役割", "Role"),
-        descriptions: localizedText("対応する音声の役割です。", "The supported voice role."),
         options: ["Girl", "Boy", "YoungAdultFemale", "YoungAdultMale", "OlderAdultFemale", "OlderAdultMale"],
       },
     ],
