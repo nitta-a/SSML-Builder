@@ -12,21 +12,14 @@ const MSTTS_NAMESPACE = "http://www.w3.org/2001/mstts";
 const XML_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
 
 function escapeText(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function escapeAttribute(value: string): string {
   return escapeText(value).replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
-function addAttribute(
-  attributes: SsmlAttributes,
-  name: string,
-  value: SsmlAttributeValue | undefined,
-): void {
+function addAttribute(attributes: SsmlAttributes, name: string, value: SsmlAttributeValue | undefined): void {
   if (value !== undefined) {
     attributes[name] = value;
   }
@@ -100,11 +93,7 @@ function getAttributes(element: SsmlElement): SsmlAttributes {
       break;
     case "mstts:silence":
     case "silence":
-      addAttribute(
-        attributes,
-        "type",
-        element.typeValue ?? element.silenceType,
-      );
+      addAttribute(attributes, "type", element.typeValue ?? element.silenceType);
       addAttribute(attributes, "value", element.value);
       break;
     case "mstts:viseme":
@@ -182,9 +171,7 @@ function serializeNode(node: SsmlNode): string {
     return `<${tagName}${attributes}/>`;
   }
 
-  return `<${tagName}${attributes}>${children
-    .map(serializeNode)
-    .join("")}</${tagName}>`;
+  return `<${tagName}${attributes}>${children.map(serializeNode).join("")}</${tagName}>`;
 }
 
 function usesMsttsNamespace(nodes: SsmlNode[]): boolean {
@@ -194,16 +181,12 @@ function usesMsttsNamespace(nodes: SsmlNode[]): boolean {
     }
 
     const tagName = getTagName(node);
-    return (
-      tagName.startsWith("mstts:") || usesMsttsNamespace(getChildren(node))
-    );
+    return tagName.startsWith("mstts:") || usesMsttsNamespace(getChildren(node));
   });
 }
 
 function serializeDocument(document: SsmlDocument): string {
-  const children =
-    document.children ??
-    (document.content === undefined ? [] : [document.content]);
+  const children = document.children ?? (document.content === undefined ? [] : [document.content]);
   const attributes: SsmlAttributes = {
     ...(document.attributes ?? {}),
     version: document.version,
@@ -215,17 +198,12 @@ function serializeDocument(document: SsmlDocument): string {
     attributes["xmlns:mstts"] = MSTTS_NAMESPACE;
   }
 
-  return `<speak${serializeAttributes(attributes)}>${children
-    .map(serializeNode)
-    .join("")}</speak>`;
+  return `<speak${serializeAttributes(attributes)}>${children.map(serializeNode).join("")}</speak>`;
 }
 
 export function buildSsml(document: SsmlDocument): string;
 export function buildSsml(content: string, lang?: string): SsmlDocument;
-export function buildSsml(
-  documentOrContent: SsmlDocument | string,
-  lang = "en-US",
-): string | SsmlDocument {
+export function buildSsml(documentOrContent: SsmlDocument | string, lang = "en-US"): string | SsmlDocument {
   if (typeof documentOrContent === "string") {
     return {
       version: "1.0",

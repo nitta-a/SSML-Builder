@@ -16,9 +16,7 @@ export function validateSsml(xmlString: string): SsmlValidationError | null {
     const positionMatch = PARSER_POSITION_SUFFIX.exec(rawMessage);
 
     return {
-      message: positionMatch
-        ? rawMessage.slice(0, positionMatch.index)
-        : rawMessage,
+      message: positionMatch ? rawMessage.slice(0, positionMatch.index) : rawMessage,
       position: positionMatch ? Number.parseInt(positionMatch[1], 10) : 0,
     };
   }

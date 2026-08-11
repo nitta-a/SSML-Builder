@@ -3,10 +3,7 @@ import { createSpeechSdkError } from "./errors.ts";
 import { createSpeechConfig } from "./speechConfig.ts";
 import type { TtsConfig } from "./types.ts";
 
-function closeSpeechResources(
-  speechConfig: SpeechSDK.SpeechConfig,
-  synthesizer: SpeechSDK.SpeechSynthesizer,
-): void {
+function closeSpeechResources(speechConfig: SpeechSDK.SpeechConfig, synthesizer: SpeechSDK.SpeechSynthesizer): void {
   try {
     synthesizer.close();
   } catch {}
@@ -16,20 +13,15 @@ function closeSpeechResources(
   } catch {}
 }
 
-export async function synthesizeSpeech(
-  ssml: string,
-  config: TtsConfig,
-): Promise<ArrayBuffer> {
+export async function synthesizeSpeech(ssml: string, config: TtsConfig): Promise<ArrayBuffer> {
   const speechConfig = createSpeechConfig(config);
+  console.debug("Speech config created:", speechConfig);
   const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, null);
 
   return new Promise<ArrayBuffer>((resolve, reject) => {
     let resourcesClosed = false;
     const closeResources = () => {
-      if (resourcesClosed) {
-        return;
-      }
-
+      if (resourcesClosed) return;
       resourcesClosed = true;
       closeSpeechResources(speechConfig, synthesizer);
     };
@@ -38,26 +30,19 @@ export async function synthesizeSpeech(
       reject(createSpeechSdkError(error));
     };
 
-    try {
-      synthesizer.speakSsmlAsync(
-        ssml,
-        (result) => {
-          if (
-            result.reason !== SpeechSDK.ResultReason.SynthesizingAudioCompleted
-          ) {
-            rejectWithError(
-              result.errorDetails ||
-                `Speech synthesis failed with reason ${result.reason}.`,
-            );
-            return;
-          }
+    const cb = (result: SpeechSDK.SpeechSynthesisResult) => {
+      const { reason, errorDetails } = result;
+      if (reason !== SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+        const err = errorDetails || `Speech synthesis failed with reason ${reason}.`;
+        rejectWithError(err);
+        return;
+      }
+      closeResources();
+      resolve(result.audioData);
+    };
 
-          const audioData = result.audioData;
-          closeResources();
-          resolve(audioData);
-        },
-        rejectWithError,
-      );
+    try {
+      synthesizer.speakSsmlAsync(ssml, cb, rejectWithError);
     } catch (error) {
       rejectWithError(error);
     }

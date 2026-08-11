@@ -1,13 +1,5 @@
 {
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "biomejs.biome",
-  "cSpell.words": [
-    "Apim",
-    "apos",
-    "japaneast",
-    "mstts",
-    "Ssml",
-    "styledegree",
-    "viseme"
-  ]
+  "cSpell.words": ["Apim", "apos", "cognitiveservices", "japaneast", "mstts", "Ssml", "styledegree", "viseme"]
 }

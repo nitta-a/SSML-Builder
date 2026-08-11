@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
-import {
-  DEFAULT_OUTPUT_FORMAT,
-  resolveOutputFormat,
-} from "../src/outputFormats.ts";
+import { DEFAULT_OUTPUT_FORMAT, resolveOutputFormat } from "../src/outputFormats.ts";
 
 test("defines the default Azure Speech output format", () => {
   assert.equal(DEFAULT_OUTPUT_FORMAT, "audio-16khz-128kbitrate-mono-mp3");

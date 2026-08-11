@@ -48,11 +48,7 @@ function hasOwn(object: object, property: PropertyKey): boolean {
   return Object.getOwnPropertyDescriptor(object, property) !== undefined;
 }
 
-function setAttribute(
-  attributes: SsmlAttributes,
-  name: string,
-  value: string,
-): void {
+function setAttribute(attributes: SsmlAttributes, name: string, value: string): void {
   Object.defineProperty(attributes, name, {
     configurable: true,
     enumerable: true,
@@ -62,9 +58,7 @@ function setAttribute(
 }
 
 function decodeEntity(entity: string): string {
-  const namedValue = hasOwn(XML_ENTITIES, entity)
-    ? XML_ENTITIES[entity]
-    : undefined;
+  const namedValue = hasOwn(XML_ENTITIES, entity) ? XML_ENTITIES[entity] : undefined;
   if (namedValue !== undefined) {
     return namedValue;
   }
@@ -186,9 +180,7 @@ class XmlParser {
         this.skipWhitespace();
         this.expect(">");
         if (closingName !== name) {
-          this.fail(
-            `Mismatched closing element: expected </${name}> but found </${closingName}>`,
-          );
+          this.fail(`Mismatched closing element: expected </${name}> but found </${closingName}>`);
         }
         return { name, attributes, children };
       }
@@ -252,10 +244,7 @@ class XmlParser {
       this.#index += 1;
 
       const valueStart = this.#index;
-      while (
-        this.#index < this.source.length &&
-        this.source[this.#index] !== quote
-      ) {
+      while (this.#index < this.source.length && this.source[this.#index] !== quote) {
         if (this.source[this.#index] === "<") {
           this.fail(`Invalid "<" in XML attribute ${name}`);
         }
@@ -265,9 +254,7 @@ class XmlParser {
         this.fail(`Unclosed XML attribute ${name}`);
       }
 
-      const value = decodeXmlEntities(
-        this.source.slice(valueStart, this.#index),
-      );
+      const value = decodeXmlEntities(this.source.slice(valueStart, this.#index));
       this.#index += 1;
 
       if (hasOwn(attributes, name)) {
@@ -281,10 +268,7 @@ class XmlParser {
 
   private parseText(): string {
     const start = this.#index;
-    while (
-      this.#index < this.source.length &&
-      this.source[this.#index] !== "<"
-    ) {
+    while (this.#index < this.source.length && this.source[this.#index] !== "<") {
       this.#index += 1;
     }
 
@@ -392,10 +376,7 @@ class XmlParser {
   }
 }
 
-function readAttribute(
-  attributes: SsmlAttributes,
-  ...names: string[]
-): string | undefined {
+function readAttribute(attributes: SsmlAttributes, ...names: string[]): string | undefined {
   let found = false;
   let value: string | undefined;
 
@@ -418,11 +399,7 @@ function getElementAttributes(node: XmlElementNode): SsmlAttributes {
   return attributes;
 }
 
-function finishElement<T extends SsmlElement>(
-  element: T,
-  node: XmlElementNode,
-  attributes: SsmlAttributes,
-): T {
+function finishElement<T extends SsmlElement>(element: T, node: XmlElementNode, attributes: SsmlAttributes): T {
   if (node.children.length > 0) {
     element.children = node.children.map(convertNode);
   }
@@ -471,11 +448,7 @@ function convertElement(node: XmlElementNode): SsmlElement {
     case "mstts:express-as": {
       const element: ExpressAsElement = { type: node.name };
       const style = readAttribute(attributes, "style");
-      const styleDegree = readAttribute(
-        attributes,
-        "styledegree",
-        "styleDegree",
-      );
+      const styleDegree = readAttribute(attributes, "styledegree", "styleDegree");
       const role = readAttribute(attributes, "role");
       if (style !== undefined) element.style = style;
       if (styleDegree !== undefined) element.styleDegree = styleDegree;

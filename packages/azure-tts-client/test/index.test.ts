@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
-import {
-  AzureTtsClient,
-  AzureTtsError,
-  AzureTtsSdkError,
-  synthesizeSpeech,
-} from "../src/index.ts";
+import { AzureTtsClient, AzureTtsError, AzureTtsSdkError, synthesizeSpeech } from "../src/index.ts";
 
 type SpeechSdkMock = {
   endpoint?: URL;
@@ -16,63 +11,38 @@ type SpeechSdkMock = {
   closeCount: number;
 };
 
-function installSpeechSdkMock(
-  testContext: TestContext,
-  audio: ArrayBuffer,
-): SpeechSdkMock {
+function installSpeechSdkMock(testContext: TestContext, audio: ArrayBuffer): SpeechSdkMock {
   const captured: SpeechSdkMock = { closeCount: 0 };
   const originalFromEndpoint = SpeechSDK.SpeechConfig.fromEndpoint;
 
-  testContext.mock.method(
-    SpeechSDK.SpeechConfig,
-    "fromEndpoint",
-    (endpoint, subscriptionKey) => {
-      captured.endpoint = endpoint;
-      captured.subscriptionKey = String(subscriptionKey);
-      const speechConfig = originalFromEndpoint(
-        endpoint,
-        String(subscriptionKey),
-      );
-      captured.speechConfig = speechConfig;
-      return speechConfig;
-    },
-  );
-  testContext.mock.method(
-    SpeechSDK.SpeechSynthesizer.prototype,
-    "speakSsmlAsync",
-    (ssml, callback) => {
-      captured.ssml = ssml;
-      callback?.({
-        audioData: audio,
-        errorDetails: "",
-        reason: SpeechSDK.ResultReason.SynthesizingAudioCompleted,
-      } as SpeechSDK.SpeechSynthesisResult);
-    },
-  );
-  testContext.mock.method(
-    SpeechSDK.SpeechSynthesizer.prototype,
-    "close",
-    () => {
-      captured.closeCount += 1;
-    },
-  );
+  testContext.mock.method(SpeechSDK.SpeechConfig, "fromEndpoint", (endpoint, subscriptionKey) => {
+    captured.endpoint = endpoint;
+    captured.subscriptionKey = String(subscriptionKey);
+    const speechConfig = originalFromEndpoint(endpoint, String(subscriptionKey));
+    captured.speechConfig = speechConfig;
+    return speechConfig;
+  });
+  testContext.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "speakSsmlAsync", (ssml, callback) => {
+    captured.ssml = ssml;
+    callback?.({
+      audioData: audio,
+      errorDetails: "",
+      reason: SpeechSDK.ResultReason.SynthesizingAudioCompleted,
+    } as SpeechSDK.SpeechSynthesisResult);
+  });
+  testContext.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "close", () => {
+    captured.closeCount += 1;
+  });
 
   return captured;
 }
 
-function installSpeechSdkErrorMock(
-  testContext: TestContext,
-  errorDetails: string,
-): SpeechSdkMock {
+function installSpeechSdkErrorMock(testContext: TestContext, errorDetails: string): SpeechSdkMock {
   const captured = installSpeechSdkMock(testContext, new ArrayBuffer(0));
-  testContext.mock.method(
-    SpeechSDK.SpeechSynthesizer.prototype,
-    "speakSsmlAsync",
-    (ssml, _callback, errorCallback) => {
-      captured.ssml = ssml;
-      errorCallback?.(errorDetails);
-    },
-  );
+  testContext.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "speakSsmlAsync", (ssml, _callback, errorCallback) => {
+    captured.ssml = ssml;
+    errorCallback?.(errorDetails);
+  });
   return captured;
 }
 
@@ -88,10 +58,7 @@ test("synthesizeSpeech sends SSML using the Speech SDK", async (t) => {
     region: "japaneast",
   });
 
-  assert.equal(
-    speechSdkMock.endpoint?.href,
-    "https://speech.example.test/cognitiveservices/v1",
-  );
+  assert.equal(speechSdkMock.endpoint?.href, "https://speech.example.test/cognitiveservices/v1");
   assert.equal(speechSdkMock.subscriptionKey, "subscription-key");
   assert.equal(speechSdkMock.ssml, ssml);
   assert.equal(
@@ -130,10 +97,7 @@ test("synthesize sends SSML to the regional Azure endpoint", async (t) => {
     region: "japaneast",
   }).synthesize(ssml);
 
-  assert.equal(
-    speechSdkMock.endpoint?.href,
-    "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1",
-  );
+  assert.equal(speechSdkMock.endpoint?.href, "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1");
   assert.equal(speechSdkMock.ssml, ssml);
   assert.strictEqual(audio, mockAudio);
 });
@@ -150,10 +114,7 @@ test("synthesize reports Speech SDK synthesis errors", async (t) => {
     (error: unknown) => {
       assert.ok(error instanceof AzureTtsError);
       assert.ok(error instanceof AzureTtsSdkError);
-      assert.equal(
-        error.message,
-        "Azure TTS synthesis failed: The SSML is invalid.",
-      );
+      assert.equal(error.message, "Azure TTS synthesis failed: The SSML is invalid.");
       assert.equal(error.status, 0);
       assert.equal(error.statusText, "Speech SDK");
       assert.equal(error.responseBody, errorDetails);

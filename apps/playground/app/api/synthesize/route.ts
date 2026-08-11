@@ -51,11 +51,7 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse("Request body must be valid JSON.", 400);
   }
 
-  if (
-    body === null ||
-    typeof body !== "object" ||
-    typeof (body as { ssml?: unknown }).ssml !== "string"
-  ) {
+  if (body === null || typeof body !== "object" || typeof (body as { ssml?: unknown }).ssml !== "string") {
     return errorResponse("Request body must include an SSML string.", 400);
   }
 

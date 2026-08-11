@@ -1,6 +1,5 @@
 const XML_TAG_BOUNDARY = />\s*</g;
-const ROOT_TEXT_ELEMENT =
-  /^(<([A-Za-z_][A-Za-z0-9_.:-]*)(?:\s[^>]*)?>)([^<]+)(<\/\2>)$/;
+const ROOT_TEXT_ELEMENT = /^(<([A-Za-z_][A-Za-z0-9_.:-]*)(?:\s[^>]*)?>)([^<]+)(<\/\2>)$/;
 
 function isOpeningTag(line: string): boolean {
   return (
@@ -28,12 +27,9 @@ export function formatXml(xml: string): string {
       continue;
     }
 
-    const rootTextMatch =
-      depth === 0 ? trimmedLine.match(ROOT_TEXT_ELEMENT) : null;
+    const rootTextMatch = depth === 0 ? trimmedLine.match(ROOT_TEXT_ELEMENT) : null;
     if (rootTextMatch) {
-      lines.push(
-        `${rootTextMatch[1]}\n  ${rootTextMatch[3].trim()}\n${rootTextMatch[4]}`,
-      );
+      lines.push(`${rootTextMatch[1]}\n  ${rootTextMatch[3].trim()}\n${rootTextMatch[4]}`);
       continue;
     }
 

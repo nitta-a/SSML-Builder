@@ -4,9 +4,7 @@ import { formatXml } from "../src/formatXml.ts";
 
 test("formatXml keeps declarations, comments, and CDATA at the current depth", () => {
   assert.equal(
-    formatXml(
-      '<?xml version="1.0"?><speak><!-- comment --><voice>text</voice><![CDATA[raw <xml>]]></speak>',
-    ),
+    formatXml('<?xml version="1.0"?><speak><!-- comment --><voice>text</voice><![CDATA[raw <xml>]]></speak>'),
     '<?xml version="1.0"?>\n<speak>\n  <!-- comment -->\n  <voice>text</voice>\n  <![CDATA[raw <xml>]]>\n</speak>',
   );
 });

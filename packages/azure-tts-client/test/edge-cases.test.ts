@@ -3,37 +3,22 @@ import test, { type TestContext } from "node:test";
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 import { AzureTtsClient, synthesizeSpeech } from "../src/index.ts";
 
-function installSuccessfulSpeechSdkMock(
-  testContext: TestContext,
-  audio: ArrayBuffer,
-): { endpoint?: URL } {
+function installSuccessfulSpeechSdkMock(testContext: TestContext, audio: ArrayBuffer): { endpoint?: URL } {
   const captured: { endpoint?: URL } = {};
   const originalFromEndpoint = SpeechSDK.SpeechConfig.fromEndpoint;
 
-  testContext.mock.method(
-    SpeechSDK.SpeechConfig,
-    "fromEndpoint",
-    (endpoint, subscriptionKey) => {
-      captured.endpoint = endpoint;
-      return originalFromEndpoint(endpoint, String(subscriptionKey));
-    },
-  );
-  testContext.mock.method(
-    SpeechSDK.SpeechSynthesizer.prototype,
-    "speakSsmlAsync",
-    (_ssml, callback) => {
-      callback?.({
-        audioData: audio,
-        errorDetails: "",
-        reason: SpeechSDK.ResultReason.SynthesizingAudioCompleted,
-      } as SpeechSDK.SpeechSynthesisResult);
-    },
-  );
-  testContext.mock.method(
-    SpeechSDK.SpeechSynthesizer.prototype,
-    "close",
-    () => {},
-  );
+  testContext.mock.method(SpeechSDK.SpeechConfig, "fromEndpoint", (endpoint, subscriptionKey) => {
+    captured.endpoint = endpoint;
+    return originalFromEndpoint(endpoint, String(subscriptionKey));
+  });
+  testContext.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "speakSsmlAsync", (_ssml, callback) => {
+    callback?.({
+      audioData: audio,
+      errorDetails: "",
+      reason: SpeechSDK.ResultReason.SynthesizingAudioCompleted,
+    } as SpeechSDK.SpeechSynthesisResult);
+  });
+  testContext.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "close", () => {});
 
   return captured;
 }
@@ -48,10 +33,7 @@ test("synthesizeSpeech replaces every endpoint region placeholder", async (t) =>
     region: "japan-east",
   });
 
-  assert.equal(
-    speechSdkMock.endpoint?.href,
-    "https://japan-east.example.test/japan-east",
-  );
+  assert.equal(speechSdkMock.endpoint?.href, "https://japan-east.example.test/japan-east");
   assert.strictEqual(result, audio);
 });
 
@@ -65,29 +47,19 @@ test("synthesizeSpeech URL-encodes special regions in endpoint paths", async (t)
     region: "japan east",
   });
 
-  assert.equal(
-    speechSdkMock.endpoint?.href,
-    "https://speech.example.test/japan%20east/japan%20east",
-  );
+  assert.equal(speechSdkMock.endpoint?.href, "https://speech.example.test/japan%20east/japan%20east");
 });
 
 test("AzureTtsClient reports Speech SDK callback failures", async (t) => {
   const errorDetails = "network unavailable";
   const originalFromEndpoint = SpeechSDK.SpeechConfig.fromEndpoint;
 
-  t.mock.method(
-    SpeechSDK.SpeechConfig,
-    "fromEndpoint",
-    (endpoint, subscriptionKey) =>
-      originalFromEndpoint(endpoint, String(subscriptionKey)),
+  t.mock.method(SpeechSDK.SpeechConfig, "fromEndpoint", (endpoint, subscriptionKey) =>
+    originalFromEndpoint(endpoint, String(subscriptionKey)),
   );
-  t.mock.method(
-    SpeechSDK.SpeechSynthesizer.prototype,
-    "speakSsmlAsync",
-    (_ssml, _callback, errorCallback) => {
-      errorCallback?.(errorDetails);
-    },
-  );
+  t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "speakSsmlAsync", (_ssml, _callback, errorCallback) => {
+    errorCallback?.(errorDetails);
+  });
   t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "close", () => {});
 
   await assert.rejects(
@@ -97,10 +69,7 @@ test("AzureTtsClient reports Speech SDK callback failures", async (t) => {
       region: "japaneast",
     }).synthesize("<speak>Hello</speak>"),
     (error: unknown) => {
-      assert.equal(
-        error instanceof Error ? error.message : error,
-        "Azure TTS synthesis failed: network unavailable",
-      );
+      assert.equal(error instanceof Error ? error.message : error, "Azure TTS synthesis failed: network unavailable");
       assert.ok(error instanceof Error);
       assert.equal(error.name, "AzureTtsSdkError");
       return true;

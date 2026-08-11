@@ -52,10 +52,7 @@ const initialDocument: SsmlDocument = {
 };
 
 function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
-  return (
-    document.children ??
-    (document.content === undefined ? [] : [document.content])
-  );
+  return document.children ?? (document.content === undefined ? [] : [document.content]);
 }
 
 function getNodeText(node: SsmlNode): string {
@@ -72,20 +69,13 @@ function getNodeText(node: SsmlNode): string {
 
 function createCaptionTrack(document: SsmlDocument): string {
   const text =
-    getDocumentChildren(document)
-      .map(getNodeText)
-      .join("")
-      .trim()
-      .replace(/\s+/g, " ")
-      .replaceAll("-->", "-- >") || "Generated speech";
+    getDocumentChildren(document).map(getNodeText).join("").trim().replace(/\s+/g, " ").replaceAll("-->", "-- >") ||
+    "Generated speech";
   const webVtt = `WEBVTT\n\n00:00:00.000 --> 99:59:59.999\n${text}`;
   return `data:text/vtt;charset=utf-8,${encodeURIComponent(webVtt)}`;
 }
 
-function updateFirstVoice(
-  nodes: SsmlNode[],
-  voiceName: string,
-): { nodes: SsmlNode[]; updated: boolean } {
+function updateFirstVoice(nodes: SsmlNode[], voiceName: string): { nodes: SsmlNode[]; updated: boolean } {
   let updated = false;
   const nextNodes = nodes.map((node) => {
     if (updated || typeof node === "string" || node.type === "text") {
@@ -111,11 +101,7 @@ function updateFirstVoice(
   return { nodes: nextNodes, updated };
 }
 
-function updateSpeechSettings(
-  document: SsmlDocument,
-  language: SpeechLanguage,
-  gender: SpeechGender,
-): SsmlDocument {
+function updateSpeechSettings(document: SsmlDocument, language: SpeechLanguage, gender: SpeechGender): SsmlDocument {
   const voiceName = VOICE_NAMES[language][gender];
   const children = getDocumentChildren(document);
   const voiceResult = updateFirstVoice(children, voiceName);
@@ -144,12 +130,7 @@ function updateSpeechSettings(
 async function getSynthesisError(response: Response): Promise<string> {
   try {
     const body: unknown = await response.json();
-    if (
-      body !== null &&
-      typeof body === "object" &&
-      "error" in body &&
-      typeof body.error === "string"
-    ) {
+    if (body !== null && typeof body === "object" && "error" in body && typeof body.error === "string") {
       return body.error;
     }
   } catch {}
@@ -159,18 +140,13 @@ async function getSynthesisError(response: Response): Promise<string> {
 
 export default function Home() {
   const [document, setDocument] = useState<SsmlDocument>(initialDocument);
-  const [selectedLanguage, setSelectedLanguage] =
-    useState<SpeechLanguage>("en-US");
+  const [selectedLanguage, setSelectedLanguage] = useState<SpeechLanguage>("en-US");
   const [selectedGender, setSelectedGender] = useState<SpeechGender>("female");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
-  const [audioCaptionTrack, setAudioCaptionTrack] = useState<string | null>(
-    null,
-  );
-  const [audioCaptionLanguage, setAudioCaptionLanguage] = useState<
-    string | null
-  >(null);
+  const [audioCaptionTrack, setAudioCaptionTrack] = useState<string | null>(null);
+  const [audioCaptionLanguage, setAudioCaptionLanguage] = useState<string | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
@@ -219,9 +195,7 @@ export default function Home() {
       setAudioCaptionLanguage(document.lang);
       replaceAudioUrl(URL.createObjectURL(audioBlob));
     } catch (error) {
-      setAudioError(
-        error instanceof Error ? error.message : "Audio generation failed.",
-      );
+      setAudioError(error instanceof Error ? error.message : "Audio generation failed.");
     } finally {
       setIsGeneratingAudio(false);
     }
@@ -232,15 +206,9 @@ export default function Home() {
       <header className="intro">
         <p className="eyebrow">SSML Builder</p>
         <h1>Playground</h1>
-        <p>
-          Edit the sample document below to verify the SSML editor and core
-          package together.
-        </p>
+        <p>Edit the sample document below to verify the SSML editor and core package together.</p>
       </header>
-      <section
-        className="speech-settings"
-        aria-labelledby="speech-settings-heading"
-      >
+      <section className="speech-settings" aria-labelledby="speech-settings-heading">
         <h2 id="speech-settings-heading">Speech settings</h2>
         <div className="settings-fields">
           <label className="setting-field" htmlFor="speech-language">
@@ -251,13 +219,7 @@ export default function Home() {
               onChange={(event) => {
                 const language = event.target.value as SpeechLanguage;
                 setSelectedLanguage(language);
-                setDocument((currentDocument) =>
-                  updateSpeechSettings(
-                    currentDocument,
-                    language,
-                    selectedGender,
-                  ),
-                );
+                setDocument((currentDocument) => updateSpeechSettings(currentDocument, language, selectedGender));
               }}
             >
               {LANGUAGE_OPTIONS.map((option) => (
@@ -275,13 +237,7 @@ export default function Home() {
               onChange={(event) => {
                 const gender = event.target.value as SpeechGender;
                 setSelectedGender(gender);
-                setDocument((currentDocument) =>
-                  updateSpeechSettings(
-                    currentDocument,
-                    selectedLanguage,
-                    gender,
-                  ),
-                );
+                setDocument((currentDocument) => updateSpeechSettings(currentDocument, selectedLanguage, gender));
               }}
             >
               {GENDER_OPTIONS.map((option) => (
@@ -297,14 +253,9 @@ export default function Home() {
         </p>
       </section>
       <SsmlEditor document={document} onChange={setDocument} language="ja" />
-      <section
-        className="audio-generation"
-        aria-labelledby="audio-generation-heading"
-      >
+      <section className="audio-generation" aria-labelledby="audio-generation-heading">
         <h2 id="audio-generation-heading">Audio preview</h2>
-        <p>
-          Generate audio from the current SSML and listen to it in the browser.
-        </p>
+        <p>Generate audio from the current SSML and listen to it in the browser.</p>
         <button
           className="generate-audio"
           type="button"
@@ -320,20 +271,8 @@ export default function Home() {
           </p>
         ) : null}
         {audioUrl ? (
-          <audio
-            className="audio-player"
-            controls
-            autoPlay
-            src={audioUrl}
-            aria-label="Generated speech audio"
-          >
-            <track
-              kind="captions"
-              label="SSML text"
-              src={captionTrackSource}
-              srcLang={captionLanguage}
-              default
-            />
+          <audio className="audio-player" controls autoPlay src={audioUrl} aria-label="Generated speech audio">
+            <track kind="captions" label="SSML text" src={captionTrackSource} srcLang={captionLanguage} default />
             Your browser does not support audio playback.
           </audio>
         ) : null}
