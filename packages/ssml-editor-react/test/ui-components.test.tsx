@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { useEffect, type ComponentProps } from "react";
+import { useEffect, useRef, type ComponentProps } from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -87,9 +87,13 @@ vi.mock("@monaco-editor/react", () => ({
     options?: { inlayHints?: { enabled?: string } };
     onMount?: (editor: typeof monacoState.editor, monaco: typeof monacoState.monaco) => void;
   }) {
+    const mounted = useRef(false);
     useEffect(() => {
-      onMount?.(monacoState.editor, monacoState.monaco);
-    }, []);
+      if (!mounted.current) {
+        mounted.current = true;
+        onMount?.(monacoState.editor, monacoState.monaco);
+      }
+    }, [onMount]);
 
     return <div data-testid="monaco-editor" data-inlay-hints={options?.inlayHints?.enabled} />;
   },
