@@ -323,8 +323,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "mstts:viseme",
     aliases: ["viseme"],
-    description:
-      "Requests viseme events for the synthesized audio.",
+    description: "Requests viseme events for the synthesized audio.",
     parameters: [
       {
         name: "type",
