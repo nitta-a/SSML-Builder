@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder/ssml-core";
@@ -16,6 +16,7 @@ import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
 const DEFAULT_LANGUAGE = "ja";
 const SSML_MARKER_OWNER = "ssml-builder";
+const SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES = 4;
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SSML_SUFFIX = "</speak>";
@@ -751,6 +752,14 @@ type EditorCopy = {
   format: string;
   formatTitle: string;
   syntaxError: string;
+  selectionActions: string;
+  selectionCountSuffix: string;
+  previewSelection: string;
+  previewSelectionTitle: string;
+  quickInsertions: string;
+  quickBreak: string;
+  quickProsody: string;
+  quickExpressAs: string;
 };
 
 const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
@@ -771,6 +780,14 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     format: "フォーマット",
     formatTitle: "本文のXMLを改行して見やすく表示",
     syntaxError: "構文エラー",
+    selectionActions: "選択範囲の操作",
+    selectionCountSuffix: "文字",
+    previewSelection: "選択部分を試聴",
+    previewSelectionTitle: "選択部分のSSMLを試聴",
+    quickInsertions: "タグをクイック挿入",
+    quickBreak: "break",
+    quickProsody: "prosody",
+    quickExpressAs: "express-as",
   },
   en: {
     editorAriaLabel: "SSML editor",
@@ -789,6 +806,33 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     format: "Format",
     formatTitle: "Format the XML in the editor",
     syntaxError: "Syntax error",
+    selectionActions: "Selection actions",
+    selectionCountSuffix: " characters",
+    previewSelection: "Preview selection",
+    previewSelectionTitle: "Preview the selected SSML",
+    quickInsertions: "Quick tag insertion",
+    quickBreak: "break",
+    quickProsody: "prosody",
+    quickExpressAs: "express-as",
+  },
+};
+
+type InlineBadgeCopy = {
+  pause: string;
+  pitch: string;
+  prosody: string;
+};
+
+const INLINE_BADGE_COPY: Record<SsmlEditorLanguage, InlineBadgeCopy> = {
+  ja: {
+    pause: "間",
+    pitch: "ピッチ変化",
+    prosody: "声の調整",
+  },
+  en: {
+    pause: "Pause",
+    pitch: "Pitch change",
+    prosody: "Prosody",
   },
 };
 
@@ -803,6 +847,12 @@ const STYLE_CSS = `
   --ssml-editor-preview-bg: #f3f4f6;
   --ssml-editor-error: #b91c1c;
   --ssml-editor-error-bg: #fef2f2;
+  --ssml-editor-pause-badge-bg: #e0e7ff;
+  --ssml-editor-pause-badge-color: #3730a3;
+  --ssml-editor-pause-badge-border: #c7d2fe;
+  --ssml-editor-prosody-badge-bg: #dcfce7;
+  --ssml-editor-prosody-badge-color: #166534;
+  --ssml-editor-prosody-badge-border: #86efac;
 }
 @media (prefers-color-scheme: dark) {
   [data-ssml-editor] {
@@ -814,7 +864,36 @@ const STYLE_CSS = `
     --ssml-editor-preview-bg: #111827;
     --ssml-editor-error: #fca5a5;
     --ssml-editor-error-bg: #450a0a;
+    --ssml-editor-pause-badge-bg: #312e81;
+    --ssml-editor-pause-badge-color: #c7d2fe;
+    --ssml-editor-pause-badge-border: #6366f1;
+    --ssml-editor-prosody-badge-bg: #14532d;
+    --ssml-editor-prosody-badge-color: #bbf7d0;
+    --ssml-editor-prosody-badge-border: #4ade80;
   }
+}
+[data-ssml-editor] .ssml-editor-inline-badge {
+  display: inline-block;
+  margin-left: 0.35em;
+  padding: 0 0.35em;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: middle;
+  pointer-events: none;
+}
+[data-ssml-editor] .ssml-editor-inline-badge-pause {
+  color: var(--ssml-editor-pause-badge-color);
+  background-color: var(--ssml-editor-pause-badge-bg);
+  border-color: var(--ssml-editor-pause-badge-border);
+}
+[data-ssml-editor] .ssml-editor-inline-badge-prosody {
+  color: var(--ssml-editor-prosody-badge-color);
+  background-color: var(--ssml-editor-prosody-badge-bg);
+  border-color: var(--ssml-editor-prosody-badge-border);
 }
 [data-ssml-editor] .ssml-editor-help-settings-summary {
   list-style: none;
@@ -858,6 +937,8 @@ export interface SsmlEditorProps {
   onChange?: (document: SsmlDocument) => void;
   onSsmlChange?: (xml: string) => void;
   onSelectionChange?: (info: SelectionInfo) => void;
+  /** Called with the selected partial SSML when the selection preview action is used. */
+  onPreviewSelection?: (ssml: string) => void;
   /** UI language. Japanese is used when omitted. */
   language?: SsmlEditorLanguage;
   /** Whether toolbar action icons are displayed. */
@@ -1082,11 +1163,67 @@ const styles: Record<string, CSSProperties> = {
   },
   editor: {
     boxSizing: "border-box",
+    position: "relative",
     width: "100%",
     minHeight: "8rem",
     border: "1px solid var(--ssml-editor-control-border)",
     borderRadius: "0.25rem",
-    overflow: "hidden",
+    overflow: "visible",
+  },
+  selectionActions: {
+    position: "absolute",
+    zIndex: 20,
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "0.25rem",
+    maxWidth: "calc(100% - 1rem)",
+    padding: "0.25rem",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.375rem",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "var(--ssml-editor-control-bg)",
+    boxShadow: "0 0.25rem 0.75rem rgb(0 0 0 / 20%)",
+  },
+  selectionCount: {
+    padding: "0.25rem 0.375rem",
+    fontSize: "0.875rem",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
+  selectionActionsDivider: {
+    width: "1px",
+    height: "1.5rem",
+    backgroundColor: "var(--ssml-editor-border)",
+  },
+  selectionActionButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.25rem",
+    minHeight: "1.75rem",
+    padding: "0.25rem 0.375rem",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.25rem",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "var(--ssml-editor-bg)",
+    font: "inherit",
+    fontSize: "0.875rem",
+    cursor: "pointer",
+  },
+  selectionActionIcon: {
+    display: "inline-flex",
+    width: "1rem",
+    justifyContent: "center",
+    lineHeight: 1,
+  },
+  selectionQuickGroup: {
+    display: "inline-flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "0.25rem",
+    margin: 0,
+    padding: 0,
+    border: 0,
   },
   error: {
     margin: 0,
@@ -1107,11 +1244,49 @@ type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
 type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
 type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
 type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
+type MonacoDecoration = Parameters<MonacoModel["deltaDecorations"]>[1][number];
 
 interface HoverProviderRegistration {
   disposable: ReturnType<MonacoLanguages["registerHoverProvider"]>;
   references: number;
 }
+
+interface SelectionOverlayState extends SelectionInfo {
+  position: {
+    top: number;
+    left: number;
+    height: number;
+  } | null;
+  placement: "above" | "below";
+}
+
+const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
+  selectedText: "",
+  characterCount: 0,
+  hasSelection: false,
+  position: null,
+  placement: "above",
+};
+
+type QuickInsertionId = "break" | "prosody" | "express-as";
+
+const QUICK_INSERTION_TEMPLATES: Record<QuickInsertionId, SsmlEditorInsertionTemplate> = {
+  break: {
+    prefix: '<break time="500ms"/>',
+    suffix: "",
+    mode: "insert",
+  },
+  prosody: {
+    prefix: '<prosody pitch="+2st">',
+    suffix: "</prosody>",
+    mode: "wrap",
+  },
+  "express-as": {
+    prefix: '<mstts:express-as style="cheerful">',
+    suffix: "</mstts:express-as>",
+    mode: "wrap",
+  },
+};
 
 const hoverProviderRegistrations = new WeakMap<MonacoLanguages, HoverProviderRegistration>();
 
@@ -1141,6 +1316,68 @@ function updateSsmlMarkers(
       endColumn: end.column,
     },
   ]);
+}
+
+function getSsmlAttributeValue(tag: string, attributeName: string): string | undefined {
+  const escapedAttributeName = attributeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = tag.match(new RegExp(`\\b${escapedAttributeName}\\s*=\\s*("|')([^"']*)\\1`, "i"));
+  return match?.[2];
+}
+
+function getSsmlInlineDecorations(model: MonacoModel, value: string, language: SsmlEditorLanguage): MonacoDecoration[] {
+  const decorations: MonacoDecoration[] = [];
+  const tagPattern = /<(break|prosody)\b[^>]*>/gi;
+  const badgeCopy = INLINE_BADGE_COPY[language];
+
+  for (const match of value.matchAll(tagPattern)) {
+    const tag = match[0];
+    const tagName = match[1].toLowerCase();
+    const startOffset = match.index ?? 0;
+    const endOffset = startOffset + tag.length;
+    const start = model.getPositionAt(startOffset);
+    const end = model.getPositionAt(endOffset);
+    const pauseValue = getSsmlAttributeValue(tag, "time") ?? getSsmlAttributeValue(tag, "strength");
+    const pitchValue =
+      getSsmlAttributeValue(tag, "pitch") ??
+      getSsmlAttributeValue(tag, "contour") ??
+      getSsmlAttributeValue(tag, "range");
+    const prosodyValue = pitchValue ?? getSsmlAttributeValue(tag, "rate") ?? getSsmlAttributeValue(tag, "volume");
+
+    const badge =
+      tagName === "break"
+        ? `${badgeCopy.pause}${pauseValue ? ` ${pauseValue}` : ""}`
+        : `${pitchValue ? badgeCopy.pitch : badgeCopy.prosody}${prosodyValue ? ` ${prosodyValue}` : ""}`;
+
+    decorations.push({
+      range: {
+        startLineNumber: start.lineNumber,
+        startColumn: start.column,
+        endLineNumber: end.lineNumber,
+        endColumn: end.column,
+      },
+      options: {
+        after: {
+          content: ` ${badge}`,
+          inlineClassName: `ssml-editor-inline-badge ssml-editor-inline-badge-${tagName === "break" ? "pause" : "prosody"}`,
+        },
+      },
+    });
+  }
+
+  return decorations;
+}
+
+function updateSsmlInlineDecorations(
+  model: MonacoModel,
+  value: string,
+  language: SsmlEditorLanguage,
+  decorationIds: string[],
+): string[] {
+  return model.deltaDecorations(decorationIds, getSsmlInlineDecorations(model, value, language));
+}
+
+function clearSsmlInlineDecorations(model: MonacoModel, decorationIds: string[]): string[] {
+  return model.deltaDecorations(decorationIds, []);
 }
 
 function isSsmlElement(node: SsmlNode): node is SsmlElement {
@@ -1372,9 +1609,48 @@ function getSelectionInfo(editor: MonacoEditor): SelectionInfo {
   };
 }
 
+function getSelectionOverlayState(editor: MonacoEditor): SelectionOverlayState {
+  const info = getSelectionInfo(editor);
+  if (!info.hasSelection) {
+    return { ...info, position: null, placement: "above" };
+  }
+
+  const selection = editor.getSelection();
+  if (!selection) {
+    return { ...info, position: null, placement: "above" };
+  }
+
+  const position = editor.getScrolledVisiblePosition(selection.getStartPosition());
+  if (!position) {
+    return { ...info, position: null, placement: "above" };
+  }
+
+  const editorHeight = editor.getLayoutInfo().height;
+  if (position.top + position.height < 0 || position.top > editorHeight) {
+    return { ...info, position: null, placement: "above" };
+  }
+
+  return {
+    ...info,
+    position,
+    placement: position.top >= SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES * position.height ? "above" : "below",
+  };
+}
+
 function getCurrentDocument(document: SsmlDocument, editor: MonacoEditor | null): SsmlDocument {
   const value = editor?.getValue();
   return value === undefined ? document : updateText(document, value);
+}
+
+function getSelectedRangeText(editor: MonacoEditor): string | null {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!model || !selection) {
+    return null;
+  }
+
+  const selectedText = model.getValueInRange(selection);
+  return selectedText.length > 0 ? selectedText : null;
 }
 
 function getSelectedText(editor: MonacoEditor): string | null {
@@ -1388,6 +1664,43 @@ function getSelectedText(editor: MonacoEditor): string | null {
   // Use the cursor line as fallback content when Monaco has no active range.
   const text = selectedText.length > 0 ? selectedText : model.getLineContent(selection.positionLineNumber);
   return text.trim().length > 0 ? text : null;
+}
+
+function getSelectedSsml(editor: MonacoEditor, document: SsmlDocument): string | null {
+  const selectedText = getSelectedRangeText(editor);
+  return selectedText === null ? null : buildPartialSsml(selectedText, getPartialContext(document));
+}
+
+function getNativePreviewText(value: string, lang: string): string {
+  const text = getPlainText(parseEditableText(value, lang)).trim();
+  return text || stripMarkupForNativePreview(value).trim();
+}
+
+function stripMarkupForNativePreview(value: string): string {
+  let text = "";
+  let inTag = false;
+
+  for (const character of value) {
+    if (character === "<") {
+      inTag = true;
+      continue;
+    }
+    if (inTag) {
+      if (character === ">") {
+        inTag = false;
+      }
+      continue;
+    }
+    text += character;
+  }
+
+  return text;
+}
+
+function isNativePreviewAvailable(): boolean {
+  return (
+    typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined"
+  );
 }
 
 function acquireSsmlHoverProvider(monaco: Monaco): () => void {
@@ -1442,14 +1755,13 @@ function acquireSsmlHoverProvider(monaco: Monaco): () => void {
   };
 }
 
-function applySsmlInsertion(editor: MonacoEditor, insertion: SsmlInsertion, option: SsmlInsertionOption): void {
+function applySsmlTemplate(editor: MonacoEditor, template: SsmlEditorInsertionTemplate): void {
   const model = editor.getModel();
   const selection = editor.getSelection();
   if (!model || !selection) {
     return;
   }
 
-  const template = insertion.createTemplate(option.value);
   const startOffset = model.getOffsetAt(selection.getStartPosition());
   const endOffset = model.getOffsetAt(selection.getEndPosition());
   const selectedText = model.getValueInRange(selection);
@@ -1481,12 +1793,17 @@ function applySsmlInsertion(editor: MonacoEditor, insertion: SsmlInsertion, opti
   editor.focus();
 }
 
+function applySsmlInsertion(editor: MonacoEditor, insertion: SsmlInsertion, option: SsmlInsertionOption): void {
+  applySsmlTemplate(editor, insertion.createTemplate(option.value));
+}
+
 export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function SsmlEditor(
   {
     document,
     onChange,
     onSsmlChange,
     onSelectionChange,
+    onPreviewSelection,
     language = DEFAULT_LANGUAGE,
     showToolbarIcons = true,
     showToolbarLabels = false,
@@ -1538,12 +1855,18 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const monacoRef = useRef<Monaco | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const selectionChangeRef = useRef<MonacoDisposable | null>(null);
+  const selectionLayoutDisposablesRef = useRef<MonacoDisposable[]>([]);
+  const inlineDecorationIdsRef = useRef<string[]>([]);
   const onSelectionChangeRef = useRef(onSelectionChange);
+  const onPreviewSelectionRef = useRef(onPreviewSelection);
+  const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
   const [isDark, setIsDark] = useState(false);
+  const [nativePreviewAvailable, setNativePreviewAvailable] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   draftDocumentRef.current = draftDocument;
   onSelectionChangeRef.current = onSelectionChange;
+  onPreviewSelectionRef.current = onPreviewSelection;
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
   const resolvedTheme = resolvedEditorOptions.theme ?? "system";
@@ -1615,8 +1938,21 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     (insertion, index, insertions) => insertions.findIndex((candidate) => candidate.id === insertion.id) === index,
   );
 
+  const refreshSelectionOverlay = (editor: MonacoEditor, notify: boolean): void => {
+    const nextSelection = getSelectionOverlayState(editor);
+    setSelectionOverlay(nextSelection);
+    if (notify) {
+      onSelectionChangeRef.current?.({
+        selectedText: nextSelection.selectedText,
+        characterCount: nextSelection.characterCount,
+        hasSelection: nextSelection.hasSelection,
+      });
+    }
+  };
+
   useEffect(() => {
     injectEditorTheme();
+    setNativePreviewAvailable(isNativePreviewAvailable());
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     setIsDark(mq.matches);
     const handler = (e: MediaQueryListEvent): void => setIsDark(e.matches);
@@ -1634,9 +1970,14 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       const model = editorRef.current?.getModel();
       if (model && monacoRef.current) {
         updateSsmlMarkers(monacoRef.current, model, model.getValue(), null);
+        inlineDecorationIdsRef.current = clearSsmlInlineDecorations(model, inlineDecorationIdsRef.current);
       }
       selectionChangeRef.current?.dispose();
       selectionChangeRef.current = null;
+      for (const disposable of selectionLayoutDisposablesRef.current) {
+        disposable.dispose();
+      }
+      selectionLayoutDisposablesRef.current = [];
       releaseHoverProviderRef.current?.();
       releaseHoverProviderRef.current = null;
       editorRef.current = null;
@@ -1653,14 +1994,52 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     const model = editorRef.current?.getModel();
     if (model && monacoRef.current) {
       updateSsmlMarkers(monacoRef.current, model, text, nextSyntaxError);
+      inlineDecorationIdsRef.current = updateSsmlInlineDecorations(
+        model,
+        text,
+        language,
+        inlineDecorationIdsRef.current,
+      );
     }
-  }, [text]);
+  }, [language, text]);
 
   const commit = (nextDocument: SsmlDocument): void => {
     draftDocumentRef.current = nextDocument;
     setDraftDocument(nextDocument);
     onChange?.(nextDocument);
     onSsmlChange?.(buildSsml(nextDocument));
+  };
+
+  const canPreviewSelection = onPreviewSelection !== undefined || nativePreviewAvailable;
+  const previewSelection = (): void => {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const selectedText = getSelectedRangeText(editor);
+    if (selectedText === null) {
+      return;
+    }
+
+    const selectedSsml = getSelectedSsml(editor, draftDocumentRef.current);
+    if (selectedSsml === null) {
+      return;
+    }
+
+    if (onPreviewSelectionRef.current) {
+      onPreviewSelectionRef.current(selectedSsml);
+      return;
+    }
+
+    if (!nativePreviewAvailable) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(getNativePreviewText(selectedText, draftDocumentRef.current.lang));
+    utterance.lang = draftDocumentRef.current.lang;
+    window.speechSynthesis.speak(utterance);
   };
 
   useImperativeHandle(
@@ -1676,6 +2055,15 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       getFullSsml: () => buildSsml(getCurrentDocument(draftDocumentRef.current, editorRef.current)),
     }),
     [],
+  );
+
+  const quickInsertionButtons = useMemo(
+    () => [
+      { id: "break" as const, icon: "⏸", label: copy.quickBreak },
+      { id: "prosody" as const, icon: "↗", label: copy.quickProsody },
+      { id: "express-as" as const, icon: "☺", label: copy.quickExpressAs },
+    ],
+    [copy],
   );
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
@@ -1964,8 +2352,16 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               monacoRef.current = monaco;
               selectionChangeRef.current?.dispose();
               selectionChangeRef.current = editor.onDidChangeCursorSelection(() => {
-                onSelectionChangeRef.current?.(getSelectionInfo(editor));
+                refreshSelectionOverlay(editor, true);
               });
+              for (const disposable of selectionLayoutDisposablesRef.current) {
+                disposable.dispose();
+              }
+              selectionLayoutDisposablesRef.current = [
+                editor.onDidScrollChange(() => refreshSelectionOverlay(editor, false)),
+                editor.onDidLayoutChange(() => refreshSelectionOverlay(editor, false)),
+                editor.onDidContentSizeChange(() => refreshSelectionOverlay(editor, false)),
+              ];
               releaseHoverProviderRef.current?.();
               releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco);
               const model = editor.getModel();
@@ -1973,11 +2369,80 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               setSyntaxError(nextSyntaxError);
               if (model) {
                 updateSsmlMarkers(monaco, model, editor.getValue(), nextSyntaxError);
+                inlineDecorationIdsRef.current = updateSsmlInlineDecorations(
+                  model,
+                  editor.getValue(),
+                  language,
+                  inlineDecorationIdsRef.current,
+                );
               }
-              onSelectionChangeRef.current?.(getSelectionInfo(editor));
+              refreshSelectionOverlay(editor, true);
             }}
-            onChange={(value) => commit(updateText(draftDocument, value ?? ""))}
+            onChange={(value) => {
+              commit(updateText(draftDocument, value ?? ""));
+              if (editorRef.current) {
+                refreshSelectionOverlay(editorRef.current, false);
+              }
+            }}
           />
+          {selectionOverlay.hasSelection && selectionOverlay.position && (
+            <div
+              role="toolbar"
+              aria-label={copy.selectionActions}
+              data-ssml-editor-selection-actions=""
+              style={{
+                ...styles.selectionActions,
+                top: selectionOverlay.position.top,
+                left: selectionOverlay.position.left,
+                transform:
+                  selectionOverlay.placement === "above"
+                    ? "translateY(calc(-100% - 0.5rem))"
+                    : `translateY(calc(${selectionOverlay.position.height}px + 0.5rem))`,
+              }}
+              onMouseDown={(event) => event.preventDefault()}
+            >
+              <span style={styles.selectionCount} aria-live="polite">
+                {selectionOverlay.characterCount}
+                {copy.selectionCountSuffix}
+              </span>
+              <span style={styles.selectionActionsDivider} aria-hidden="true" />
+              <button
+                type="button"
+                style={styles.selectionActionButton}
+                title={copy.previewSelectionTitle}
+                disabled={!canPreviewSelection}
+                onClick={previewSelection}
+              >
+                <span style={styles.selectionActionIcon} aria-hidden="true">
+                  ▶
+                </span>
+                {copy.previewSelection}
+              </button>
+              <span style={styles.selectionActionsDivider} aria-hidden="true" />
+              <fieldset aria-label={copy.quickInsertions} style={styles.selectionQuickGroup}>
+                <span style={styles.selectionCount}>{copy.quickInsertions}</span>
+                {quickInsertionButtons.map((button) => (
+                  <button
+                    key={button.id}
+                    type="button"
+                    style={styles.selectionActionButton}
+                    title={`<${button.id}>`}
+                    disabled={isReadOnly}
+                    onClick={() => {
+                      if (!isReadOnly && editorRef.current) {
+                        applySsmlTemplate(editorRef.current, QUICK_INSERTION_TEMPLATES[button.id]);
+                      }
+                    }}
+                  >
+                    <span style={styles.selectionActionIcon} aria-hidden="true">
+                      {button.icon}
+                    </span>
+                    {button.label}
+                  </button>
+                ))}
+              </fieldset>
+            </div>
+          )}
         </div>
         {syntaxError && (
           <p style={styles.error} role="alert">
