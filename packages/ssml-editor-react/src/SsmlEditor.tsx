@@ -2415,7 +2415,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                 editor.onDidContentSizeChange(() => refreshSelectionOverlay(editor, false)),
               ];
               releaseHoverProviderRef.current?.();
-              releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, language);
+              releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, languageRef.current);
               const model = editor.getModel();
               const nextSyntaxError = validateEditableText(editor.getValue());
               setSyntaxError(nextSyntaxError);
