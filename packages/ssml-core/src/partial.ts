@@ -7,10 +7,13 @@ export type SsmlPartialVoice = Pick<VoiceElement, "name" | "effect" | "attribute
 export type SsmlPartialProsody = Pick<ProsodyElement, "rate" | "pitch" | "volume" | "contour" | "range" | "attributes">;
 
 export interface SsmlPartialContext {
+  /** SSML version and language used for the generated document. */
   version?: string;
   lang?: string;
+  /** Preferred voice name. The `voice` object takes precedence when both are supplied. */
   voiceName?: string;
   voiceEffect?: string;
+  /** A voice name shorthand or a voice object whose attributes are preserved. */
   voice?: string | SsmlPartialVoice;
   prosody?: SsmlPartialProsody;
   attributes?: SsmlAttributes;
@@ -35,7 +38,7 @@ function getPartialTextNodes(text: string, version: string, lang: string): SsmlN
     const openingTagEnd = wrapper.indexOf(">") + 1;
     return parseSsml(`${wrapper.slice(0, openingTagEnd)}${text}</speak>`).children ?? [];
   } catch {
-    return [text];
+    return [{ type: "text", value: text }];
   }
 }
 
@@ -102,20 +105,15 @@ function serializePartialSsml(text: string, context: SsmlPartialContext): string
 }
 
 export function buildPartialSsml(text: string, context?: SsmlPartialContext): string;
-export function buildPartialSsml(context: SsmlPartialContext, text: string): string;
 export function buildPartialSsml(options: BuildPartialSsmlOptions): string;
 export function buildPartialSsml(
-  textOrOptionsOrContext: string | BuildPartialSsmlOptions | SsmlPartialContext,
-  contextOrText?: SsmlPartialContext | string,
+  textOrOptions: string | BuildPartialSsmlOptions,
+  context?: SsmlPartialContext,
 ): string {
-  if (typeof textOrOptionsOrContext === "string") {
-    return serializePartialSsml(textOrOptionsOrContext, (contextOrText as SsmlPartialContext | undefined) ?? {});
+  if (typeof textOrOptions === "string") {
+    return serializePartialSsml(textOrOptions, context ?? {});
   }
 
-  if (typeof contextOrText === "string") {
-    return serializePartialSsml(contextOrText, textOrOptionsOrContext);
-  }
-
-  const { text, context, ...directOptions } = textOrOptionsOrContext as BuildPartialSsmlOptions;
-  return serializePartialSsml(text, normalizeContext(context, directOptions));
+  const { text, context: nestedContext, ...directOptions } = textOrOptions;
+  return serializePartialSsml(text, normalizeContext(nestedContext, directOptions));
 }
