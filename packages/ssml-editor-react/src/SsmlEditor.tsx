@@ -78,19 +78,19 @@ const SSML_INSERTIONS = [
     },
     options: createInsertionOptions({
       "500ms": {
-        ja: "500ミリ秒の無音を挿入します。",
+        ja: "500ミリ秒の無音",
         en: "Inserts 500 milliseconds of silence.",
       },
       "1s": {
-        ja: "1秒の無音を挿入します。",
+        ja: "1秒の無音",
         en: "Inserts one second of silence.",
       },
       "2s": {
-        ja: "2秒の無音を挿入します。",
+        ja: "2秒の無音",
         en: "Inserts two seconds of silence.",
       },
       "3s": {
-        ja: "3秒の無音を挿入します。",
+        ja: "3秒の無音",
         en: "Inserts three seconds of silence.",
       },
     }),
@@ -119,19 +119,19 @@ const SSML_INSERTIONS = [
     },
     options: createInsertionOptions({
       strong: {
-        ja: "強い強調を適用します。",
+        ja: "強い強調",
         en: "Applies strong emphasis.",
       },
       moderate: {
-        ja: "中程度の強調を適用します。",
+        ja: "中程度の強調",
         en: "Applies moderate emphasis.",
       },
       reduced: {
-        ja: "弱めの強調を適用します。",
+        ja: "弱めの強調",
         en: "Applies reduced emphasis.",
       },
       none: {
-        ja: "強調を適用しません。",
+        ja: "強調なし",
         en: "Applies no emphasis.",
       },
     }),
@@ -160,23 +160,23 @@ const SSML_INSERTIONS = [
     },
     options: createInsertionOptions({
       "x-slow": {
-        ja: "最も遅い速度で読み上げます。",
+        ja: "最も遅い速度",
         en: "Uses the slowest speech rate.",
       },
       slow: {
-        ja: "遅い速度で読み上げます。",
+        ja: "遅い速度",
         en: "Uses a slow speech rate.",
       },
       medium: {
-        ja: "標準的な速度で読み上げます。",
+        ja: "標準的な速度",
         en: "Uses the standard speech rate.",
       },
       fast: {
-        ja: "速い速度で読み上げます。",
+        ja: "速い速度",
         en: "Uses a fast speech rate.",
       },
       "x-fast": {
-        ja: "最も速い速度で読み上げます。",
+        ja: "最も速い速度",
         en: "Uses the fastest speech rate.",
       },
     }),
@@ -205,39 +205,39 @@ const SSML_INSERTIONS = [
     },
     options: createInsertionOptions({
       "+2st": {
-        ja: "基準の声の高さより2半音上げます。",
+        ja: "基準の声の高さより2半音上",
         en: "Raises the pitch by two semitones.",
       },
       "-2st": {
-        ja: "基準の声の高さより2半音下げます。",
+        ja: "基準の声の高さより2半音下",
         en: "Lowers the pitch by two semitones.",
       },
       "0st": {
-        ja: "基準の声の高さにします。",
+        ja: "基準の声の高さ",
         en: "Keeps the baseline pitch.",
       },
       "+4st": {
-        ja: "基準の声の高さより4半音上げます。",
+        ja: "基準の声の高さより4半音上",
         en: "Raises the pitch by four semitones.",
       },
       "-4st": {
-        ja: "基準の声の高さより4半音下げます。",
+        ja: "基準の声の高さより4半音下",
         en: "Lowers the pitch by four semitones.",
       },
       "+8st": {
-        ja: "基準の声の高さより8半音上げます。",
+        ja: "基準の声の高さより8半音上",
         en: "Raises the pitch by eight semitones.",
       },
       "-8st": {
-        ja: "基準の声の高さより8半音下げます。",
+        ja: "基準の声の高さより8半音下",
         en: "Lowers the pitch by eight semitones.",
       },
       "+12st": {
-        ja: "基準の声の高さより12半音上げます。",
+        ja: "基準の声の高さより12半音上",
         en: "Raises the pitch by twelve semitones.",
       },
       "-12st": {
-        ja: "基準の声の高さより12半音下げます。",
+        ja: "基準の声の高さより12半音下",
         en: "Lowers the pitch by twelve semitones.",
       },
     }),
@@ -266,27 +266,27 @@ const SSML_INSERTIONS = [
     },
     options: createInsertionOptions({
       silent: {
-        ja: "無音にします。",
+        ja: "無音",
         en: "Makes the selected text silent.",
       },
       "x-soft": {
-        ja: "最も小さい音量にします。",
+        ja: "最も小さい音量",
         en: "Uses the quietest volume.",
       },
       soft: {
-        ja: "小さい音量にします。",
+        ja: "小さい音量",
         en: "Uses a soft volume.",
       },
       medium: {
-        ja: "標準的な音量にします。",
+        ja: "標準的な音量",
         en: "Uses the standard volume.",
       },
       loud: {
-        ja: "大きい音量にします。",
+        ja: "大きい音量",
         en: "Uses a loud volume.",
       },
       "x-loud": {
-        ja: "最も大きい音量にします。",
+        ja: "最も大きい音量",
         en: "Uses the loudest volume.",
       },
     }),
@@ -315,31 +315,31 @@ const SSML_INSERTIONS = [
     },
     options: createInsertionOptions({
       cheerful: {
-        ja: "明るく元気なスタイルにします。",
+        ja: "明るく元気なスタイル",
         en: "Uses a cheerful style.",
       },
       friendly: {
-        ja: "親しみやすいスタイルにします。",
+        ja: "親しみやすいスタイル",
         en: "Uses a friendly style.",
       },
       calm: {
-        ja: "穏やかなスタイルにします。",
+        ja: "穏やかなスタイル",
         en: "Uses a calm style.",
       },
       sad: {
-        ja: "悲しげなスタイルにします。",
+        ja: "悲しげなスタイル",
         en: "Uses a sad style.",
       },
       angry: {
-        ja: "怒ったようなスタイルにします。",
+        ja: "怒ったようなスタイル",
         en: "Uses an angry style.",
       },
       excited: {
-        ja: "興奮したスタイルにします。",
+        ja: "興奮したスタイル",
         en: "Uses an excited style.",
       },
       serious: {
-        ja: "真剣なスタイルにします。",
+        ja: "真剣なスタイル",
         en: "Uses a serious style.",
       },
     }),
@@ -368,51 +368,51 @@ const SSML_INSERTIONS = [
     },
     options: createInsertionOptions({
       characters: {
-        ja: "文字を一つずつ読み上げます。",
+        ja: "1文字ずつの読み上げ",
         en: "Speaks the characters one by one.",
       },
       "spell-out": {
-        ja: "綴りを一文字ずつ読み上げます。",
+        ja: "綴りの読み上げ（1文字ずつ）",
         en: "Spells out the text character by character.",
       },
       cardinal: {
-        ja: "基数として読み上げます。",
+        ja: "基数としての読み上げ",
         en: "Speaks the value as a cardinal number.",
       },
       ordinal: {
-        ja: "序数として読み上げます。",
+        ja: "序数としての読み上げ",
         en: "Speaks the value as an ordinal number.",
       },
       number: {
-        ja: "数値として読み上げます。",
+        ja: "数値としての読み上げ",
         en: "Speaks the value as a number.",
       },
       date: {
-        ja: "日付として読み上げます。",
+        ja: "日付としての読み上げ",
         en: "Speaks the value as a date.",
       },
       time: {
-        ja: "時刻として読み上げます。",
+        ja: "時刻としての読み上げ",
         en: "Speaks the value as a time.",
       },
       telephone: {
-        ja: "電話番号として読み上げます。",
+        ja: "電話番号としての読み上げ",
         en: "Speaks the value as a telephone number.",
       },
       fraction: {
-        ja: "分数として読み上げます。",
+        ja: "分数としての読み上げ",
         en: "Speaks the value as a fraction.",
       },
       address: {
-        ja: "住所として読み上げます。",
+        ja: "住所としての読み上げ",
         en: "Speaks the value as an address.",
       },
       name: {
-        ja: "名前として読み上げます。",
+        ja: "名前としての読み上げ",
         en: "Speaks the value as a name.",
       },
       currency: {
-        ja: "通貨として読み上げます。",
+        ja: "通貨としての読み上げ",
         en: "Speaks the value as currency.",
       },
     }),
@@ -441,19 +441,19 @@ const SSML_INSERTIONS = [
     },
     options: createInsertionOptions({
       ipa: {
-        ja: "国際音声記号（IPA）を使用します。",
+        ja: "国際音声記号（IPA）",
         en: "Uses the International Phonetic Alphabet.",
       },
       sapi: {
-        ja: "Microsoft Speech API（SAPI）の音声記号を使用します。",
+        ja: "Microsoft Speech API（SAPI）の音声記号",
         en: "Uses the Microsoft Speech API phonetic alphabet.",
       },
       "x-sampa": {
-        ja: "X-SAMPAの音声記号を使用します。",
+        ja: "X-SAMPAの音声記号",
         en: "Uses the X-SAMPA phonetic alphabet.",
       },
       ups: {
-        ja: "Universal Phone Set（UPS）を使用します。",
+        ja: "Universal Phone Set（UPS）",
         en: "Uses the Universal Phone Set.",
       },
     }),
