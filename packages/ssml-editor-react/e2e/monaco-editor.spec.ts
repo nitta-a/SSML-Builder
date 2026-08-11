@@ -49,7 +49,9 @@ test.describe("Monaco SSML editor", () => {
     await expect(page.locator(".output code")).toContainText(`<prosody rate="slow">${JAPANESE_TEXT}</prosody>`);
   });
 
-  test("keeps the Japanese break hover visible and puts toolbar menus above Monaco context actions", async ({ page }) => {
+  test("keeps the Japanese break hover visible and puts toolbar menus above Monaco context actions", async ({
+    page,
+  }) => {
     await openPlayground(page);
 
     const editor = monacoEditor(page);
