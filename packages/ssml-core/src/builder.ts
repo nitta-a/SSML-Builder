@@ -202,7 +202,7 @@ export function buildSsml(document: SsmlDocument): string;
 export function buildSsml(content: string, lang?: string): SsmlDocument;
 export function buildSsml(
   documentOrContent: SsmlDocument | string,
-  lang = DEFAULT_SSML_LANGUAGE,
+  lang: string = DEFAULT_SSML_LANGUAGE,
 ): string | SsmlDocument {
   if (typeof documentOrContent === "string") {
     return {

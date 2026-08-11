@@ -6,12 +6,14 @@ import {
   EXPRESS_AS_STYLE_PRESETS,
   PHONEME_ALPHABET_PRESETS,
   PROSODY_PITCH_PRESETS,
+  PROSODY_RATE_PRESETS,
   PROSODY_RATE_VALUES,
   PROSODY_VOLUME_PRESETS,
   SILENCE_TYPE_PRESETS,
   SILENCE_VALUE_PRESETS,
   VISEME_TYPE_PRESETS,
 } from "./constants/ssmlPresets.ts";
+// @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
 import { SSML_HOVER_COPY, type SsmlEditorLocale } from "./locales.ts";
 
 export interface SsmlParameterDefinition {
