@@ -548,7 +548,16 @@ export const SSML_INSERTIONS = [
       ja: "音声ファイルの URI を選択します。",
       en: "Selects the URI of the audio file.",
     },
-    options: createInsertionOptions(["https://example.com/audio.wav", "https://example.com/audio.mp3"]),
+    options: createInsertionOptions({
+      "https://example.com/audio.wav": {
+        ja: "WAV形式の音声ファイルを指定します。",
+        en: "Uses a WAV audio file.",
+      },
+      "https://example.com/audio.mp3": {
+        ja: "MP3形式の音声ファイルを指定します。",
+        en: "Uses an MP3 audio file.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<audio src="${value}">`,
       suffix: "</audio>",
@@ -568,7 +577,20 @@ export const SSML_INSERTIONS = [
       ja: "読み上げる別名を選択します。",
       en: "Selects the alias to speak.",
     },
-    options: createInsertionOptions(["World Wide Web", "SSML", "Azure"]),
+    options: createInsertionOptions({
+      "World Wide Web": {
+        ja: "「World Wide Web」という別名で読み上げます。",
+        en: "Speaks the alias as World Wide Web.",
+      },
+      SSML: {
+        ja: "「SSML」という別名で読み上げます。",
+        en: "Speaks the alias as SSML.",
+      },
+      Azure: {
+        ja: "「Azure」という別名で読み上げます。",
+        en: "Speaks the alias as Azure.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<sub alias="${value}">`,
       suffix: "</sub>",
@@ -588,7 +610,24 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲に適用する BCP-47 言語タグを選択します。",
       en: "Selects the BCP-47 language tag for the selected text.",
     },
-    options: createInsertionOptions(["ja-JP", "en-US", "de-DE", "fr-FR"]),
+    options: createInsertionOptions({
+      "ja-JP": {
+        ja: "日本語（日本）で読み上げます。",
+        en: "Speaks the text in Japanese (Japan).",
+      },
+      "en-US": {
+        ja: "英語（米国）で読み上げます。",
+        en: "Speaks the text in English (United States).",
+      },
+      "de-DE": {
+        ja: "ドイツ語（ドイツ）で読み上げます。",
+        en: "Speaks the text in German (Germany).",
+      },
+      "fr-FR": {
+        ja: "フランス語（フランス）で読み上げます。",
+        en: "Speaks the text in French (France).",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<lang xml:lang="${value}">`,
       suffix: "</lang>",
@@ -609,7 +648,20 @@ export const SSML_INSERTIONS = [
       ja: "マーカー名を選択します。",
       en: "Selects the marker name.",
     },
-    options: createInsertionOptions(["chapter-1", "section-1", "important"]),
+    options: createInsertionOptions({
+      "chapter-1": {
+        ja: "chapter-1 マーカーを挿入します。",
+        en: "Inserts the chapter-1 marker.",
+      },
+      "section-1": {
+        ja: "section-1 マーカーを挿入します。",
+        en: "Inserts the section-1 marker.",
+      },
+      important: {
+        ja: "important マーカーを挿入します。",
+        en: "Inserts the important marker.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<mark name="${value}"/>`,
       suffix: "",
@@ -630,7 +682,20 @@ export const SSML_INSERTIONS = [
       ja: "ブックマーク名を選択します。",
       en: "Selects the bookmark name.",
     },
-    options: createInsertionOptions(["chapter-1", "section-1", "important"]),
+    options: createInsertionOptions({
+      "chapter-1": {
+        ja: "chapter-1 ブックマークを挿入します。",
+        en: "Inserts the chapter-1 bookmark.",
+      },
+      "section-1": {
+        ja: "section-1 ブックマークを挿入します。",
+        en: "Inserts the section-1 bookmark.",
+      },
+      important: {
+        ja: "important ブックマークを挿入します。",
+        en: "Inserts the important bookmark.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<bookmark mark="${value}"/>`,
       suffix: "",
@@ -651,7 +716,20 @@ export const SSML_INSERTIONS = [
       ja: "無音にする時間を選択します。",
       en: "Selects the silence duration.",
     },
-    options: createInsertionOptions(["300ms", "500ms", "1s"]),
+    options: createInsertionOptions({
+      "300ms": {
+        ja: "先頭に300ミリ秒の無音を挿入します。",
+        en: "Inserts 300 milliseconds of leading silence.",
+      },
+      "500ms": {
+        ja: "先頭に500ミリ秒の無音を挿入します。",
+        en: "Inserts 500 milliseconds of leading silence.",
+      },
+      "1s": {
+        ja: "先頭に1秒の無音を挿入します。",
+        en: "Inserts one second of leading silence.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<mstts:silence type="Leading" value="${value}"/>`,
       suffix: "",
@@ -672,7 +750,16 @@ export const SSML_INSERTIONS = [
       ja: "口形素イベントの形式を選択します。",
       en: "Selects the viseme event format.",
     },
-    options: createInsertionOptions(["redlips_front", "FacialExpression"]),
+    options: createInsertionOptions({
+      redlips_front: {
+        ja: "redlips_front 形式の口形素イベントを要求します。",
+        en: "Requests viseme events in redlips_front format.",
+      },
+      FacialExpression: {
+        ja: "FacialExpression 形式の口形素イベントを要求します。",
+        en: "Requests viseme events in FacialExpression format.",
+      },
+    }),
     createTemplate: (value) => ({
       prefix: `<mstts:viseme type="${value}"/>`,
       suffix: "",
