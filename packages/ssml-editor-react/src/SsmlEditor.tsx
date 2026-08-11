@@ -953,8 +953,8 @@ export interface SelectionInfo {
 }
 
 export interface SsmlEditorRef {
-  getSelectedSsml: () => string | null;
-  getFullSsml: () => string;
+  getSelectedSsml(): string | null;
+  getFullSsml(): string;
 }
 
 const styles: Record<string, CSSProperties> = {

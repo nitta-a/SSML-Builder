@@ -116,6 +116,7 @@ const parsed = parseSsml(ssml);
 | --- | --- |
 | `buildSsml(document)` | SSML ドキュメントを XML 文字列に変換 |
 | `buildSsml(content, lang?)` | 本文から `SsmlDocument` を作成する簡易形式（`content` を使用する旧形式） |
+| `buildPartialSsml(text, context?)` | 言語、音声、プロソディなどのコンテキスト付きで部分テキストから最小の SSML を生成 |
 | `parseSsml(xml)` | `<speak>` XML を `SsmlDocument` に変換 |
 | `validateSsml(xml)` | SSML の構文エラーを `{ message, position }` または `null` で返す |
 
@@ -123,7 +124,7 @@ const parsed = parseSsml(ssml);
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。画面表示は日本語（デフォルト）と英語に対応しています。
+`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体または選択範囲の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
 
 ```tsx
 import { useState } from "react";
@@ -157,6 +158,8 @@ export function App() {
 - `document`: 編集対象の `SsmlDocument`
 - `onChange`: 編集後の `SsmlDocument` を受け取るコールバック
 - `onSsmlChange`: 編集後に生成された SSML 文字列を受け取るコールバック
+- `ref`: `SsmlEditorRef` の `getFullSsml()` で全体の SSML を、`getSelectedSsml()` で選択範囲（未選択時はカーソル行）の SSML を取得
+- `onSelectionChange`: 選択テキスト、文字数、選択状態を受け取るコールバック
 - `language`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
@@ -345,6 +348,7 @@ The main `buildSsml` and `parseSsml` signatures are:
 | --- | --- |
 | `buildSsml(document)` | Converts an SSML document into an XML string |
 | `buildSsml(content, lang?)` | Convenience form that creates an `SsmlDocument` from text (legacy `content` form) |
+| `buildPartialSsml(text, context?)` | Builds minimal playable SSML for partial text with language, voice, and prosody context |
 | `parseSsml(xml)` | Converts a `<speak>` XML document into an `SsmlDocument` |
 | `validateSsml(xml)` | Returns `{ message, position }` for a syntax error, or `null` |
 
@@ -352,7 +356,7 @@ Typed representations are available for elements such as `voice`, `prosody`, `br
 
 ## Using `ssml-editor-react`
 
-`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs, and the UI supports Japanese (the default) and English.
+`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full or selected SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English.
 
 ```tsx
 import { useState } from "react";
@@ -386,6 +390,8 @@ export function App() {
 - `document`: The `SsmlDocument` being edited
 - `onChange`: A callback that receives the edited `SsmlDocument`
 - `onSsmlChange`: A callback that receives the generated SSML string
+- `ref`: An `SsmlEditorRef`; `getFullSsml()` returns the full SSML and `getSelectedSsml()` returns the selected text (or the cursor line when no text is selected)
+- `onSelectionChange`: A callback that receives selected text, its character count, and whether a selection exists
 - `language`: The UI language (`"ja"` or `"en"`); defaults to `"ja"`
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
