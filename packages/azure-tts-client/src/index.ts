@@ -34,8 +34,7 @@ export async function synthesizeSpeech(
     headers: {
       "Ocp-Apim-Subscription-Key": config.subscriptionKey,
       "Content-Type": "application/ssml+xml",
-      "X-Microsoft-OutputFormat":
-        config.outputFormat ?? DEFAULT_OUTPUT_FORMAT,
+      "X-Microsoft-OutputFormat": config.outputFormat ?? DEFAULT_OUTPUT_FORMAT,
     },
     body: ssml,
   });
