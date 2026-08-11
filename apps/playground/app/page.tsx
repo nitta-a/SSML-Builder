@@ -172,7 +172,6 @@ export default function Home() {
   const currentCaptionTrack = createCaptionTrack(document);
   const captionTrackSource = audioCaptionTrack ?? currentCaptionTrack;
   const captionLanguage = audioCaptionLanguage ?? document.lang;
-  const editorTheme = hasManualThemeRef.current && theme !== null ? theme : "system";
 
   useEffect(() => {
     return () => {
@@ -335,7 +334,7 @@ export default function Home() {
           Voice: <code>{selectedVoice}</code>
         </p>
       </section>
-      <SsmlEditor document={document} onChange={setDocument} language="ja" theme={editorTheme} />
+      <SsmlEditor document={document} onChange={setDocument} language="ja" theme={theme ?? "system"} />
       <section className="audio-generation" aria-labelledby="audio-generation-heading">
         <h2 id="audio-generation-heading">Audio preview</h2>
         <p>Generate audio from the current SSML and listen to it in the browser.</p>
