@@ -14,7 +14,7 @@ SSML の XML エスケープや Azure Speech 拡張要素に対応したコア�
 | パッケージ | 内容 |
 | --- | --- |
 | `@ssml-builder/ssml-core` | SSML の型定義、ドキュメントの生成（`buildSsml`）、XML からの解析（`parseSsml`）、構文検証（`validateSsml`） |
-| `@ssml-builder/ssml-editor-react` | 音声と本文を編集し、本文ツールバーで速度、音量、ピッチなどを設定して、生成された SSML を確認できる `SsmlEditor` コンポーネント |
+| `@ssml-builder/ssml-editor-react` | ツールバーと本文の表示エリアを備えた `SsmlEditor` コンポーネント |
 | `@ssml-builder/azure-tts-client` | SSML を Azure Text-to-Speech に送信し、音声データを `ArrayBuffer` で取得するクライアント |
 
 ## セットアップ
@@ -102,7 +102,7 @@ const parsed = parseSsml(ssml);
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、音声名と本文を編集できるコントロールを表示します。本文ツールバーから、選択範囲の速度、音量、ピッチなどを設定できます。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。生成された SSML を確認でき、画面表示は日本語（デフォルト）と英語に対応しています。
+`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから音声名の編集、選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。画面表示は日本語（デフォルト）と英語に対応しています。
 
 ```tsx
 import { useState } from "react";
@@ -140,7 +140,10 @@ export function App() {
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
 - `buttonVisibility`: ボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`phoneme`、`undo`、`redo`、`clearAll`、`format` を指定でき、未指定のボタンは表示されます
-- 生成された SSML の「フォーマット」ボタンで XML の改行表示を切り替えられます
+- `className` / `style`: エディター全体のクラス名とインラインスタイル
+- `toolbarClassName` / `toolbarStyle`: ツールバーのクラス名とインラインスタイル
+- `displayClassName` / `displayStyle`: 本文表示エリアのクラス名とインラインスタイル
+- ツールバーの「フォーマット」ボタンで本文の XML を整形できます
 - 本文を変更すると SSML 構文を検証し、エラー箇所をエディター上に表示します
 
 本文ツールバーの「説明」ボタンを押すと、各コントロール、ボタン、パラメータの説明を表示できます。「全てクリア」ボタンは XML 要素だけを削除し、本文を残します。ドキュメントの `version`、`lang`、その他の属性は保持されます。
@@ -210,7 +213,7 @@ It provides separate packages for a core library with XML escaping and Azure Spe
 | Package | Description |
 | --- | --- |
 | `@ssml-builder/ssml-core` | SSML type definitions, document generation (`buildSsml`), XML parsing (`parseSsml`), and syntax validation (`validateSsml`) |
-| `@ssml-builder/ssml-editor-react` | The `SsmlEditor` component for editing voices, rate, volume, pitch, and text and previewing generated SSML |
+| `@ssml-builder/ssml-editor-react` | The `SsmlEditor` component with a toolbar and text display area |
 | `@ssml-builder/azure-tts-client` | A client that sends SSML to Azure Text-to-Speech and returns audio data as an `ArrayBuffer` |
 
 ## Setup
@@ -298,7 +301,7 @@ Typed representations are available for elements such as `voice`, `prosody`, `br
 
 ## Using `ssml-editor-react`
 
-`SsmlEditor` accepts an `SsmlDocument` and displays controls for editing the voice name, rate, volume, pitch, and text. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Generated SSML can be previewed, and the UI supports Japanese (the default) and English.
+`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar edits the voice name, applies rate, volume, and pitch settings to the selection, and provides undo and redo actions. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs, and the UI supports Japanese (the default) and English.
 
 ```tsx
 import { useState } from "react";
@@ -336,7 +339,10 @@ export function App() {
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
 - `buttonVisibility`: Per-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `phoneme`, `undo`, `redo`, `clearAll`, and `format`; unspecified buttons are shown
-- Use the **Format** button for generated SSML to toggle formatted XML line breaks
+- `className` / `style`: A class name and inline styles for the editor container
+- `toolbarClassName` / `toolbarStyle`: A class name and inline styles for the toolbar
+- `displayClassName` / `displayStyle`: A class name and inline styles for the text display area
+- Use the **Format** button to format the XML in the text display area
 - Changing the text validates SSML syntax and displays errors in the editor
 
 Click the **Description** button in the text toolbar to see descriptions of each control, button, and parameter. The **Clear all** button removes only XML elements and leaves the text in place. The document's `version`, `lang`, and other attributes are preserved.

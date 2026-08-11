@@ -255,9 +255,7 @@ const SSML_INSERTIONS = [
 
 type EditorCopy = {
   editorAriaLabel: string;
-  heading: string;
   voice: string;
-  text: string;
   toolbarAriaLabel: string;
   undo: string;
   undoTitle: string;
@@ -273,20 +271,15 @@ type EditorCopy = {
   toolbarActions: string;
   format: string;
   formatTitle: string;
-  compact: string;
-  compactTitle: string;
   voiceDescription: string;
   voiceParameter: string;
-  generatedSsml: string;
   syntaxError: string;
 };
 
 const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
   ja: {
     editorAriaLabel: "SSMLエディター",
-    heading: "SSMLエディター",
     voice: "音声",
-    text: "本文",
     toolbarAriaLabel: "SSMLツールバー",
     clearAll: "全てクリア",
     clearAllTitle: "XML要素を削除して本文を残す",
@@ -301,19 +294,14 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     parameters: "パラメータ",
     toolbarActions: "本文ツールバーのボタン",
     format: "フォーマット",
-    formatTitle: "XMLを改行して見やすく表示",
-    compact: "コンパクト",
-    compactTitle: "XMLを1行で表示",
+    formatTitle: "本文のXMLを改行して見やすく表示",
     voiceDescription: "使用する Azure 音声の名前を指定します。",
     voiceParameter: "音声名（例: en-US-JennyNeural）",
-    generatedSsml: "生成されたSSML",
     syntaxError: "構文エラー",
   },
   en: {
     editorAriaLabel: "SSML editor",
-    heading: "SSML Editor",
     voice: "Voice",
-    text: "Text",
     toolbarAriaLabel: "SSML toolbar",
     clearAll: "Clear all",
     clearAllTitle: "Remove XML elements and keep the text",
@@ -328,12 +316,9 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     parameters: "Parameters",
     toolbarActions: "Text toolbar buttons",
     format: "Format",
-    formatTitle: "Format the XML with line breaks",
-    compact: "Compact",
-    compactTitle: "Show the XML on one line",
+    formatTitle: "Format the XML in the editor",
     voiceDescription: "Selects the Azure voice name to use.",
     voiceParameter: "Voice name (for example, en-US-JennyNeural)",
-    generatedSsml: "Generated SSML",
     syntaxError: "Syntax error",
   },
 };
@@ -385,35 +370,47 @@ export interface SsmlEditorProps {
   showToolbarLabels?: boolean;
   /** Controls which editor action buttons are displayed. Unspecified buttons are shown. */
   buttonVisibility?: SsmlEditorButtonVisibility;
+  /** Class name applied to the editor container. */
+  className?: string;
+  /** Inline styles applied to the editor container. */
+  style?: CSSProperties;
+  /** Class name applied to the toolbar. */
+  toolbarClassName?: string;
+  /** Inline styles applied to the toolbar. */
+  toolbarStyle?: CSSProperties;
+  /** Class name applied to the editor display area. */
+  displayClassName?: string;
+  /** Inline styles applied to the editor display area. */
+  displayStyle?: CSSProperties;
 }
 
 const styles: Record<string, CSSProperties> = {
   container: {
     display: "grid",
-    gap: "1rem",
+    gap: "0.75rem",
     padding: "1rem",
     border: "1px solid var(--ssml-editor-border)",
     borderRadius: "0.5rem",
     color: "var(--ssml-editor-color)",
     backgroundColor: "var(--ssml-editor-bg)",
   },
-  heading: {
-    margin: 0,
-    fontSize: "1.125rem",
-  },
-  controls: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
-    gap: "1rem",
-  },
-  field: {
-    display: "grid",
-    gap: "0.375rem",
-  },
-  toolbar: {
+  toolbarContainer: {
     display: "flex",
+    alignItems: "center",
     flexWrap: "wrap",
     gap: "0.5rem",
+  },
+  toolbarActions: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "0.5rem",
+  },
+  voiceControl: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.375rem",
+    marginRight: "auto",
   },
   toolbarDropdown: {
     position: "relative",
@@ -431,6 +428,10 @@ const styles: Record<string, CSSProperties> = {
     backgroundColor: "var(--ssml-editor-control-bg)",
     font: "inherit",
     cursor: "pointer",
+  },
+  display: {
+    display: "grid",
+    gap: "0.5rem",
   },
   toolbarIconOnly: {
     justifyContent: "center",
@@ -476,6 +477,7 @@ const styles: Record<string, CSSProperties> = {
   helpPanel: {
     display: "grid",
     gap: "0.5rem",
+    width: "100%",
     padding: "0.75rem",
     border: "1px solid var(--ssml-editor-control-border)",
     borderRadius: "0.25rem",
@@ -520,11 +522,6 @@ const styles: Record<string, CSSProperties> = {
     marginTop: "0.125rem",
     fontSize: "0.875rem",
   },
-  previewActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginTop: "0.5rem",
-  },
   input: {
     boxSizing: "border-box",
     width: "100%",
@@ -552,15 +549,6 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--ssml-editor-error)",
     backgroundColor: "var(--ssml-editor-error-bg)",
     lineHeight: 1.5,
-  },
-  preview: {
-    margin: 0,
-    padding: "0.75rem",
-    overflowX: "auto",
-    borderRadius: "0.25rem",
-    backgroundColor: "var(--ssml-editor-preview-bg)",
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-    whiteSpace: "pre-wrap",
   },
 };
 
@@ -949,15 +937,21 @@ export function SsmlEditor({
   showToolbarIcons = true,
   showToolbarLabels = false,
   buttonVisibility,
+  className,
+  style,
+  toolbarClassName,
+  toolbarStyle,
+  displayClassName,
+  displayStyle,
 }: SsmlEditorProps): ReactElement {
   const helpPanelId = useId();
+  const voiceInputId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const [isDark, setIsDark] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [isSsmlFormatted, setIsSsmlFormatted] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
@@ -1017,16 +1011,20 @@ export function SsmlEditor({
 
   return (
     <section
-      style={styles.container}
+      className={className}
+      style={{ ...styles.container, ...style }}
       aria-label={copy.editorAriaLabel}
       data-ssml-editor=""
     >
-      <h2 style={styles.heading}>{copy.heading}</h2>
-      <div style={styles.controls}>
-        <label style={styles.field} htmlFor="ssml-editor-voice">
-          {copy.voice}
+      <div
+        className={toolbarClassName}
+        style={{ ...styles.toolbarContainer, ...toolbarStyle }}
+        data-ssml-editor-toolbar=""
+      >
+        <div style={styles.voiceControl}>
+          <label htmlFor={voiceInputId}>{copy.voice}</label>
           <input
-            id="ssml-editor-voice"
+            id={voiceInputId}
             style={styles.input}
             type="text"
             value={voiceName}
@@ -1034,14 +1032,12 @@ export function SsmlEditor({
               commit(updateVoiceName(draftDocument, event.target.value))
             }
           />
-        </label>
-      </div>
-      <div style={styles.field}>
-        <span>{copy.text}</span>
+        </div>
         <div
-          style={styles.toolbar}
+          style={styles.toolbarActions}
           role="toolbar"
           aria-label={copy.toolbarAriaLabel}
+          data-ssml-editor-toolbar-actions=""
         >
           {isSsmlEditorButtonVisible(buttonVisibility, "help") && (
             <button
@@ -1167,7 +1163,34 @@ export function SsmlEditor({
               {showToolbarText && <span>{copy.clearAll}</span>}
             </button>
           )}
+          {isSsmlEditorButtonVisible(buttonVisibility, "format") && (
+            <button
+              type="button"
+              style={toolbarButtonStyle}
+              aria-label={copy.format}
+              title={copy.formatTitle}
+              onClick={() => {
+                const value =
+                  editorRef.current?.getValue() ??
+                  getEditableText(draftDocument);
+                commit(updateText(draftDocument, formatXml(value)));
+              }}
+            >
+              {showToolbarIcons && (
+                <span style={styles.toolbarIcon} aria-hidden="true">
+                  ≡
+                </span>
+              )}
+              {showToolbarText && <span>{copy.format}</span>}
+            </button>
+          )}
         </div>
+      </div>
+      <div
+        className={displayClassName}
+        style={{ ...styles.display, ...displayStyle }}
+        data-ssml-editor-display=""
+      >
         {isHelpOpen && isSsmlEditorButtonVisible(buttonVisibility, "help") && (
           <section
             id={helpPanelId}
@@ -1249,35 +1272,6 @@ export function SsmlEditor({
           </p>
         )}
       </div>
-      <details>
-        <summary>{copy.generatedSsml}</summary>
-        {isSsmlEditorButtonVisible(buttonVisibility, "format") && (
-          <div style={styles.previewActions}>
-            <button
-              type="button"
-              style={toolbarButtonStyle}
-              aria-label={isSsmlFormatted ? copy.compact : copy.format}
-              title={isSsmlFormatted ? copy.compactTitle : copy.formatTitle}
-              aria-pressed={isSsmlFormatted}
-              onClick={() => setIsSsmlFormatted((formatted) => !formatted)}
-            >
-              {showToolbarIcons && (
-                <span style={styles.toolbarIcon} aria-hidden="true">
-                  ≡
-                </span>
-              )}
-              {showToolbarText && (
-                <span>{isSsmlFormatted ? copy.compact : copy.format}</span>
-              )}
-            </button>
-          </div>
-        )}
-        <pre style={styles.preview}>
-          {isSsmlFormatted
-            ? formatXml(buildSsml(draftDocument))
-            : buildSsml(draftDocument)}
-        </pre>
-      </details>
     </section>
   );
 }
