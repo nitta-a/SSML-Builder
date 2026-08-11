@@ -68,7 +68,8 @@ export async function POST(request: Request): Promise<Response> {
   if (validationError) {
     return errorResponse(`Invalid SSML: ${validationError.message}`, 400);
   }
-  if (!containsVoiceTag(parseSsml(ssml).children ?? [])) {
+  const parsedSsml = parseSsml(ssml);
+  if (!containsVoiceTag(parsedSsml.children ?? [])) {
     return errorResponse("SSML must contain at least one <voice> element.", 400);
   }
   if (!subscriptionKey || !region) {
