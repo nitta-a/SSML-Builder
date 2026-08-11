@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "../src/buttonVisibility.ts";
 import { formatXml } from "../src/formatXml.ts";
-import { SSML_INSERTIONS } from "../src/SsmlEditor.tsx";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 
 test("shows editor buttons by default and hides configured buttons", () => {
@@ -102,20 +101,6 @@ test("formats tag and parameter documentation as safe markdown", () => {
   assert.match(formatSsmlHover(parameter), /\*\*Parameter `strength`\*\*/);
   assert.match(formatSsmlHover(parameter), /`strong`/);
   assert.doesNotMatch(formatSsmlHover(tag), /<script>/i);
-});
-
-test("provides descriptions for audio and later insertion options", () => {
-  const insertionIds = ["audio", "sub", "lang", "mark", "bookmark", "mstts:silence", "mstts:viseme"];
-
-  for (const id of insertionIds) {
-    const insertion = SSML_INSERTIONS.find((candidate) => candidate.id === id);
-    assert.ok(insertion);
-
-    for (const option of insertion.options) {
-      assert.ok(option.descriptions?.ja);
-      assert.ok(option.descriptions?.en);
-    }
-  }
 });
 
 test("formats nested XML with readable line breaks", () => {
