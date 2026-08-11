@@ -418,8 +418,8 @@ class InsertTagCommand extends EditorCommand {
   applyModel(model: EditorModel): void {
     const result = createInsertionResult(model.value, this.start, this.end, this.template);
     setModelValue(model, result.value);
-    model.selectionStart = result.selectionStart;
-    model.selectionEnd = result.selectionEnd;
+    model.selectionStart = Math.min(model.value.length, result.selectionStart);
+    model.selectionEnd = Math.min(model.value.length, result.selectionEnd);
   }
 
   applyReal(editor: RandomizedEditor): void {
