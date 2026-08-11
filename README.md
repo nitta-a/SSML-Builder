@@ -393,7 +393,7 @@ export function App() {
 - `document`: The `SsmlDocument` being edited
 - `onChange`: A callback that receives the edited `SsmlDocument`
 - `onSsmlChange`: A callback that receives the generated SSML string
-- `ref`: An `SsmlEditorRef`; `getFullSsml()` returns the full SSML and `getSelectedSsml()` returns the selected text (or the cursor line when no text is selected)
+- `ref`: An `SsmlEditorRef`; `getFullSsml()` returns the full SSML, `getSelectedSsml()` returns the selected text (or the cursor line when no text is selected), and `getCurrentLineSsml()` returns the current cursor line
 - `onSelectionChange`: A callback that receives selected text, its character count, and whether a selection exists
 - `onPreviewSelection`: A callback that receives the selected partial SSML when the floating preview action is pressed. If omitted, the editor uses the Web Speech API text preview when available
 - `language`: The UI language (`"ja"` or `"en"`); defaults to `"ja"`
@@ -401,6 +401,7 @@ export function App() {
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
 - `buttonVisibility`: Per-toolbar-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, `undo`, `redo`, `clearAll`, `format`, and custom insertion IDs; unspecified buttons are shown
 - `editorOptions` / `settings`: Monaco settings for `height`, `minHeight`, `readOnly`, `theme` (`system` / `light` / `dark`), `fontSize`, `wordWrap`, `lineNumbers`, `minimap`, and `automaticLayout`. The same settings can also be supplied as top-level props
+- `loadingFallback`: A React node displayed while Monaco is loading
 - `toolbarOrder`: Display order for all toolbar button IDs; unlisted buttons follow
 - `toolbarGroups`: Groups all toolbar buttons with vertical separators using `{ id, buttonIds }`; groups are not rendered with borders
 - `insertionOrder`: Display order for insertion menu IDs; also supplies the insertion order used when `toolbarOrder` is omitted
