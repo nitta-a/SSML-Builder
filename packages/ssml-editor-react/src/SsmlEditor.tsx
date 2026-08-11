@@ -1433,7 +1433,7 @@ function getSelectedText(editor: MonacoEditor): string | null {
   }
 
   const selectedText = model.getValueInRange(selection);
-  // Use the cursor line as the playback unit when Monaco has no active range.
+  // Use the cursor line as fallback content when Monaco has no active range.
   const text = selectedText.length > 0 ? selectedText : model.getLineContent(selection.positionLineNumber);
   return text.trim().length > 0 ? text : null;
 }

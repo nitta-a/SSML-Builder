@@ -2,6 +2,8 @@ import { buildSsml } from "./builder.ts";
 import { parseSsml } from "./parser.ts";
 import type { ProsodyElement, SsmlAttributes, SsmlDocument, SsmlNode, VoiceElement } from "./types.ts";
 
+const SYNTHESIS_NAMESPACE = "http://www.w3.org/2001/10/synthesis";
+
 export type SsmlPartialVoice = Pick<VoiceElement, "name" | "effect" | "attributes">;
 
 export type SsmlPartialProsody = Pick<ProsodyElement, "rate" | "pitch" | "volume" | "contour" | "range" | "attributes">;
@@ -24,24 +26,23 @@ export interface BuildPartialSsmlOptions extends SsmlPartialContext {
   text: string;
 }
 
+function escapeAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/'/g, "&apos;");
+}
+
 function getPartialTextNodes(text: string, version: string, lang: string): SsmlNode[] {
   if (!text.includes("<")) {
     return [text];
   }
 
   try {
-    const wrapper = buildSsml({
-      version,
-      lang,
-      children: [],
-    });
-    const openingTagStart = wrapper.indexOf("<speak");
-    const openingTagEnd = openingTagStart < 0 ? -1 : wrapper.indexOf(">", openingTagStart);
-    if (openingTagEnd < 0) {
-      return [{ type: "text", value: text }];
-    }
-
-    return parseSsml(`${wrapper.slice(0, openingTagEnd + 1)}${text}</speak>`).children ?? [];
+    const openingTag = `<speak version="${escapeAttribute(version)}" xmlns="${SYNTHESIS_NAMESPACE}" xml:lang="${escapeAttribute(lang)}">`;
+    return parseSsml(`${openingTag}${text}</speak>`).children ?? [];
   } catch {
     return [{ type: "text", value: text }];
   }
