@@ -20,6 +20,7 @@ import {
   type QuickInsertionValues,
 } from "./quickInsertions";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
+import { createSsmlInsertionEdit } from "./ssmlInsertion";
 
 const DEFAULT_LANGUAGE = "ja";
 const SSML_MARKER_OWNER = "ssml-builder";
@@ -1812,11 +1813,7 @@ function applySsmlTemplate(editor: MonacoEditor, template: SsmlEditorInsertionTe
 
   const startOffset = model.getOffsetAt(selection.getStartPosition());
   const endOffset = model.getOffsetAt(selection.getEndPosition());
-  const selectedText = model.getValueInRange(selection);
-  const replacement =
-    template.mode === "insert"
-      ? `${template.prefix}${selectedText}`
-      : `${template.prefix}${selectedText}${template.suffix}`;
+  const { replacement, selectionOffset } = createSsmlInsertionEdit(model.getValue(), startOffset, endOffset, template);
 
   editor.pushUndoStop();
   const applied = editor.executeEdits("ssml-toolbar", [
@@ -1830,8 +1827,8 @@ function applySsmlTemplate(editor: MonacoEditor, template: SsmlEditorInsertionTe
     return;
   }
 
-  const nextSelectionStart = model.getPositionAt(startOffset + template.prefix.length);
-  const nextSelectionEnd = model.getPositionAt(endOffset + template.prefix.length);
+  const nextSelectionStart = model.getPositionAt(startOffset + selectionOffset);
+  const nextSelectionEnd = model.getPositionAt(endOffset + selectionOffset);
   editor.setSelection({
     selectionStartLineNumber: nextSelectionStart.lineNumber,
     selectionStartColumn: nextSelectionStart.column,

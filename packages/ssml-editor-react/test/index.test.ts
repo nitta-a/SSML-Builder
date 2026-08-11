@@ -3,6 +3,7 @@ import test from "node:test";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "../src/buttonVisibility.ts";
 import { formatXml } from "../src/formatXml.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
+import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
 
 test("shows editor buttons by default and hides configured buttons", () => {
   const visibility: SsmlEditorButtonVisibility = {
@@ -16,6 +17,48 @@ test("shows editor buttons by default and hides configured buttons", () => {
   assert.equal(isSsmlEditorButtonVisible(visibility, "format"), true);
   assert.equal(isSsmlEditorButtonVisible({ "mstts:silence": false }, "mstts:silence"), false);
   assert.equal(isSsmlEditorButtonVisible({ customTag: false }, "customTag"), false);
+});
+
+test("keeps wrapped insertion tags inline and preserves the selection offset", () => {
+  assert.deepEqual(
+    createSsmlInsertionEdit("Hello world", 6, 11, {
+      prefix: '<prosody rate="slow">',
+      suffix: "</prosody>",
+      mode: "wrap",
+    }),
+    {
+      replacement: '<prosody rate="slow">world</prosody>',
+      selectionOffset: '<prosody rate="slow">'.length,
+    },
+  );
+});
+
+test("places inserted elements on their own lines", () => {
+  assert.deepEqual(
+    createSsmlInsertionEdit("Hello world", 6, 11, {
+      prefix: '<break time="500ms"/>',
+      suffix: "",
+      mode: "insert",
+    }),
+    {
+      replacement: '\n<break time="500ms"/>\nworld',
+      selectionOffset: '\n<break time="500ms"/>\n'.length,
+    },
+  );
+});
+
+test("does not add duplicate line breaks at existing boundaries", () => {
+  assert.deepEqual(
+    createSsmlInsertionEdit("Hello\nworld", 6, 6, {
+      prefix: '<break time="500ms"/>',
+      suffix: "",
+      mode: "insert",
+    }),
+    {
+      replacement: '<break time="500ms"/>\n',
+      selectionOffset: '<break time="500ms"/>'.length,
+    },
+  );
 });
 
 test("defines the supported SSML tags", () => {
