@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { createPortal } from "react-dom";
@@ -13,13 +13,6 @@ import type {
 } from "@ssml-builder/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { formatXmlFragment } from "./formatXml";
-import {
-  createQuickInsertionTemplate,
-  QUICK_INSERTION_DEFINITIONS,
-  type QuickInsertionDefinition,
-  type QuickInsertionId,
-  type QuickInsertionValues,
-} from "./quickInsertions";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
 
@@ -768,15 +761,6 @@ type EditorCopy = {
   selectionCountSuffix: string;
   previewSelection: string;
   previewSelectionTitle: string;
-  quickInsertions: string;
-  quickBreak: string;
-  quickEmphasis: string;
-  quickProsody: string;
-  quickExpressAs: string;
-  quickInsertionSelectPlaceholder: string;
-  quickInsertionCancel: string;
-  quickInsertionApply: string;
-  quickInsertionSelectionRequired: string;
 };
 
 const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
@@ -804,15 +788,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     selectionCountSuffix: "文字",
     previewSelection: "選択部分を試聴",
     previewSelectionTitle: "選択部分のSSMLを試聴",
-    quickInsertions: "タグをクイック挿入",
-    quickBreak: "break",
-    quickEmphasis: "emphasis",
-    quickProsody: "prosody",
-    quickExpressAs: "express-as",
-    quickInsertionSelectPlaceholder: "指定しない",
-    quickInsertionCancel: "キャンセル",
-    quickInsertionApply: "挿入",
-    quickInsertionSelectionRequired: "少なくとも1つの属性値を選択してください。",
   },
   en: {
     editorAriaLabel: "SSML editor",
@@ -838,15 +813,6 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     selectionCountSuffix: " characters",
     previewSelection: "Preview selection",
     previewSelectionTitle: "Preview the selected SSML",
-    quickInsertions: "Quick tag insertion",
-    quickBreak: "break",
-    quickEmphasis: "emphasis",
-    quickProsody: "prosody",
-    quickExpressAs: "express-as",
-    quickInsertionSelectPlaceholder: "Not set",
-    quickInsertionCancel: "Cancel",
-    quickInsertionApply: "Insert",
-    quickInsertionSelectionRequired: "Select at least one attribute value.",
   },
 };
 
@@ -1252,72 +1218,6 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center",
     lineHeight: 1,
   },
-  selectionQuickGroup: {
-    display: "inline-flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "0.25rem",
-    margin: 0,
-    padding: 0,
-    border: 0,
-  },
-  quickInsertionPopoverAnchor: {
-    position: "relative",
-    display: "inline-flex",
-  },
-  quickInsertionPopover: {
-    position: "absolute",
-    zIndex: 9999,
-    top: "calc(100% + 0.375rem)",
-    left: 0,
-    display: "grid",
-    gap: "0.5rem",
-    width: "min(20rem, calc(100vw - 1rem))",
-    maxHeight: "min(24rem, calc(100vh - 1rem))",
-    overflowY: "auto",
-    padding: "0.625rem",
-    margin: 0,
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.5rem",
-    color: "var(--ssml-editor-color)",
-    backgroundColor: "var(--ssml-editor-control-bg)",
-    boxShadow: "0 0.5rem 1.25rem rgb(0 0 0 / 25%)",
-  },
-  quickInsertionFields: {
-    display: "grid",
-    gap: "0.5rem",
-  },
-  quickInsertionField: {
-    display: "grid",
-    gridTemplateColumns: "max-content minmax(0, 1fr)",
-    alignItems: "center",
-    columnGap: "0.5rem",
-  },
-  quickInsertionFieldLabel: {
-    fontSize: "0.875rem",
-    whiteSpace: "nowrap",
-  },
-  quickInsertionSelect: {
-    boxSizing: "border-box",
-    width: "100%",
-    minHeight: "2.25rem",
-    padding: "0.375rem 0.5rem",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.25rem",
-    color: "var(--ssml-editor-color)",
-    backgroundColor: "var(--ssml-editor-bg)",
-    font: "inherit",
-  },
-  quickInsertionPopoverActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "0.5rem",
-  },
-  quickInsertionPopoverError: {
-    margin: 0,
-    color: "var(--ssml-editor-error)",
-    fontSize: "0.875rem",
-  },
   error: {
     margin: 0,
     padding: "0.5rem 0.75rem",
@@ -1351,12 +1251,6 @@ interface SelectionOverlayState extends SelectionInfo {
     height: number;
   } | null;
   placement: "above" | "below";
-}
-
-interface QuickInsertionPopoverState {
-  definition: QuickInsertionDefinition;
-  values: QuickInsertionValues;
-  error: string | null;
 }
 
 interface ToolbarInsertionMenuProps {
@@ -2177,7 +2071,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     ...(automaticLayout === undefined ? {} : { automaticLayout }),
   };
   const helpPanelId = useId();
-  const quickInsertionPopoverId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const draftDocumentRef = useRef(document);
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -2191,9 +2084,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
   const [isDark, setIsDark] = useState(false);
   const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
-  const [quickInsertionPopover, setQuickInsertionPopover] = useState<QuickInsertionPopoverState | null>(null);
-  const quickInsertionAnchorRef = useRef<HTMLDivElement | null>(null);
-  const quickInsertionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   draftDocumentRef.current = draftDocument;
@@ -2303,33 +2193,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   }, [showDecorations]);
 
   useEffect(() => {
-    if (!quickInsertionPopover) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent): void => {
-      const target = event.target;
-      if (target instanceof Node && !quickInsertionAnchorRef.current?.contains(target)) {
-        setQuickInsertionPopover(null);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        setQuickInsertionPopover(null);
-        quickInsertionTriggerRef.current?.focus();
-      }
-    };
-
-    globalThis.document.addEventListener("pointerdown", handlePointerDown);
-    globalThis.document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      globalThis.document.removeEventListener("pointerdown", handlePointerDown);
-      globalThis.document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [quickInsertionPopover]);
-
-  useEffect(() => {
     return () => {
       const model = editorRef.current?.getModel();
       if (model && monacoRef.current) {
@@ -2405,64 +2268,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     }),
     [],
   );
-
-  const quickInsertionButtons = useMemo(
-    () => [
-      { id: "break" as const, icon: "⏸", label: copy.quickBreak },
-      { id: "emphasis" as const, icon: "✦", label: copy.quickEmphasis },
-      { id: "prosody" as const, icon: "↗", label: copy.quickProsody },
-      { id: "express-as" as const, icon: "☺", label: copy.quickExpressAs },
-    ],
-    [copy],
-  );
-
-  const openQuickInsertionPopover = (id: QuickInsertionId): void => {
-    const definition = QUICK_INSERTION_DEFINITIONS.find((candidate) => candidate.id === id);
-    if (!definition) {
-      return;
-    }
-
-    setQuickInsertionPopover((current) => {
-      if (current?.definition.id === id) {
-        return null;
-      }
-
-      const values = Object.fromEntries(definition.fields.map((field) => [field.attribute, ""]));
-      return { definition, values, error: null };
-    });
-  };
-
-  const updateQuickInsertionValue = (attribute: string, value: string): void => {
-    setQuickInsertionPopover((current) =>
-      current === null
-        ? current
-        : {
-            ...current,
-            values: {
-              ...current.values,
-              [attribute]: value,
-            },
-            error: null,
-          },
-    );
-  };
-
-  const applyQuickInsertionPopover = (): void => {
-    if (!quickInsertionPopover || !editorRef.current) {
-      return;
-    }
-
-    const template = createQuickInsertionTemplate(quickInsertionPopover.definition, quickInsertionPopover.values);
-    if (!template) {
-      setQuickInsertionPopover((current) =>
-        current === null ? current : { ...current, error: copy.quickInsertionSelectionRequired },
-      );
-      return;
-    }
-
-    applySsmlTemplate(editorRef.current, template);
-    setQuickInsertionPopover(null);
-  };
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
     <ToolbarInsertionMenu
@@ -2808,92 +2613,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                 </span>
                 {copy.previewSelection}
               </button>
-              <span style={styles.selectionActionsDivider} aria-hidden="true" />
-              <fieldset aria-label={copy.quickInsertions} style={styles.selectionQuickGroup}>
-                <span style={styles.selectionCount}>{copy.quickInsertions}</span>
-                {quickInsertionButtons.map((button) => (
-                  <div
-                    key={button.id}
-                    ref={quickInsertionPopover?.definition.id === button.id ? quickInsertionAnchorRef : undefined}
-                    style={styles.quickInsertionPopoverAnchor}
-                  >
-                    <button
-                      ref={quickInsertionPopover?.definition.id === button.id ? quickInsertionTriggerRef : undefined}
-                      type="button"
-                      style={styles.selectionActionButton}
-                      title={`<${button.id}>`}
-                      aria-expanded={quickInsertionPopover?.definition.id === button.id}
-                      aria-controls={
-                        quickInsertionPopover?.definition.id === button.id
-                          ? `${quickInsertionPopoverId}-${button.id}`
-                          : undefined
-                      }
-                      disabled={isReadOnly}
-                      onClick={() => {
-                        if (!isReadOnly) {
-                          openQuickInsertionPopover(button.id);
-                        }
-                      }}
-                    >
-                      <span style={styles.selectionActionIcon} aria-hidden="true">
-                        {button.icon}
-                      </span>
-                      {button.label}
-                    </button>
-                    {quickInsertionPopover?.definition.id === button.id && (
-                      <section
-                        id={`${quickInsertionPopoverId}-${button.id}`}
-                        aria-label={button.label}
-                        style={styles.quickInsertionPopover}
-                        onMouseDown={(event) => event.stopPropagation()}
-                      >
-                        <div style={styles.quickInsertionFields}>
-                          {quickInsertionPopover.definition.fields.map((field) => {
-                            return (
-                              <label key={field.attribute} style={styles.quickInsertionField}>
-                                <span style={styles.quickInsertionFieldLabel}>{field.labels[language]}</span>
-                                <select
-                                  style={styles.quickInsertionSelect}
-                                  value={quickInsertionPopover.values[field.attribute] ?? ""}
-                                  onChange={(event) => updateQuickInsertionValue(field.attribute, event.target.value)}
-                                >
-                                  <option value="">{copy.quickInsertionSelectPlaceholder}</option>
-                                  {field.options.map((option) => (
-                                    <option key={option} value={option}>
-                                      {option}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            );
-                          })}
-                        </div>
-                        {quickInsertionPopover.error && (
-                          <p style={styles.quickInsertionPopoverError} role="alert">
-                            {quickInsertionPopover.error}
-                          </p>
-                        )}
-                        <div style={styles.quickInsertionPopoverActions}>
-                          <button
-                            type="button"
-                            style={styles.selectionActionButton}
-                            onClick={() => setQuickInsertionPopover(null)}
-                          >
-                            {copy.quickInsertionCancel}
-                          </button>
-                          <button
-                            type="button"
-                            style={styles.selectionActionButton}
-                            onClick={applyQuickInsertionPopover}
-                          >
-                            {copy.quickInsertionApply}
-                          </button>
-                        </div>
-                      </section>
-                    )}
-                  </div>
-                ))}
-              </fieldset>
             </div>
           )}
         </div>
