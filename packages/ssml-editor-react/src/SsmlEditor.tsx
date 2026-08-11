@@ -394,7 +394,7 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--ssml-editor-color)",
     backgroundColor: "var(--ssml-editor-bg)",
   },
-  toolbar: {
+  toolbarContainer: {
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
@@ -1018,7 +1018,7 @@ export function SsmlEditor({
     >
       <div
         className={toolbarClassName}
-        style={{ ...styles.toolbar, ...toolbarStyle }}
+        style={{ ...styles.toolbarContainer, ...toolbarStyle }}
         data-ssml-editor-toolbar=""
       >
         <div style={styles.voiceControl}>
@@ -1037,6 +1037,7 @@ export function SsmlEditor({
           style={styles.toolbarActions}
           role="toolbar"
           aria-label={copy.toolbarAriaLabel}
+          data-ssml-editor-toolbar-actions=""
         >
           {isSsmlEditorButtonVisible(buttonVisibility, "help") && (
             <button
