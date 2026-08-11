@@ -263,13 +263,13 @@ export default function Home() {
             <h1>Playground</h1>
           </div>
           <div className="theme-switch">
-            <span>Dark mode</span>
+            <span id="theme-switch-label">Dark mode</span>
             <button
               className="theme-switch-track"
               type="button"
               role="switch"
               aria-checked={theme === "dark"}
-              aria-label="Dark mode"
+              aria-labelledby="theme-switch-label"
               onClick={toggleTheme}
               disabled={theme === null}
             >
