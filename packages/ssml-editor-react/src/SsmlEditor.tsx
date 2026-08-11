@@ -1975,7 +1975,11 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       return;
     }
 
-    const selectedSsml = buildPartialSsml(selectedText, getPartialContext(draftDocumentRef.current));
+    const selectedSsml = getSelectedSsml(editor, draftDocumentRef.current);
+    if (selectedSsml === null) {
+      return;
+    }
+
     if (onPreviewSelectionRef.current) {
       onPreviewSelectionRef.current(selectedSsml);
       return;
