@@ -1276,6 +1276,7 @@ const styles: Record<string, CSSProperties> = {
     maxHeight: "min(24rem, calc(100vh - 1rem))",
     overflowY: "auto",
     padding: "0.625rem",
+    margin: 0,
     border: "1px solid var(--ssml-editor-control-border)",
     borderRadius: "0.5rem",
     color: "var(--ssml-editor-color)",
@@ -2205,12 +2206,12 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       }
     };
 
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
+    globalThis.document.addEventListener("pointerdown", handlePointerDown);
+    globalThis.document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
+      globalThis.document.removeEventListener("pointerdown", handlePointerDown);
+      globalThis.document.removeEventListener("keydown", handleKeyDown);
     };
   }, [quickInsertionPopover]);
 
@@ -2731,9 +2732,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                       {button.label}
                     </button>
                     {quickInsertionPopover?.definition.id === button.id && (
-                      <div
+                      <fieldset
                         id={`${quickInsertionPopoverId}-${button.id}`}
-                        role="group"
                         aria-labelledby={`${quickInsertionPopoverId}-${button.id}-title`}
                         style={styles.quickInsertionPopover}
                         onMouseDown={(event) => event.stopPropagation()}
@@ -2755,9 +2755,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                             ×
                           </button>
                         </div>
-                        <p style={styles.quickInsertionPopoverDescription}>
-                          {copy.quickInsertionPopoverDescription}
-                        </p>
+                        <p style={styles.quickInsertionPopoverDescription}>{copy.quickInsertionPopoverDescription}</p>
                         <div style={styles.quickInsertionFields}>
                           {quickInsertionPopover.definition.fields.map((field) => {
                             const descriptionId = `${quickInsertionPopoverId}-${button.id}-${field.attribute}-description`;
@@ -2801,11 +2799,15 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                           >
                             {copy.quickInsertionCancel}
                           </button>
-                          <button type="button" style={styles.selectionActionButton} onClick={applyQuickInsertionPopover}>
+                          <button
+                            type="button"
+                            style={styles.selectionActionButton}
+                            onClick={applyQuickInsertionPopover}
+                          >
                             {copy.quickInsertionApply}
                           </button>
                         </div>
-                      </div>
+                      </fieldset>
                     )}
                   </span>
                 ))}

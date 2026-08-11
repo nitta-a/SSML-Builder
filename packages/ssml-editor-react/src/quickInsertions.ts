@@ -89,12 +89,7 @@ export const QUICK_INSERTION_DEFINITIONS: readonly QuickInsertionDefinition[] = 
         attribute: "contour",
         labels: localizedText("輪郭", "Contour"),
         descriptions: localizedText("発話中の声の高さの変化です。", "The pitch contour during the utterance."),
-        options: [
-          "(0%,+0st) (100%,+0st)",
-          "(0%,+0st) (100%,+2st)",
-          "(0%,+2st) (100%,+0st)",
-          "(0%,-2st) (100%,+2st)",
-        ],
+        options: ["(0%,+0st) (100%,+0st)", "(0%,+0st) (100%,+2st)", "(0%,+2st) (100%,+0st)", "(0%,-2st) (100%,+2st)"],
       },
       {
         attribute: "range",
