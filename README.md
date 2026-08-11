@@ -146,7 +146,7 @@ export function App() {
 - ツールバーの「フォーマット」ボタンで本文の XML を整形できます
 - 本文を変更すると SSML 構文を検証し、エラー箇所をエディター上に表示します
 
-本文ツールバーの「説明」ボタンを押すと、各コントロール、ボタン、パラメータの説明を表示できます。ボタンのパラメータはアコーディオンで表示され、デフォルトでは閉じています。「全てクリア」ボタンは XML 要素だけを削除し、本文を残します。ドキュメントの `version`、`lang`、その他の属性は保持されます。
+本文ツールバーの「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明が表示され、各設定の意味を確認できます。「全てクリア」ボタンは XML 要素だけを削除し、本文を残します。ドキュメントの `version`、`lang`、その他の属性は保持されます。
 
 ## `azure-tts-client` の利用方法
 
@@ -345,7 +345,7 @@ export function App() {
 - Use the **Format** button to format the XML in the text display area
 - Changing the text validates SSML syntax and displays errors in the editor
 
-Click the **Description** button in the text toolbar to see descriptions of each control, button, and parameter. Button parameters are shown in accordions that are closed by default. The **Clear all** button removes only XML elements and leaves the text in place. The document's `version`, `lang`, and other attributes are preserved.
+Click the **Description** button in the text toolbar to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description as the accordion title and the meaning of each setting inside. The **Clear all** button removes only XML elements and leaves the text in place. The document's `version`, `lang`, and other attributes are preserved.
 
 ## Using `azure-tts-client`
 
