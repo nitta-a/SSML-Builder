@@ -585,14 +585,22 @@ function getConfiguredInsertions(
     insertions.set(insertion.id, insertion);
   }
 
-  for (const insertion of [
-    ...getInsertionCollection(additionalInsertions),
-    ...getInsertionCollection(customInsertions),
-  ]) {
-    const normalized =
-      "createTemplate" in insertion
-        ? insertion
-        : createSsmlEditorInsertionDefinition(insertion);
+  const normalizeInsertion = (
+    insertion: SsmlEditorCustomInsertion,
+  ): SsmlInsertionDefinition =>
+    "createTemplate" in insertion
+      ? insertion
+      : createSsmlEditorInsertionDefinition(insertion);
+
+  for (const insertion of getInsertionCollection(additionalInsertions)) {
+    const normalized = normalizeInsertion(insertion);
+    if (!insertions.has(normalized.id)) {
+      insertions.set(normalized.id, normalized);
+    }
+  }
+
+  for (const insertion of getInsertionCollection(customInsertions)) {
+    const normalized = normalizeInsertion(insertion);
     insertions.set(normalized.id, normalized);
   }
 
