@@ -124,7 +124,7 @@ const parsed = parseSsml(ssml);
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数、試聴、`break`・`prosody`・`express-as` のクイック挿入を行うフローティングアクションが表示されます。`break` と `prosody` のタグには、間やピッチ変化を示すインラインバッジも表示されます。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体または選択範囲の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
+`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数、試聴、`break`・`prosody`・`express-as` のクイック挿入を行うフローティングアクションが表示されます。クイック挿入は属性を選択・入力するダイアログを経由し、属性値を自動で決め打ちしません。`break` と `prosody` のタグには、間やピッチ変化を示すインラインバッジも表示されます。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体または選択範囲の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
 
 ```tsx
 import { useState } from "react";
@@ -160,7 +160,7 @@ export function App() {
 - `onSsmlChange`: 編集後に生成された SSML 文字列を受け取るコールバック
 - `ref`: `SsmlEditorRef` の `getFullSsml()` で全体の SSML を、`getSelectedSsml()` で選択範囲（未選択時はカーソル行）の SSML を取得
 - `onSelectionChange`: 選択テキスト、文字数、選択状態を受け取るコールバック
-- `onPreviewSelection`: フローティングアクションの試聴ボタン押下時に、選択部分の SSML を受け取るコールバック。省略時は利用可能なブラウザーで Web Speech API のテキスト試聴を使用
+- `onPreviewSelection`: フローティングアクションの試聴ボタン押下時に、選択部分の SSML を受け取るコールバック。省略時は試聴ボタンが無効になります。Azure などの音声 API はこのコールバックから呼び出してください
 - `language`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
@@ -359,7 +359,7 @@ Typed representations are available for elements such as `voice`, `prosody`, `br
 
 ## Using `ssml-editor-react`
 
-`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Selecting text displays a floating action bar with the character count, preview, and quick insertion buttons for `break`, `prosody`, and `express-as`. Inline badges for pause and pitch changes are rendered next to `break` and `prosody` tags. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full or selected SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English.
+`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Selecting text displays a floating action bar with the character count, preview, and quick insertion buttons for `break`, `prosody`, and `express-as`. Quick insertion opens a dialog where attribute values are selected or entered instead of being inserted from hardcoded defaults. Inline badges for pause and pitch changes are rendered next to `break` and `prosody` tags. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full or selected SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English.
 
 ```tsx
 import { useState } from "react";
@@ -395,7 +395,7 @@ export function App() {
 - `onSsmlChange`: A callback that receives the generated SSML string
 - `ref`: An `SsmlEditorRef`; `getFullSsml()` returns the full SSML, `getSelectedSsml()` returns the selected text (or the cursor line when no text is selected), and `getCurrentLineSsml()` returns the current cursor line
 - `onSelectionChange`: A callback that receives selected text, its character count, and whether a selection exists
-- `onPreviewSelection`: A callback that receives the selected partial SSML when the floating preview action is pressed. If omitted, the editor uses the Web Speech API text preview when available
+- `onPreviewSelection`: A callback that receives the selected partial SSML when the floating preview action is pressed. The preview action is disabled when this callback is omitted; call an audio API such as Azure from the callback
 - `language`: The UI language (`"ja"` or `"en"`); defaults to `"ja"`
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
