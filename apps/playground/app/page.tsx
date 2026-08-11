@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { buildSsml } from "@ssml-builder/ssml-core";
 import type { SsmlDocument } from "@ssml-builder/ssml-core";
 import type { SsmlNode } from "@ssml-builder/ssml-core";
@@ -57,6 +56,24 @@ function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
     document.children ??
     (document.content === undefined ? [] : [document.content])
   );
+}
+
+function getNodeText(node: SsmlNode): string {
+  if (typeof node === "string") {
+    return node;
+  }
+
+  if (node.type === "text") {
+    return node.value;
+  }
+
+  return (node.children ?? []).map(getNodeText).join("");
+}
+
+function createCaptionTrack(document: SsmlDocument): string {
+  const text = getDocumentChildren(document).map(getNodeText).join("").trim();
+  const webVtt = `WEBVTT\n\n00:00:00.000 --> 99:59:59.999\n${text}`;
+  return `data:text/vtt;charset=utf-8,${encodeURIComponent(webVtt)}`;
 }
 
 function updateFirstVoice(
@@ -129,9 +146,7 @@ async function getSynthesisError(response: Response): Promise<string> {
     ) {
       return body.error;
     }
-  } catch {
-    // Use the status-based fallback when the response is not JSON.
-  }
+  } catch {}
 
   return `Audio generation failed (${response.status}).`;
 }
@@ -146,6 +161,7 @@ export default function Home() {
   const [audioError, setAudioError] = useState<string | null>(null);
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
+  const captionTrack = createCaptionTrack(document);
 
   useEffect(() => {
     if (!audioUrl) {
@@ -284,6 +300,13 @@ export default function Home() {
             src={audioUrl}
             aria-label="Generated speech audio"
           >
+            <track
+              kind="captions"
+              label="SSML text"
+              src={captionTrack}
+              srcLang={document.lang}
+              default
+            />
             Your browser does not support audio playback.
           </audio>
         ) : null}
