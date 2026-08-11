@@ -536,35 +536,6 @@ export const SSML_INSERTIONS = [
     }),
   },
   {
-    id: "audio",
-    icon: "🔈",
-    tagName: "audio",
-    labels: { ja: "音声", en: "Audio" },
-    descriptions: {
-      ja: "選択範囲に音声ファイルを関連付けます。",
-      en: "Associates an audio file with the selected text.",
-    },
-    parameterDescription: {
-      ja: "音声ファイルの URI を選択します。",
-      en: "Selects the URI of the audio file.",
-    },
-    options: createInsertionOptions({
-      "https://example.com/audio.wav": {
-        ja: "WAV形式の音声ファイルを指定します。",
-        en: "Uses a WAV audio file.",
-      },
-      "https://example.com/audio.mp3": {
-        ja: "MP3形式の音声ファイルを指定します。",
-        en: "Uses an MP3 audio file.",
-      },
-    }),
-    createTemplate: (value) => ({
-      prefix: `<audio src="${value}">`,
-      suffix: "</audio>",
-      mode: "wrap",
-    }),
-  },
-  {
     id: "sub",
     icon: "↔",
     tagName: "sub",
@@ -587,8 +558,8 @@ export const SSML_INSERTIONS = [
         en: "Speaks the alias as SSML.",
       },
       Azure: {
-        ja: "「Azure」という別名で読み上げます。",
-        en: "Speaks the alias as Azure.",
+        ja: "指定した別名で読み上げます。",
+        en: "Speaks the selected alias.",
       },
     }),
     createTemplate: (value) => ({
@@ -635,82 +606,14 @@ export const SSML_INSERTIONS = [
     }),
   },
   {
-    id: "mark",
-    icon: "⚑",
-    tagName: "mark",
-    selfClosing: true,
-    labels: { ja: "マーク", en: "Mark" },
-    descriptions: {
-      ja: "音声ストリームにアプリケーション用のマーカーを挿入します。",
-      en: "Inserts an application-defined marker into the audio stream.",
-    },
-    parameterDescription: {
-      ja: "マーカー名を選択します。",
-      en: "Selects the marker name.",
-    },
-    options: createInsertionOptions({
-      "chapter-1": {
-        ja: "chapter-1 マーカーを挿入します。",
-        en: "Inserts the chapter-1 marker.",
-      },
-      "section-1": {
-        ja: "section-1 マーカーを挿入します。",
-        en: "Inserts the section-1 marker.",
-      },
-      important: {
-        ja: "important マーカーを挿入します。",
-        en: "Inserts the important marker.",
-      },
-    }),
-    createTemplate: (value) => ({
-      prefix: `<mark name="${value}"/>`,
-      suffix: "",
-      mode: "insert",
-    }),
-  },
-  {
-    id: "bookmark",
-    icon: "🔖",
-    tagName: "bookmark",
-    selfClosing: true,
-    labels: { ja: "しおり", en: "Bookmark" },
-    descriptions: {
-      ja: "音声ストリームにブックマークを挿入します。",
-      en: "Inserts a bookmark into the audio stream.",
-    },
-    parameterDescription: {
-      ja: "ブックマーク名を選択します。",
-      en: "Selects the bookmark name.",
-    },
-    options: createInsertionOptions({
-      "chapter-1": {
-        ja: "chapter-1 ブックマークを挿入します。",
-        en: "Inserts the chapter-1 bookmark.",
-      },
-      "section-1": {
-        ja: "section-1 ブックマークを挿入します。",
-        en: "Inserts the section-1 bookmark.",
-      },
-      important: {
-        ja: "important ブックマークを挿入します。",
-        en: "Inserts the important bookmark.",
-      },
-    }),
-    createTemplate: (value) => ({
-      prefix: `<bookmark mark="${value}"/>`,
-      suffix: "",
-      mode: "insert",
-    }),
-  },
-  {
     id: "mstts:silence",
     icon: "⏳",
     tagName: "mstts:silence",
     selfClosing: true,
     labels: { ja: "無音", en: "Silence" },
     descriptions: {
-      ja: "Azure Speech の無音時間を挿入します。",
-      en: "Inserts an Azure Speech silence interval.",
+      ja: "無音時間を挿入します。",
+      en: "Inserts a silence interval.",
     },
     parameterDescription: {
       ja: "無音にする時間を選択します。",
@@ -732,36 +635,6 @@ export const SSML_INSERTIONS = [
     }),
     createTemplate: (value) => ({
       prefix: `<mstts:silence type="Leading" value="${value}"/>`,
-      suffix: "",
-      mode: "insert",
-    }),
-  },
-  {
-    id: "mstts:viseme",
-    icon: "◉",
-    tagName: "mstts:viseme",
-    selfClosing: true,
-    labels: { ja: "口形", en: "Viseme" },
-    descriptions: {
-      ja: "Azure Speech の口形素イベントを要求します。",
-      en: "Requests Azure Speech viseme events.",
-    },
-    parameterDescription: {
-      ja: "口形素イベントの形式を選択します。",
-      en: "Selects the viseme event format.",
-    },
-    options: createInsertionOptions({
-      redlips_front: {
-        ja: "redlips_front 形式の口形素イベントを要求します。",
-        en: "Requests viseme events in redlips_front format.",
-      },
-      FacialExpression: {
-        ja: "FacialExpression 形式の口形素イベントを要求します。",
-        en: "Requests viseme events in FacialExpression format.",
-      },
-    }),
-    createTemplate: (value) => ({
-      prefix: `<mstts:viseme type="${value}"/>`,
       suffix: "",
       mode: "insert",
     }),
