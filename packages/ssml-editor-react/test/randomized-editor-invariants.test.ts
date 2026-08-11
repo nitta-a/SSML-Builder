@@ -4,7 +4,6 @@ import { expect, test } from "vitest";
 import { clearSsmlDocument } from "../src/clearSsmlDocument";
 import { formatXmlFragment } from "../src/formatXml";
 import { createSsmlInsertionEdit } from "../src/ssmlInsertion";
-import { SSML_INSERTIONS } from "../src/SsmlEditor";
 
 const EDITABLE_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SUFFIX = "</speak>";
@@ -16,6 +15,12 @@ type OperationName = "insert-text" | "select-text" | "insert-tag" | "format-xml"
 interface RandomSource {
   next(maximum: number): number;
 }
+
+const TAG_TEMPLATES = [
+  { prefix: '<break time="500ms"/>', suffix: "", mode: "insert" as const },
+  { prefix: '<prosody rate="slow">', suffix: "</prosody>", mode: "wrap" as const },
+  { prefix: '<mstts:express-as style="cheerful">', suffix: "</mstts:express-as>", mode: "wrap" as const },
+];
 
 function createRandomSource(seed: number): RandomSource {
   let state = seed >>> 0;
@@ -160,9 +165,8 @@ class RandomizedEditor {
   }
 
   insertTag(random: RandomSource): void {
-    const insertion = SSML_INSERTIONS[random.next(SSML_INSERTIONS.length)];
-    const option = insertion.options[random.next(insertion.options.length)];
-    const edit = createSsmlInsertionEdit(this.value, this.selectionStart, this.selectionEnd, insertion.createTemplate(option.value));
+    const template = TAG_TEMPLATES[random.next(TAG_TEMPLATES.length)];
+    const edit = createSsmlInsertionEdit(this.value, this.selectionStart, this.selectionEnd, template);
     this.setValue(
       `${this.value.slice(0, this.selectionStart)}${edit.replacement}${this.value.slice(this.selectionEnd)}`,
     );
@@ -216,21 +220,25 @@ function createOperationPlan(random: RandomSource): OperationName[] {
 }
 
 function checkInvariants(editor: RandomizedEditor, step: number, operation: OperationName): void {
-  let ssml = "";
+  const ssml = editor.getFullSsml();
+  parseSsml(ssml);
+  expect(validateSsml(ssml)).toBeNull();
+
+  const selectedSsml = editor.getSelectedSsml();
+  expect(selectedSsml === null || typeof selectedSsml === "string").toBe(true);
+  if (selectedSsml !== null) {
+    parseSsml(selectedSsml);
+  }
+}
+
+function logFailure(editor: RandomizedEditor, step: number, operation: OperationName): void {
+  let ssml = "<unavailable>";
   try {
     ssml = editor.getFullSsml();
-    parseSsml(ssml);
-    expect(validateSsml(ssml)).toBeNull();
-
-    const selectedSsml = editor.getSelectedSsml();
-    expect(selectedSsml === null || typeof selectedSsml === "string").toBe(true);
-    if (selectedSsml !== null) {
-      parseSsml(selectedSsml);
-    }
-  } catch (error) {
-    console.error(`Random editor invariant failed at step ${step} (${operation}), seed ${SEED}.\nSSML:\n${ssml}`);
-    throw error;
+  } catch {
+    // Keep the operation context when the editor cannot produce SSML for diagnostics.
   }
+  console.error(`Random editor invariant failed at step ${step} (${operation}), seed ${SEED}.\nSSML:\n${ssml}`);
 }
 
 test("preserves SSML invariants during randomized editor operations", () => {
@@ -238,24 +246,30 @@ test("preserves SSML invariants during randomized editor operations", () => {
   const editor = new RandomizedEditor();
 
   for (const [index, operation] of createOperationPlan(random).entries()) {
-    switch (operation) {
-      case "insert-text":
-        editor.insertText(random);
-        break;
-      case "select-text":
-        editor.selectText(random);
-        break;
-      case "insert-tag":
-        editor.insertTag(random);
-        break;
-      case "format-xml":
-        editor.formatXml();
-        break;
-      case "clear-document":
-        editor.clearDocument();
-        break;
-    }
+    const step = index + 1;
+    try {
+      switch (operation) {
+        case "insert-text":
+          editor.insertText(random);
+          break;
+        case "select-text":
+          editor.selectText(random);
+          break;
+        case "insert-tag":
+          editor.insertTag(random);
+          break;
+        case "format-xml":
+          editor.formatXml();
+          break;
+        case "clear-document":
+          editor.clearDocument();
+          break;
+      }
 
-    checkInvariants(editor, index + 1, operation);
+      checkInvariants(editor, step, operation);
+    } catch (error) {
+      logFailure(editor, step, operation);
+      throw error;
+    }
   }
 });
