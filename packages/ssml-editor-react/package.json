@@ -24,7 +24,8 @@
   "devDependencies": {
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "@monaco-editor/react": "^4.7.0",
