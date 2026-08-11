@@ -71,7 +71,13 @@ function getNodeText(node: SsmlNode): string {
 }
 
 function createCaptionTrack(document: SsmlDocument): string {
-  const text = getDocumentChildren(document).map(getNodeText).join("").trim();
+  const text =
+    getDocumentChildren(document)
+      .map(getNodeText)
+      .join("")
+      .trim()
+      .replace(/\s+/g, " ")
+      .replaceAll("-->", "-- >") || "Generated speech";
   const webVtt = `WEBVTT\n\n00:00:00.000 --> 99:59:59.999\n${text}`;
   return `data:text/vtt;charset=utf-8,${encodeURIComponent(webVtt)}`;
 }
