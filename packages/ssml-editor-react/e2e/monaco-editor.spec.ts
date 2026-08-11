@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const JAPANESE_TEXT = "こんにちは、テストです";
+const BREAK_HOVER_DESCRIPTION = "単語やその他の音声コンテンツ";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
 test.use({
@@ -23,7 +24,7 @@ async function replaceEditorText(page: Page, text: string) {
   await editor.locator(".view-lines").click();
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.type(text);
-  await expect(editor.locator(".view-lines")).toContainText(text);
+  await expect.poll(async () => (await editor.locator(".view-lines").innerText()).trim()).toBe(text);
 }
 
 async function getZIndex(locator: Locator) {
@@ -31,6 +32,10 @@ async function getZIndex(locator: Locator) {
 }
 
 test.describe("Monaco SSML editor", () => {
+  test.beforeEach(async ({ browserName }) => {
+    test.skip(browserName !== "chromium", "This E2E spec requires Chromium.");
+  });
+
   test("accepts Japanese keyboard input and wraps the selection with prosody", async ({ page }) => {
     await openPlayground(page);
     await replaceEditorText(page, JAPANESE_TEXT);
@@ -47,7 +52,9 @@ test.describe("Monaco SSML editor", () => {
     await expect(rateMenu).toBeVisible();
     await rateMenu.getByRole("menuitem", { name: "遅い速度", exact: true }).click();
 
-    await expect(editor.locator(".view-lines")).toContainText(`<prosody rate="slow">${JAPANESE_TEXT}</prosody>`);
+    await expect
+      .poll(async () => (await editor.locator(".view-lines").innerText()).trim())
+      .toBe(`<prosody rate="slow">${JAPANESE_TEXT}</prosody>`);
     await expect(page.locator(".output code")).toContainText(`<prosody rate="slow">${JAPANESE_TEXT}</prosody>`);
   });
 
@@ -73,7 +80,7 @@ test.describe("Monaco SSML editor", () => {
 
     await page.mouse.move(breakLineBox.x + breakLineBox.width / 2, breakLineBox.y + breakLineBox.height / 2);
 
-    const hover = page.locator(".monaco-hover").filter({ hasText: "単語やその他の音声コンテンツ" }).last();
+    const hover = page.locator(".monaco-hover").filter({ hasText: BREAK_HOVER_DESCRIPTION }).last();
     await expect(hover).toBeVisible();
     const hoverState = await hover.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
