@@ -1,5 +1,6 @@
 import { AzureTtsClient, AzureTtsError } from "@ssml-builder/azure-tts-client";
-import { validateSsml } from "@ssml-builder/ssml-core";
+import { parseSsml, validateSsml } from "@ssml-builder/ssml-core";
+import { containsVoiceTag } from "./validation.ts";
 
 export const runtime = "nodejs";
 
@@ -66,6 +67,9 @@ export async function POST(request: Request): Promise<Response> {
   const validationError = validateSsml(ssml);
   if (validationError) {
     return errorResponse(`Invalid SSML: ${validationError.message}`, 400);
+  }
+  if (!containsVoiceTag(parseSsml(ssml).children ?? [])) {
+    return errorResponse("SSML must contain at least one <voice> element.", 400);
   }
   if (!subscriptionKey || !region) {
     return errorResponse("Azure Speech is not configured.", 503);
