@@ -1017,8 +1017,8 @@ export function SsmlEditor({
         aria-label={copy.toolbarAriaLabel}
         data-ssml-editor-toolbar=""
       >
-        <label style={styles.voiceControl} htmlFor={voiceInputId}>
-          {copy.voice}
+        <div style={styles.voiceControl}>
+          <label htmlFor={voiceInputId}>{copy.voice}</label>
           <input
             id={voiceInputId}
             style={styles.input}
@@ -1028,7 +1028,7 @@ export function SsmlEditor({
               commit(updateVoiceName(draftDocument, event.target.value))
             }
           />
-        </label>
+        </div>
         {isSsmlEditorButtonVisible(buttonVisibility, "help") && (
           <button
             type="button"
