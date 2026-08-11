@@ -44,7 +44,8 @@ test("formatXml returns malformed input unchanged", () => {
 });
 
 test("formatXml removes formatting whitespace and remains idempotent", () => {
-  const source = ' \n<?xml version="1.0"?>\n<speak>\n  <!-- comment --> \n  <voice><![CDATA[raw <xml>]]></voice>\n  <break time="500ms"/>\n</speak>\n ';
+  const source =
+    ' \n<?xml version="1.0"?>\n<speak>\n  <!-- comment --> \n  <voice><![CDATA[raw <xml>]]></voice>\n  <break time="500ms"/>\n</speak>\n ';
   const formatted = formatXml(source);
 
   assert.equal(

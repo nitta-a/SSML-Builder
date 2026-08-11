@@ -145,7 +145,11 @@ function findTagEnd(source: string, start: number, hasInternalSubset = false): n
   fail("Unclosed XML markup");
 }
 
-function parseStartTag(source: string, start: number, end: number): {
+function parseStartTag(
+  source: string,
+  start: number,
+  end: number,
+): {
   name: string;
   selfClosing: boolean;
 } {
