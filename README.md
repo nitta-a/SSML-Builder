@@ -177,7 +177,7 @@ export function App() {
 
 標準の挿入メニューには `lang`、`mstts:silence` も含まれます。カスタム要素は `createSsmlEditorInsertionDefinition` でタグ名と属性を指定して作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
 
-本文ツールバーの「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは XML 要素だけを削除し、本文を残します。ドキュメントの `version`、`lang`、その他の属性は保持されます。
+「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは XML 要素だけを削除し、本文を残します。ドキュメントの `version`、`lang`、その他の属性は保持されます。
 
 ## `azure-tts-client` の利用方法
 
@@ -409,7 +409,7 @@ export function App() {
 
 The built-in insertion menus also include `lang` and `mstts:silence`. Use `createSsmlEditorInsertionDefinition` to create a custom insertion from a tag and one attribute. For arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
 
-Click the **Description** button in the text toolbar to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button removes only XML elements and leaves the text in place. The document's `version`, `lang`, and other attributes are preserved.
+Click the **Description** button to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button removes only XML elements and leaves the text in place. The document's `version`, `lang`, and other attributes are preserved.
 
 ## Using `azure-tts-client`
 
