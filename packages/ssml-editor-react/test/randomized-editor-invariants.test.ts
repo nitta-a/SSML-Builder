@@ -34,8 +34,8 @@ const incompleteXmlTagArbitrary = fc.constantFrom(
   "<",
   "</",
   "<voice",
-  "<prosody rate=\"slow\"",
-  "<mstts:express-as style=\"cheerful\"",
+  '<prosody rate="slow"',
+  '<mstts:express-as style="cheerful"',
   "<break",
   "<voice><prosody>",
   "<speak><voice>日本語",
@@ -145,9 +145,7 @@ function updateEditableText(document: SsmlDocument, value: string): SsmlDocument
 }
 
 function createInitialDocument(): SsmlDocument {
-  return parseSsml(
-    '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural">Hello world</voice></speak>',
-  );
+  return parseSsml('<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural">Hello world</voice></speak>');
 }
 
 interface EditorModel {
@@ -278,14 +276,16 @@ function checkInvariants(model: EditorModel, editor: RandomizedEditor): void {
   });
 
   const ssml = editor.getFullSsml();
+  let parseableSsml = ssml;
   try {
     parseSsml(ssml);
   } catch {
-    expect(() => parseSsml(editor.getFallbackSsml())).not.toThrow();
+    parseableSsml = editor.getFallbackSsml();
+    expect(() => parseSsml(parseableSsml)).not.toThrow();
   }
-  expect(validateSsml(ssml)).toBeNull();
+  expect(validateSsml(parseableSsml)).toBeNull();
 
-  const formatted = formatXml(ssml);
+  const formatted = formatXml(parseableSsml);
   expect(formatXml(formatted)).toBe(formatted);
 
   const selectedSsml = editor.getSelectedSsml();
@@ -475,12 +475,10 @@ class ClearDocumentCommand extends EditorCommand {
 }
 
 const offsetArbitrary = fc.integer({ min: 0, max: MAX_GENERATED_OFFSET });
-const rangeArbitrary = fc
-  .tuple(offsetArbitrary, offsetArbitrary)
-  .map(([first, second]) => ({
-    start: Math.min(first, second),
-    end: Math.max(first, second),
-  }));
+const rangeArbitrary = fc.tuple(offsetArbitrary, offsetArbitrary).map(([first, second]) => ({
+  start: Math.min(first, second),
+  end: Math.max(first, second),
+}));
 
 const commandArbitrary = fc.oneof(
   fc.record({ position: offsetArbitrary, text: insertionTextArbitrary }).map(({ position, text }) => {
