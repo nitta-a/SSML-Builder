@@ -1,6 +1,6 @@
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
-import type { TtsConfig } from "./types.ts";
-import { DEFAULT_OUTPUT_FORMAT, resolveOutputFormat } from "./outputFormats.ts";
+import { DEFAULT_OUTPUT_FORMAT, resolveOutputFormat } from "./outputFormats";
+import type { TtsConfig } from "./types";
 
 export function resolveEndpoint(config: TtsConfig): string {
   return config.endpoint.replace(

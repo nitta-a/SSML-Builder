@@ -1,5 +1,5 @@
-import { synthesizeSpeech } from "./synthesis.ts";
-import type { AzureTtsClientOptions } from "./types.ts";
+import { synthesizeSpeech } from "./synthesis";
+import type { AzureTtsClientOptions } from "./types";
 
 export class AzureTtsClient {
   readonly #options: AzureTtsClientOptions;

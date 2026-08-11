@@ -1,7 +1,7 @@
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
-import { createSpeechSdkError } from "./errors.ts";
-import { createSpeechConfig } from "./speechConfig.ts";
-import type { TtsConfig } from "./types.ts";
+import { createSpeechSdkError } from "./errors";
+import { createSpeechConfig } from "./speechConfig";
+import type { TtsConfig } from "./types";
 
 function closeSpeechResources(
   speechConfig: SpeechSDK.SpeechConfig,
