@@ -1,5 +1,9 @@
 // @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
-import {
+import * as SSML_PRESETS from "./constants/ssmlPresets.ts";
+// @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
+import { SSML_HOVER_COPY, type SsmlEditorLocale } from "./locales.ts";
+
+const {
   BREAK_STRENGTH_PRESETS,
   BREAK_TIME_PRESETS,
   EMPHASIS_LEVEL_PRESETS,
@@ -12,9 +16,7 @@ import {
   SILENCE_TYPE_PRESETS,
   SILENCE_VALUE_PRESETS,
   VISEME_TYPE_PRESETS,
-} from "./constants/ssmlPresets.ts";
-// @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
-import { SSML_HOVER_COPY, type SsmlEditorLocale } from "./locales.ts";
+} = SSML_PRESETS;
 
 export interface SsmlParameterDefinition {
   name: string;

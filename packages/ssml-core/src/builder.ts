@@ -6,7 +6,13 @@ import type {
   SsmlElementBase,
   SsmlNode,
 } from "./types.ts";
-import { DEFAULT_SSML_LANGUAGE, DEFAULT_SSML_VERSION, MSTTS_NAMESPACE, SYNTHESIS_NAMESPACE, XML_NAME_PATTERN } from "./constants/ssml.ts";
+import {
+  DEFAULT_SSML_LANGUAGE,
+  DEFAULT_SSML_VERSION,
+  MSTTS_NAMESPACE,
+  SYNTHESIS_NAMESPACE,
+  XML_NAME_PATTERN,
+} from "./constants/ssml.ts";
 
 function escapeText(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
