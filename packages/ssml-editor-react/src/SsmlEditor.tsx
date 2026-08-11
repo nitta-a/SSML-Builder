@@ -19,6 +19,7 @@ import {
   INLINE_BADGE_COPY,
   type EditorCopy,
   type SsmlEditorLanguage,
+  type SsmlEditorLocale,
   type SsmlEditorLocalizedText,
 } from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
@@ -859,7 +860,7 @@ export interface SsmlEditorProps {
   /** UI language. Japanese is used when omitted. */
   language?: SsmlEditorLanguage;
   /** UI locale. Japanese is used when omitted; takes precedence over the legacy language prop. */
-  locale?: SsmlEditorLanguage;
+  locale?: SsmlEditorLocale;
   /** Whether toolbar action icons are displayed. */
   showToolbarIcons?: boolean;
   /** Whether toolbar action text labels are displayed. */
