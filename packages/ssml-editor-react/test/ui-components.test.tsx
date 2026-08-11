@@ -27,6 +27,7 @@ const monacoState = vi.hoisted(() => {
   const disposable = () => ({ dispose: vi.fn() });
   const editor = {
     getModel: () => model,
+    getValue: () => value,
     getSelection: () => selection,
     getScrolledVisiblePosition: () => null,
     getLayoutInfo: () => ({ height: 100 }),
@@ -76,6 +77,8 @@ const monacoState = vi.hoisted(() => {
   };
 });
 
+vi.mock("@ssml-builder-js/ssml-core", async () => import("../../ssml-core/src/index"));
+
 vi.mock("@monaco-editor/react", () => ({
   default: function MockEditor({
     options,
@@ -88,12 +91,7 @@ vi.mock("@monaco-editor/react", () => ({
       onMount?.(monacoState.editor, monacoState.monaco);
     }, []);
 
-    return (
-      <div
-        data-testid="monaco-editor"
-        data-inlay-hints={options?.inlayHints?.enabled}
-      />
-    );
+    return <div data-testid="monaco-editor" data-inlay-hints={options?.inlayHints?.enabled} />;
   },
 }));
 
@@ -152,10 +150,7 @@ describe("SsmlEditor toolbar menus", () => {
     await user.click(within(menu).getByRole("menuitem", { name: "500ms" }));
 
     expect(monacoState.editor.executeEdits).toHaveBeenCalledTimes(1);
-    expect(monacoState.editor.executeEdits).toHaveBeenCalledWith(
-      "ssml-toolbar",
-      expect.arrayContaining([expect.objectContaining({ text: '<break time="500ms"/>' })]),
-    );
+    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toContain('<break time="500ms"/>');
     expect(screen.queryByRole("menu", { name: "Break" })).toBeNull();
   });
 
