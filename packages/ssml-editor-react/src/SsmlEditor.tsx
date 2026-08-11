@@ -770,6 +770,7 @@ type EditorCopy = {
   previewSelectionTitle: string;
   quickInsertions: string;
   quickBreak: string;
+  quickEmphasis: string;
   quickProsody: string;
   quickExpressAs: string;
   quickInsertionPopoverDescription: string;
@@ -806,6 +807,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     previewSelectionTitle: "選択部分のSSMLを試聴",
     quickInsertions: "タグをクイック挿入",
     quickBreak: "break",
+    quickEmphasis: "emphasis",
     quickProsody: "prosody",
     quickExpressAs: "express-as",
     quickInsertionPopoverDescription: "挿入する属性をプリセットから選択してください。",
@@ -840,6 +842,7 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     previewSelectionTitle: "Preview the selected SSML",
     quickInsertions: "Quick tag insertion",
     quickBreak: "break",
+    quickEmphasis: "emphasis",
     quickProsody: "prosody",
     quickExpressAs: "express-as",
     quickInsertionPopoverDescription: "Select the attributes to insert from the available presets.",
@@ -2295,6 +2298,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const quickInsertionButtons = useMemo(
     () => [
       { id: "break" as const, icon: "⏸", label: copy.quickBreak },
+      { id: "emphasis" as const, icon: "✦", label: copy.quickEmphasis },
       { id: "prosody" as const, icon: "↗", label: copy.quickProsody },
       { id: "express-as" as const, icon: "☺", label: copy.quickExpressAs },
     ],

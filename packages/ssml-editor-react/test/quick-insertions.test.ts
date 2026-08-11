@@ -20,6 +20,14 @@ test("requires explicit attributes for quick insertions", () => {
   );
 });
 
+test("supports selecting an emphasis level", () => {
+  assert.deepEqual(createQuickInsertionTemplate(getDefinition("emphasis"), { level: "strong" }), {
+    prefix: '<emphasis level="strong">',
+    suffix: "</emphasis>",
+    mode: "wrap",
+  });
+});
+
 test("supports multiple selected prosody attributes and escapes values", () => {
   const template = createQuickInsertionTemplate(getDefinition("prosody"), {
     pitch: '+2st" & bright',
