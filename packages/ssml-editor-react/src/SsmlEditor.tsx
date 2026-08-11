@@ -78,6 +78,10 @@ export type SsmlEditorCustomInsertion =
   | SsmlEditorInsertionDefinition
   | SsmlEditorCustomInsertionDefinition;
 
+export type SsmlEditorCustomInsertionCollection =
+  | readonly SsmlEditorCustomInsertion[]
+  | Readonly<Record<string, SsmlEditorCustomInsertion>>;
+
 export interface SsmlEditorInsertionGroup {
   id: string;
   labels: SsmlEditorLocalizedText;
@@ -559,6 +563,82 @@ export const SSML_INSERTIONS = [
   },
 ] satisfies readonly SsmlInsertionDefinition[];
 
+function getInsertionCollection(
+  collection: SsmlEditorCustomInsertionCollection | undefined,
+): readonly SsmlEditorCustomInsertion[] {
+  if (!collection) {
+    return [];
+  }
+
+  return Array.isArray(collection)
+    ? collection
+    : Object.values(collection).filter(
+        (insertion): insertion is SsmlEditorCustomInsertion =>
+          insertion !== undefined,
+      );
+}
+
+function getConfiguredInsertions(
+  emotionStyles: readonly string[] | undefined,
+  customInsertions: SsmlEditorCustomInsertionCollection | undefined,
+  additionalInsertions: SsmlEditorCustomInsertionCollection | undefined,
+): readonly SsmlInsertionDefinition[] {
+  const insertions = new Map<string, SsmlInsertionDefinition>();
+  for (const insertion of SSML_INSERTIONS) {
+    if (insertion.id === "emotion" && emotionStyles !== undefined) {
+      insertions.set(insertion.id, {
+        ...insertion,
+        options: createInsertionOptions(emotionStyles),
+      });
+      continue;
+    }
+    insertions.set(insertion.id, insertion);
+  }
+
+  for (const insertion of [
+    ...getInsertionCollection(customInsertions),
+    ...getInsertionCollection(additionalInsertions),
+  ]) {
+    const normalized =
+      "createTemplate" in insertion
+        ? insertion
+        : createSsmlEditorInsertionDefinition(insertion);
+    insertions.set(normalized.id, normalized);
+  }
+
+  return [...insertions.values()];
+}
+
+function orderInsertions(
+  insertions: readonly SsmlInsertionDefinition[],
+  insertionOrder: readonly string[] | undefined,
+): readonly SsmlInsertionDefinition[] {
+  if (!insertionOrder || insertionOrder.length === 0) {
+    return insertions;
+  }
+
+  const insertionsById = new Map(
+    insertions.map((insertion) => [insertion.id, insertion]),
+  );
+  const ordered: SsmlInsertionDefinition[] = [];
+  const included = new Set<string>();
+  for (const id of insertionOrder) {
+    const insertion = insertionsById.get(id);
+    if (insertion && !included.has(id)) {
+      ordered.push(insertion);
+      included.add(id);
+    }
+  }
+
+  for (const insertion of insertions) {
+    if (!included.has(insertion.id)) {
+      ordered.push(insertion);
+    }
+  }
+
+  return ordered;
+}
+
 type EditorCopy = {
   editorAriaLabel: string;
   toolbarAriaLabel: string;
@@ -669,6 +749,38 @@ export interface SsmlEditorProps {
   showToolbarLabels?: boolean;
   /** Controls which editor action buttons are displayed. Unspecified buttons are shown. */
   buttonVisibility?: SsmlEditorButtonVisibility;
+  /** Monaco editor settings. */
+  editorOptions?: SsmlEditorOptions;
+  /** Alias for editorOptions. */
+  settings?: SsmlEditorOptions;
+  /** Height of the Monaco editor. */
+  height?: string | number;
+  /** Minimum height of the Monaco editor container. */
+  minHeight?: string | number;
+  /** Whether the Monaco editor is read-only. */
+  readOnly?: boolean;
+  /** Monaco theme mode. */
+  theme?: SsmlEditorTheme;
+  /** Monaco editor font size. */
+  fontSize?: number;
+  /** Monaco editor word wrapping mode. */
+  wordWrap?: SsmlEditorWordWrap;
+  /** Monaco editor line number mode. */
+  lineNumbers?: SsmlEditorLineNumbers;
+  /** Whether the Monaco minimap is displayed. */
+  minimap?: boolean;
+  /** Whether Monaco automatically lays out when its container changes size. */
+  automaticLayout?: boolean;
+  /** Reorders built-in and custom insertion menus. Unlisted insertions follow. */
+  insertionOrder?: readonly string[];
+  /** Visually groups insertion menus in the toolbar. */
+  insertionGroups?: readonly SsmlEditorInsertionGroup[];
+  /** Replaces built-in insertion definitions with custom definitions by ID. */
+  customInsertions?: SsmlEditorCustomInsertionCollection;
+  /** Adds insertion definitions without replacing built-in definitions. */
+  additionalInsertions?: SsmlEditorCustomInsertionCollection;
+  /** Candidate style values shown by the built-in emotion insertion. */
+  emotionStyles?: readonly string[];
   /** Class name applied to the editor container. */
   className?: string;
   /** Inline styles applied to the editor container. */
@@ -704,6 +816,15 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     flexWrap: "wrap",
     gap: "0.5rem",
+  },
+  toolbarGroup: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "0.5rem",
+    padding: "0.25rem",
+    border: "1px solid var(--ssml-editor-border)",
+    borderRadius: "0.25rem",
   },
   toolbarDropdown: {
     position: "relative",
@@ -1200,6 +1321,22 @@ export function SsmlEditor({
   showToolbarIcons = true,
   showToolbarLabels = false,
   buttonVisibility,
+  editorOptions,
+  settings,
+  height,
+  minHeight,
+  readOnly,
+  theme,
+  fontSize,
+  wordWrap,
+  lineNumbers,
+  minimap,
+  automaticLayout,
+  insertionOrder,
+  insertionGroups,
+  customInsertions,
+  additionalInsertions,
+  emotionStyles,
   className,
   style,
   toolbarClassName,
@@ -1207,6 +1344,19 @@ export function SsmlEditor({
   displayClassName,
   displayStyle,
 }: SsmlEditorProps): ReactElement {
+  const resolvedEditorOptions: SsmlEditorOptions = {
+    ...settings,
+    ...editorOptions,
+    ...(height === undefined ? {} : { height }),
+    ...(minHeight === undefined ? {} : { minHeight }),
+    ...(readOnly === undefined ? {} : { readOnly }),
+    ...(theme === undefined ? {} : { theme }),
+    ...(fontSize === undefined ? {} : { fontSize }),
+    ...(wordWrap === undefined ? {} : { wordWrap }),
+    ...(lineNumbers === undefined ? {} : { lineNumbers }),
+    ...(minimap === undefined ? {} : { minimap }),
+    ...(automaticLayout === undefined ? {} : { automaticLayout }),
+  };
   const helpPanelId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -1217,11 +1367,45 @@ export function SsmlEditor({
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
+  const resolvedTheme = resolvedEditorOptions.theme ?? "system";
+  const editorHeight = resolvedEditorOptions.height ?? "8rem";
+  const editorMinHeight = resolvedEditorOptions.minHeight ?? "8rem";
+  const isReadOnly = resolvedEditorOptions.readOnly ?? false;
   const toolbarButtonStyle = showToolbarText
     ? styles.toolbarButton
     : { ...styles.toolbarButton, ...styles.toolbarIconOnly };
-  const visibleInsertions = SSML_INSERTIONS.filter((insertion) =>
+  const configuredInsertions = getConfiguredInsertions(
+    emotionStyles,
+    customInsertions,
+    additionalInsertions,
+  );
+  const visibleInsertions = orderInsertions(
+    configuredInsertions,
+    insertionOrder,
+  ).filter((insertion) =>
     isSsmlEditorButtonVisible(buttonVisibility, insertion.id),
+  );
+  const insertionById = new Map(
+    visibleInsertions.map((insertion) => [insertion.id, insertion]),
+  );
+  const visibleInsertionGroups = (insertionGroups ?? [])
+    .map((group) => ({
+      group,
+      insertions: group.insertionIds
+        .map((id) => insertionById.get(id))
+        .filter(
+          (insertion): insertion is SsmlInsertionDefinition =>
+            insertion !== undefined,
+        ),
+    }))
+    .filter(({ insertions }) => insertions.length > 0);
+  const groupedInsertionIds = new Set(
+    visibleInsertionGroups.flatMap(({ insertions }) =>
+      insertions.map((insertion) => insertion.id),
+    ),
+  );
+  const ungroupedInsertions = visibleInsertions.filter(
+    (insertion) => !groupedInsertionIds.has(insertion.id),
   );
 
   useEffect(() => {
@@ -1268,6 +1452,61 @@ export function SsmlEditor({
     onSsmlChange?.(buildSsml(nextDocument));
   };
 
+  const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
+    <details key={insertion.id} style={styles.toolbarDropdown}>
+      <summary
+        style={{
+          ...toolbarButtonStyle,
+          listStyleType: "none",
+        }}
+        title={insertion.titles[language]}
+        aria-label={insertion.labels[language]}
+        aria-haspopup="menu"
+      >
+        {showToolbarIcons && (
+          <span style={styles.toolbarIcon} aria-hidden="true">
+            {insertion.icon}
+          </span>
+        )}
+        {showToolbarText && <span>{insertion.labels[language]}</span>}
+        <span style={styles.toolbarChevron} aria-hidden="true">
+          ▾
+        </span>
+      </summary>
+      <div
+        style={styles.toolbarMenu}
+        role="menu"
+        aria-label={insertion.labels[language]}
+      >
+        {insertion.options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="menuitem"
+            style={styles.toolbarOption}
+            title={insertion.descriptions[language]}
+            disabled={isReadOnly}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={(event) => {
+              if (!isReadOnly && editorRef.current) {
+                applySsmlInsertion(
+                  editorRef.current,
+                  insertion,
+                  option,
+                );
+              }
+              event.currentTarget
+                .closest("details")
+                ?.removeAttribute("open");
+            }}
+          >
+            {option.labels[language]}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+
   return (
     <section
       className={className}
@@ -1304,68 +1543,29 @@ export function SsmlEditor({
               {showToolbarText && <span>{copy.help}</span>}
             </button>
           )}
-          {visibleInsertions.map((insertion) => (
-            <details key={insertion.id} style={styles.toolbarDropdown}>
-              <summary
-                style={{
-                  ...toolbarButtonStyle,
-                  listStyleType: "none",
-                }}
-                title={insertion.titles[language]}
-                aria-label={insertion.labels[language]}
-                aria-haspopup="menu"
-              >
-                {showToolbarIcons && (
-                  <span style={styles.toolbarIcon} aria-hidden="true">
-                    {insertion.icon}
-                  </span>
-                )}
-                {showToolbarText && <span>{insertion.labels[language]}</span>}
-                <span style={styles.toolbarChevron} aria-hidden="true">
-                  ▾
-                </span>
-              </summary>
-              <div
-                style={styles.toolbarMenu}
-                role="menu"
-                aria-label={insertion.labels[language]}
-              >
-                {insertion.options.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="menuitem"
-                    style={styles.toolbarOption}
-                    title={insertion.descriptions[language]}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={(event) => {
-                      if (editorRef.current) {
-                        applySsmlInsertion(
-                          editorRef.current,
-                          insertion,
-                          option,
-                        );
-                      }
-                      event.currentTarget
-                        .closest("details")
-                        ?.removeAttribute("open");
-                    }}
-                  >
-                    {option.labels[language]}
-                  </button>
-                ))}
-              </div>
-            </details>
+          {visibleInsertionGroups.map(({ group, insertions }) => (
+            <div
+              key={group.id}
+              style={styles.toolbarGroup}
+              role="group"
+              aria-label={group.labels[language]}
+            >
+              {insertions.map(renderInsertion)}
+            </div>
           ))}
+          {ungroupedInsertions.map(renderInsertion)}
           {isSsmlEditorButtonVisible(buttonVisibility, "undo") && (
             <button
               type="button"
               style={toolbarButtonStyle}
               aria-label={copy.undo}
               title={copy.undoTitle}
+              disabled={isReadOnly}
               onClick={() => {
-                editorRef.current?.trigger("toolbar", "undo", null);
-                editorRef.current?.focus();
+                if (!isReadOnly) {
+                  editorRef.current?.trigger("toolbar", "undo", null);
+                  editorRef.current?.focus();
+                }
               }}
             >
               {showToolbarIcons && (
@@ -1382,9 +1582,12 @@ export function SsmlEditor({
               style={toolbarButtonStyle}
               aria-label={copy.redo}
               title={copy.redoTitle}
+              disabled={isReadOnly}
               onClick={() => {
-                editorRef.current?.trigger("toolbar", "redo", null);
-                editorRef.current?.focus();
+                if (!isReadOnly) {
+                  editorRef.current?.trigger("toolbar", "redo", null);
+                  editorRef.current?.focus();
+                }
               }}
             >
               {showToolbarIcons && (
@@ -1401,7 +1604,12 @@ export function SsmlEditor({
               style={toolbarButtonStyle}
               aria-label={copy.clearAll}
               title={copy.clearAllTitle}
-              onClick={() => commit(clearDocument(draftDocument))}
+              disabled={isReadOnly}
+              onClick={() => {
+                if (!isReadOnly) {
+                  commit(clearDocument(draftDocument));
+                }
+              }}
             >
               {showToolbarIcons && (
                 <span style={styles.toolbarIcon} aria-hidden="true">
@@ -1417,11 +1625,14 @@ export function SsmlEditor({
               style={toolbarButtonStyle}
               aria-label={copy.format}
               title={copy.formatTitle}
+              disabled={isReadOnly}
               onClick={() => {
-                const value =
-                  editorRef.current?.getValue() ??
-                  getEditableText(draftDocument);
-                commit(updateText(draftDocument, formatXml(value)));
+                if (!isReadOnly) {
+                  const value =
+                    editorRef.current?.getValue() ??
+                    getEditableText(draftDocument);
+                  commit(updateText(draftDocument, formatXml(value)));
+                }
               }}
             >
               {showToolbarIcons && (
@@ -1482,12 +1693,27 @@ export function SsmlEditor({
             )}
           </section>
         )}
-        <div style={styles.editor}>
+        <div style={{ ...styles.editor, minHeight: editorMinHeight }}>
           <Editor
-            height="8rem"
+            height={editorHeight}
             language="xml"
-            theme={isDark ? "vs-dark" : "light"}
-            options={{ hover: { enabled: "on" } }}
+            theme={
+              resolvedTheme === "dark" ||
+              (resolvedTheme === "system" && isDark)
+                ? "vs-dark"
+                : "light"
+            }
+            options={{
+              automaticLayout: resolvedEditorOptions.automaticLayout ?? true,
+              fontSize: resolvedEditorOptions.fontSize,
+              hover: { enabled: "on" },
+              lineNumbers: resolvedEditorOptions.lineNumbers,
+              minimap: {
+                enabled: resolvedEditorOptions.minimap ?? true,
+              },
+              readOnly: isReadOnly,
+              wordWrap: resolvedEditorOptions.wordWrap,
+            }}
             value={text}
             onMount={(editor, monaco) => {
               editorRef.current = editor;
