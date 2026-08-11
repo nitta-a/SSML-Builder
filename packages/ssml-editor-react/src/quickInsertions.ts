@@ -1,4 +1,4 @@
-export type QuickInsertionId = "break" | "prosody" | "express-as";
+export type QuickInsertionId = "break" | "emphasis" | "prosody" | "express-as";
 export type QuickInsertionMode = "insert" | "wrap";
 export type QuickInsertionLocalizedText = Readonly<Record<"ja" | "en", string>>;
 
@@ -61,6 +61,22 @@ export const QUICK_INSERTION_DEFINITIONS: readonly QuickInsertionDefinition[] = 
         descriptions: localizedText("無音の相対的な強さです。", "The relative strength of the pause."),
         placeholders: localizedText("例: medium", "Example: medium"),
         options: ["none", "x-weak", "weak", "medium", "strong", "x-strong"],
+      },
+    ],
+  },
+  {
+    id: "emphasis",
+    tagName: "emphasis",
+    mode: "wrap",
+    minAttributes: 1,
+    maxAttributes: 1,
+    fields: [
+      {
+        attribute: "level",
+        labels: localizedText("強調レベル", "Emphasis level"),
+        descriptions: localizedText("強調の度合いです。", "The amount of emphasis."),
+        placeholders: localizedText("例: strong", "Example: strong"),
+        options: ["strong", "moderate", "reduced", "none"],
       },
     ],
   },
