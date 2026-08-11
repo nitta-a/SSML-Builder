@@ -1905,7 +1905,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           <section id={helpPanelId} style={styles.helpPanel} aria-label={copy.helpHeading}>
             <h3 style={styles.helpHeading}>{copy.helpHeading}</h3>
             <p style={styles.helpDescription}>{copy.helpDescription}</p>
-            {visibleInsertions.length > 0 && (
+            {helpInsertions.length > 0 && (
               <ul style={styles.helpList}>
                 {helpInsertions.map((insertion) => (
                   <li key={insertion.id} style={styles.helpItem}>
