@@ -1,5 +1,5 @@
 import { AzureTtsClient, AzureTtsError } from "@ssml-builder/azure-tts-client";
-import { parseSsml, validateSsml } from "@ssml-builder/ssml-core";
+import { parseSsml } from "@ssml-builder/ssml-core";
 import { containsVoiceTag } from "./validation.ts";
 
 export const runtime = "nodejs";
@@ -9,6 +9,7 @@ const MAX_LOGGED_RESPONSE_BODY_LENGTH = 4096;
 const subscriptionKey = process.env.AZURE_SPEECH_KEY;
 const region = process.env.AZURE_SPEECH_REGION;
 const endpoint = process.env.AZURE_SPEECH_ENDPOINT || "";
+const PARSER_POSITION_SUFFIX = / at position (\d+)$/;
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
@@ -46,6 +47,12 @@ function describeError(error: unknown): Record<string, unknown> {
   return { value: error };
 }
 
+function getSsmlValidationMessage(error: unknown): string {
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const positionMatch = PARSER_POSITION_SUFFIX.exec(rawMessage);
+  return positionMatch ? rawMessage.slice(0, positionMatch.index) : rawMessage;
+}
+
 export async function POST(request: Request): Promise<Response> {
   let body: unknown;
 
@@ -64,11 +71,13 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse("SSML must not be empty.", 400);
   }
 
-  const validationError = validateSsml(ssml);
-  if (validationError) {
-    return errorResponse(`Invalid SSML: ${validationError.message}`, 400);
+  let parsedSsml: ReturnType<typeof parseSsml>;
+  try {
+    parsedSsml = parseSsml(ssml);
+  } catch (error) {
+    return errorResponse(`Invalid SSML: ${getSsmlValidationMessage(error)}`, 400);
   }
-  const parsedSsml = parseSsml(ssml);
+
   if (!containsVoiceTag(parsedSsml.children ?? [])) {
     return errorResponse("SSML must contain at least one <voice> element.", 400);
   }
