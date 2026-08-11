@@ -197,11 +197,14 @@ describe("SsmlEditor props", () => {
     await user.click(screen.getByRole("button", { name: "間" }));
     const japaneseMenu = screen.getByRole("menu", { name: "間" });
     expect(within(japaneseMenu).getByRole("menuitem", { name: "500ms" }).getAttribute("title")).toBe("500ミリ秒の無音");
+    await user.click(screen.getByRole("button", { name: "間" }));
 
     rerender(<SsmlEditor document={editorDocument} locale="en" showToolbarLabels />);
 
-    expect(screen.getByRole("button", { name: "Break" })).toBeTruthy();
+    const englishTrigger = screen.getByRole("button", { name: "Break" });
+    expect(englishTrigger).toBeTruthy();
     expect(screen.queryByRole("button", { name: "間" })).toBeNull();
+    await user.click(englishTrigger);
     const englishMenu = screen.getByRole("menu", { name: "Break" });
     expect(within(englishMenu).getByRole("menuitem", { name: "500ms" }).getAttribute("title")).toBe(
       "Inserts 500 milliseconds of silence.",
