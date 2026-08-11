@@ -10,7 +10,7 @@ export interface SsmlPartialContext {
   /** SSML version and language used for the generated document. */
   version?: string;
   lang?: string;
-  /** Preferred voice name. The `voice` object takes precedence when both are supplied. */
+  /** Preferred voice name; a voice object takes precedence, while this overrides a string `voice` shorthand. */
   voiceName?: string;
   /** Optional Azure voice effect used with `voiceName` or a string `voice` shorthand. */
   voiceEffect?: string;
@@ -35,8 +35,13 @@ function getPartialTextNodes(text: string, version: string, lang: string): SsmlN
       lang,
       children: [],
     });
-    const openingTagEnd = wrapper.indexOf(">", wrapper.indexOf("<speak")) + 1;
-    return parseSsml(`${wrapper.slice(0, openingTagEnd)}${text}</speak>`).children ?? [];
+    const openingTagStart = wrapper.indexOf("<speak");
+    const openingTagEnd = openingTagStart < 0 ? -1 : wrapper.indexOf(">", openingTagStart);
+    if (openingTagEnd < 0) {
+      return [{ type: "text", value: text }];
+    }
+
+    return parseSsml(`${wrapper.slice(0, openingTagEnd + 1)}${text}</speak>`).children ?? [];
   } catch {
     return [{ type: "text", value: text }];
   }
