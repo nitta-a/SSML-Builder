@@ -105,7 +105,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
     name: "mstts:express-as",
     aliases: ["express-as", "expressAs"],
     description:
-      "Applies an Azure Speech speaking style, style degree, or role to the enclosed text.",
+      "Applies a speaking style, style degree, or role to the enclosed text.",
     parameters: [
       {
         name: "style",
@@ -299,7 +299,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
     name: "mstts:silence",
     aliases: ["silence"],
     description:
-      "Adds a specified Azure Speech silence before or after text or at a punctuation boundary.",
+      "Adds a specified silence before or after text or at a punctuation boundary.",
     parameters: [
       {
         name: "type",
@@ -323,8 +323,7 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
   {
     name: "mstts:viseme",
     aliases: ["viseme"],
-    description:
-      "Requests Azure Speech viseme events for the synthesized audio.",
+    description: "Requests viseme events for the synthesized audio.",
     parameters: [
       {
         name: "type",

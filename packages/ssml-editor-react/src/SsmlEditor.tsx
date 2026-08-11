@@ -306,12 +306,12 @@ const SSML_INSERTIONS = [
       en: 'Wrap the selection with <mstts:express-as style="cheerful">',
     },
     descriptions: {
-      ja: "選択範囲に Azure 音声の感情スタイルを適用します。",
-      en: "Applies an Azure voice emotion style to the selected text.",
+      ja: "選択範囲に音声の感情スタイルを適用します。",
+      en: "Applies a voice emotion style to the selected text.",
     },
     settingsDescription: {
-      ja: "選択範囲に適用する Azure 音声の感情スタイルを選択します。",
-      en: "Selects the Azure voice emotion style to apply.",
+      ja: "選択範囲に適用する音声の感情スタイルを選択します。",
+      en: "Selects the voice emotion style to apply.",
     },
     options: createInsertionOptions({
       cheerful: {
@@ -552,6 +552,32 @@ const STYLE_CSS = `
     --ssml-editor-error-bg: #450a0a;
   }
 }
+[data-ssml-editor] .ssml-editor-help-settings-summary {
+  list-style: none;
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary::-webkit-details-marker {
+  display: none;
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary:hover {
+  background-color: var(--ssml-editor-preview-bg);
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary:focus-visible {
+  outline: 2px solid var(--ssml-editor-control-border);
+  outline-offset: -2px;
+}
+[data-ssml-editor] .ssml-editor-help-settings-summary::before {
+  content: "▸";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+[data-ssml-editor]
+  .ssml-editor-help-settings-accordion[open]
+  > .ssml-editor-help-settings-summary::before {
+  content: "▾";
+}
 `.trim();
 
 function injectEditorTheme(): void {
@@ -712,23 +738,30 @@ const styles: Record<string, CSSProperties> = {
   },
   helpSettingsAccordion: {
     marginTop: "0.375rem",
+    overflow: "hidden",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.25rem",
+    backgroundColor: "var(--ssml-editor-control-bg)",
   },
   helpSettingsSummary: {
     display: "grid",
-    gridTemplateColumns: "1.25rem minmax(0, 1fr)",
-    columnGap: "0.375rem",
+    gridTemplateColumns: "1rem 1.25rem minmax(0, 1fr)",
+    columnGap: "0.5rem",
     alignItems: "start",
-    padding: "0.125rem 0",
+    padding: "0.5rem 0.625rem",
     cursor: "pointer",
   },
+  helpSettingsSummaryContent: {
+    minWidth: 0,
+  },
   helpSettingsDescription: {
-    margin: "0.375rem 0 0",
+    margin: "0.5rem 0.75rem 0",
     fontSize: "0.875rem",
   },
   helpSettingsList: {
     display: "grid",
     gap: "0.125rem",
-    margin: "0.25rem 0 0",
+    margin: "0.25rem 0.75rem 0.75rem",
     paddingLeft: "1.25rem",
     fontSize: "0.875rem",
   },
@@ -1356,12 +1389,18 @@ export function SsmlEditor({
                 <ul style={styles.helpList}>
                   {visibleInsertions.map((insertion) => (
                     <li key={insertion.id} style={styles.helpItem}>
-                      <details style={styles.helpSettingsAccordion}>
-                        <summary style={styles.helpSettingsSummary}>
+                      <details
+                        className="ssml-editor-help-settings-accordion"
+                        style={styles.helpSettingsAccordion}
+                      >
+                        <summary
+                          className="ssml-editor-help-settings-summary"
+                          style={styles.helpSettingsSummary}
+                        >
                           <span style={styles.helpIcon} aria-hidden="true">
                             {insertion.icon}
                           </span>
-                          <span>
+                          <span style={styles.helpSettingsSummaryContent}>
                             <strong>{insertion.labels[language]}</strong>{" "}
                             <code>
                               {`<${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}`}
