@@ -31,7 +31,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
+  :root:not([data-theme]),
+  :root[data-theme="system"] {
     --foreground: #f9fafb;
     --background: #111827;
     --muted-foreground: #9ca3af;
