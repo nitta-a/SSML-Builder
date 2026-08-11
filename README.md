@@ -166,7 +166,7 @@ export function App() {
 - `buttonVisibility`: ボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`undo`、`redo`、`clearAll`、`format`、カスタム挿入 ID を指定でき、未指定のボタンは表示されます
 - `editorOptions` / `settings`: Monaco の設定。`height`、`minHeight`、`readOnly`、`theme`（`system` / `light` / `dark`）、`fontSize`、`wordWrap`、`lineNumbers`、`minimap`、`automaticLayout` を指定できます。これらは同名のトップレベル props でも指定できます
 - `insertionOrder`: 挿入メニューの ID の表示順。指定されていないメニューは後ろに続きます
-- `insertionGroups`: 挿入メニューをツールバー上でグループ化する設定
+- `insertionGroups`: 挿入メニューをツールバー上でグループ化する設定。省略時は間・無音、声の調整、表現、読み上げのグループに分けて表示されます
 - `emotionStyles`: `emotion` メニューに表示する音声スタイル候補
 - `customInsertions` / `additionalInsertions`: カスタム SSML 挿入定義。`customInsertions` は同じ ID の標準定義を置き換え、`additionalInsertions` は標準定義へ追加します
 - `className` / `style`: エディター全体のクラス名とインラインスタイル
@@ -398,7 +398,7 @@ export function App() {
 - `buttonVisibility`: Per-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, `undo`, `redo`, `clearAll`, `format`, and custom insertion IDs; unspecified buttons are shown
 - `editorOptions` / `settings`: Monaco settings for `height`, `minHeight`, `readOnly`, `theme` (`system` / `light` / `dark`), `fontSize`, `wordWrap`, `lineNumbers`, `minimap`, and `automaticLayout`. The same settings can also be supplied as top-level props
 - `insertionOrder`: Display order for insertion menu IDs; unlisted menus follow
-- `insertionGroups`: Groups insertion menus visually in the toolbar
+- `insertionGroups`: Groups insertion menus visually in the toolbar; when omitted, menus are grouped into pauses, voice, expression, and pronunciation
 - `emotionStyles`: Candidate voice styles shown by the `emotion` menu
 - `customInsertions` / `additionalInsertions`: Custom SSML insertion definitions. `customInsertions` replaces a built-in definition with the same ID, while `additionalInsertions` adds definitions to the built-ins
 - `className` / `style`: A class name and inline styles for the editor container
