@@ -1532,8 +1532,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     ...visibleInsertionGroups.flatMap(({ insertions }) => insertions),
     ...ungroupedInsertions,
   ].filter(
-    (insertion, index, insertions) =>
-      insertions.findIndex((candidate) => candidate.id === insertion.id) === index,
+    (insertion, index, insertions) => insertions.findIndex((candidate) => candidate.id === insertion.id) === index,
   );
 
   useEffect(() => {
