@@ -9,8 +9,9 @@ export type SsmlPartialVoice = Pick<VoiceElement, "name" | "effect" | "attribute
 export type SsmlPartialProsody = Pick<ProsodyElement, "rate" | "pitch" | "volume" | "contour" | "range" | "attributes">;
 
 export interface SsmlPartialContext {
-  /** SSML version and language used for the generated document. */
+  /** SSML version used for the generated document. */
   version?: string;
+  /** BCP-47 language tag used for the generated document. */
   lang?: string;
   /** Preferred voice name; a voice object takes precedence, while this overrides a string `voice` shorthand. */
   voiceName?: string;
@@ -18,7 +19,9 @@ export interface SsmlPartialContext {
   voiceEffect?: string;
   /** A voice name shorthand or a voice object whose attributes are preserved. */
   voice?: string | SsmlPartialVoice;
+  /** Optional prosody values applied around the partial text. */
   prosody?: SsmlPartialProsody;
+  /** Additional attributes added to the generated `speak` element. */
   attributes?: SsmlAttributes;
 }
 

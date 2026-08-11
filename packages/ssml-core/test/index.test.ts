@@ -32,6 +32,17 @@ test("buildPartialSsml parses valid XML fragments and escapes invalid fragments"
   );
 });
 
+test("buildPartialSsml accepts a voice shorthand in object options", () => {
+  assert.equal(
+    buildPartialSsml({
+      text: "Hello",
+      lang: "en-US",
+      voice: "en-US-JennyNeural",
+    }),
+    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural">Hello</voice></speak>',
+  );
+});
+
 test("buildSsml uses the default language", () => {
   assert.deepEqual(buildSsml("Hello"), {
     version: "1.0",
