@@ -36,6 +36,7 @@ test.describe("Monaco SSML editor", () => {
     await replaceEditorText(page, JAPANESE_TEXT);
 
     const editor = monacoEditor(page);
+    await editor.locator(".view-lines").click();
     await page.keyboard.press("ControlOrMeta+A");
 
     const rateButton = page.getByRole("button", { name: "速度", exact: true });
@@ -101,6 +102,8 @@ test.describe("Monaco SSML editor", () => {
     await expect(contextMenu).toBeVisible();
     const contextMenuZIndex = await getZIndex(contextMenu);
 
+    await page.keyboard.press("Escape");
+    await expect(contextMenu).toBeHidden();
     await breakButton.click();
     await expect(breakMenu).toBeVisible();
     const toolbarMenuZIndex = await getZIndex(breakMenu);
