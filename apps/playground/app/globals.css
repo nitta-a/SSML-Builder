@@ -56,6 +56,47 @@ body {
   text-transform: uppercase;
 }
 
+.speech-settings {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: #ffffff;
+}
+
+.speech-settings h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.settings-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.setting-field {
+  display: grid;
+  gap: 0.375rem;
+  font-weight: 600;
+}
+
+.setting-field select {
+  min-height: 2.25rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #9ca3af;
+  border-radius: 0.25rem;
+  color: inherit;
+  background: #f9fafb;
+  font: inherit;
+}
+
+.selected-voice {
+  margin: 0;
+  color: #4b5563;
+}
+
 .output {
   display: grid;
   gap: 0.75rem;
@@ -90,7 +131,27 @@ body {
     background: #1f2937;
   }
 
+  .speech-settings {
+    border-color: #374151;
+    background: #1f2937;
+  }
+
+  .setting-field select {
+    border-color: #4b5563;
+    background: #111827;
+  }
+
+  .selected-voice {
+    color: #9ca3af;
+  }
+
   .output pre {
     background: #111827;
+  }
+}
+
+@media (max-width: 40rem) {
+  .settings-fields {
+    grid-template-columns: 1fr;
   }
 }
