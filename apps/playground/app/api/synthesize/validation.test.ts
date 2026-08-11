@@ -14,6 +14,10 @@ test("containsVoiceTag detects nested voice elements", () => {
   );
 });
 
+test("containsVoiceTag detects voice elements at the current level", () => {
+  assert.equal(containsVoiceTag([{ type: "voice", name: "en-US-JennyNeural", children: ["Hello"] }]), true);
+});
+
 test("containsVoiceTag returns false when no voice elements are present", () => {
   assert.equal(containsVoiceTag(["Hello", { type: "break", time: "500ms" }]), false);
 });
