@@ -18,7 +18,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run test/randomized-editor-invariants.test.ts && node --experimental-strip-types --test test/index.test.ts test/format-xml-edge-cases.test.ts",
+    "test": "vitest run test/randomized-editor-invariants.test.ts test/ui-components.test.tsx && node --experimental-strip-types --test test/index.test.ts test/format-xml-edge-cases.test.ts",
     "typecheck": "tsc --build"
   },
   "devDependencies": {
