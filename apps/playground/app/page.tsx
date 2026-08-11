@@ -251,6 +251,7 @@ export default function Home() {
             <input
               type="checkbox"
               role="switch"
+              aria-checked={theme === "dark"}
               checked={theme === "dark"}
               onChange={(event) => setTheme(event.currentTarget.checked ? "dark" : "light")}
               disabled={theme === null}
