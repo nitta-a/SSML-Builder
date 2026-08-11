@@ -527,9 +527,5 @@ export function formatXmlFragment(xml: string): string {
     return xml;
   }
 
-  if (formatted === wrapped) {
-    return source;
-  }
-
   return unwrapFormattedFragment(formatted) ?? xml;
 }
