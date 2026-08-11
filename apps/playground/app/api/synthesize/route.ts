@@ -51,7 +51,7 @@ function describeError(error: unknown): Record<string, unknown> {
 function getSsmlValidationMessage(error: unknown): string {
   const rawMessage = (error instanceof Error ? error.message : String(error)).trim();
   const positionMatch = PARSER_POSITION_SUFFIX.exec(rawMessage);
-  return positionMatch ? rawMessage.slice(0, positionMatch.index) : rawMessage;
+  return positionMatch ? rawMessage.slice(0, positionMatch.index).trimEnd() : rawMessage;
 }
 
 export async function POST(request: Request): Promise<Response> {
