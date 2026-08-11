@@ -15,10 +15,9 @@ function closeSpeechResources(speechConfig: SpeechSDK.SpeechConfig, synthesizer:
 
 export async function synthesizeSpeech(ssml: string, config: TtsConfig): Promise<ArrayBuffer> {
   const speechConfig = createSpeechConfig(config);
-  console.debug("Speech config created:", speechConfig);
   const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, null);
 
-  return new Promise<ArrayBuffer>((resolve, reject) => {
+  return await new Promise<ArrayBuffer>((resolve, reject) => {
     let resourcesClosed = false;
     const closeResources = () => {
       if (resourcesClosed) return;

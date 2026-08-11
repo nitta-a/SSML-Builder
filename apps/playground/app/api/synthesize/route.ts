@@ -5,6 +5,9 @@ export const runtime = "nodejs";
 
 const AUDIO_CONTENT_TYPE = "audio/mpeg";
 const MAX_LOGGED_RESPONSE_BODY_LENGTH = 4096;
+const subscriptionKey = process.env.AZURE_SPEECH_KEY;
+const region = process.env.AZURE_SPEECH_REGION;
+const endpoint = process.env.AZURE_SPEECH_ENDPOINT || "";
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
@@ -64,20 +67,13 @@ export async function POST(request: Request): Promise<Response> {
   if (validationError) {
     return errorResponse(`Invalid SSML: ${validationError.message}`, 400);
   }
-
-  const subscriptionKey = process.env.AZURE_SPEECH_KEY;
-  const region = process.env.AZURE_SPEECH_REGION;
-
   if (!subscriptionKey || !region) {
     return errorResponse("Azure Speech is not configured.", 503);
   }
 
   try {
-    const client = new AzureTtsClient({
-      subscriptionKey,
-      region,
-      endpoint: process.env.AZURE_SPEECH_ENDPOINT || undefined,
-    });
+    const opt = { subscriptionKey, region, endpoint };
+    const client = new AzureTtsClient(opt);
     const audio = await client.synthesize(ssml);
 
     return new Response(new Uint8Array(audio), {

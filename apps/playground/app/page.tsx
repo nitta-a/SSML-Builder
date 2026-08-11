@@ -42,7 +42,6 @@ const initialDocument: SsmlDocument = {
         {
           type: "prosody",
           rate: "medium",
-          pitch: "0st",
           volume: "medium",
           children: ["Welcome to the SSML Builder playground."],
         },
