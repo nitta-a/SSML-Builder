@@ -1138,7 +1138,7 @@ export function SsmlEditor({
                     type="button"
                     role="menuitem"
                     style={styles.toolbarOption}
-                    title={`${insertion.descriptions[language]} (${option.labels[language]})`}
+                    title={insertion.descriptions[language]}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={(event) => {
                       if (editorRef.current) {
