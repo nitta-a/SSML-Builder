@@ -18,13 +18,14 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test": "vitest run test/*.vitest.ts && node --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc --build"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "typescript": "^6.0.3",
+    "vitest": "^4.1.10",
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
