@@ -772,10 +772,11 @@ type EditorCopy = {
   quickBreak: string;
   quickProsody: string;
   quickExpressAs: string;
-  quickInsertionDialogDescription: string;
+  quickInsertionPopoverDescription: string;
+  quickInsertionSelectPlaceholder: string;
   quickInsertionCancel: string;
   quickInsertionApply: string;
-  quickInsertionValueRequired: string;
+  quickInsertionSelectionRequired: string;
 };
 
 const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
@@ -807,10 +808,11 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     quickBreak: "break",
     quickProsody: "prosody",
     quickExpressAs: "express-as",
-    quickInsertionDialogDescription: "挿入する属性を選択または入力してください。",
+    quickInsertionPopoverDescription: "挿入する属性をプリセットから選択してください。",
+    quickInsertionSelectPlaceholder: "指定しない",
     quickInsertionCancel: "キャンセル",
     quickInsertionApply: "挿入",
-    quickInsertionValueRequired: "少なくとも1つの属性値を入力してください。",
+    quickInsertionSelectionRequired: "少なくとも1つの属性値を選択してください。",
   },
   en: {
     editorAriaLabel: "SSML editor",
@@ -840,10 +842,11 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     quickBreak: "break",
     quickProsody: "prosody",
     quickExpressAs: "express-as",
-    quickInsertionDialogDescription: "Select or enter the attributes to insert.",
+    quickInsertionPopoverDescription: "Select the attributes to insert from the available presets.",
+    quickInsertionSelectPlaceholder: "Not set",
     quickInsertionCancel: "Cancel",
     quickInsertionApply: "Insert",
-    quickInsertionValueRequired: "Enter at least one attribute value.",
+    quickInsertionSelectionRequired: "Select at least one attribute value.",
   },
 };
 
@@ -1258,34 +1261,38 @@ const styles: Record<string, CSSProperties> = {
     padding: 0,
     border: 0,
   },
-  quickInsertionDialog: {
+  quickInsertionPopoverAnchor: {
+    position: "relative",
+    display: "inline-flex",
+  },
+  quickInsertionPopover: {
     position: "absolute",
     zIndex: 9999,
-    top: "0.5rem",
-    right: "0.5rem",
+    top: "calc(100% + 0.375rem)",
+    left: 0,
     display: "grid",
     gap: "0.75rem",
-    width: "min(28rem, calc(100% - 1rem))",
-    maxHeight: "calc(100% - 1rem)",
+    width: "min(20rem, calc(100vw - 1rem))",
+    maxHeight: "min(24rem, calc(100vh - 1rem))",
     overflowY: "auto",
-    padding: "0.875rem",
+    padding: "0.625rem",
     border: "1px solid var(--ssml-editor-control-border)",
     borderRadius: "0.5rem",
     color: "var(--ssml-editor-color)",
     backgroundColor: "var(--ssml-editor-control-bg)",
     boxShadow: "0 0.5rem 1.25rem rgb(0 0 0 / 25%)",
   },
-  quickInsertionDialogHeader: {
+  quickInsertionPopoverHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: "0.5rem",
   },
-  quickInsertionDialogHeading: {
+  quickInsertionPopoverHeading: {
     margin: 0,
     fontSize: "1rem",
   },
-  quickInsertionDialogDescription: {
+  quickInsertionPopoverDescription: {
     margin: 0,
     fontSize: "0.875rem",
     lineHeight: 1.5,
@@ -1308,7 +1315,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "0.75rem",
     lineHeight: 1.4,
   },
-  quickInsertionInput: {
+  quickInsertionSelect: {
     boxSizing: "border-box",
     width: "100%",
     minHeight: "2.25rem",
@@ -1319,12 +1326,12 @@ const styles: Record<string, CSSProperties> = {
     backgroundColor: "var(--ssml-editor-bg)",
     font: "inherit",
   },
-  quickInsertionDialogActions: {
+  quickInsertionPopoverActions: {
     display: "flex",
     justifyContent: "flex-end",
     gap: "0.5rem",
   },
-  quickInsertionDialogError: {
+  quickInsertionPopoverError: {
     margin: 0,
     color: "var(--ssml-editor-error)",
     fontSize: "0.875rem",
@@ -1364,7 +1371,7 @@ interface SelectionOverlayState extends SelectionInfo {
   placement: "above" | "below";
 }
 
-interface QuickInsertionDialogState {
+interface QuickInsertionPopoverState {
   definition: QuickInsertionDefinition;
   values: QuickInsertionValues;
   error: string | null;
@@ -2055,7 +2062,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     ...(automaticLayout === undefined ? {} : { automaticLayout }),
   };
   const helpPanelId = useId();
-  const quickInsertionDialogId = useId();
+  const quickInsertionPopoverId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const draftDocumentRef = useRef(document);
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -2069,7 +2076,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
   const [isDark, setIsDark] = useState(false);
   const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
-  const [quickInsertionDialog, setQuickInsertionDialog] = useState<QuickInsertionDialogState | null>(null);
+  const [quickInsertionPopover, setQuickInsertionPopover] = useState<QuickInsertionPopoverState | null>(null);
+  const quickInsertionAnchorRef = useRef<HTMLSpanElement | null>(null);
+  const quickInsertionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   draftDocumentRef.current = draftDocument;
@@ -2179,6 +2188,33 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   }, [showDecorations]);
 
   useEffect(() => {
+    if (!quickInsertionPopover) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent): void => {
+      const target = event.target;
+      if (target instanceof Node && !quickInsertionAnchorRef.current?.contains(target)) {
+        setQuickInsertionPopover(null);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setQuickInsertionPopover(null);
+        quickInsertionTriggerRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [quickInsertionPopover]);
+
+  useEffect(() => {
     return () => {
       const model = editorRef.current?.getModel();
       if (model && monacoRef.current) {
@@ -2264,18 +2300,24 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     [copy],
   );
 
-  const openQuickInsertionDialog = (id: QuickInsertionId): void => {
+  const openQuickInsertionPopover = (id: QuickInsertionId): void => {
     const definition = QUICK_INSERTION_DEFINITIONS.find((candidate) => candidate.id === id);
     if (!definition) {
       return;
     }
 
-    const values = Object.fromEntries(definition.fields.map((field) => [field.attribute, ""]));
-    setQuickInsertionDialog({ definition, values, error: null });
+    setQuickInsertionPopover((current) => {
+      if (current?.definition.id === id) {
+        return null;
+      }
+
+      const values = Object.fromEntries(definition.fields.map((field) => [field.attribute, ""]));
+      return { definition, values, error: null };
+    });
   };
 
   const updateQuickInsertionValue = (attribute: string, value: string): void => {
-    setQuickInsertionDialog((current) =>
+    setQuickInsertionPopover((current) =>
       current === null
         ? current
         : {
@@ -2289,21 +2331,21 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     );
   };
 
-  const applyQuickInsertionDialog = (): void => {
-    if (!quickInsertionDialog || !editorRef.current) {
+  const applyQuickInsertionPopover = (): void => {
+    if (!quickInsertionPopover || !editorRef.current) {
       return;
     }
 
-    const template = createQuickInsertionTemplate(quickInsertionDialog.definition, quickInsertionDialog.values);
+    const template = createQuickInsertionTemplate(quickInsertionPopover.definition, quickInsertionPopover.values);
     if (!template) {
-      setQuickInsertionDialog((current) =>
-        current === null ? current : { ...current, error: copy.quickInsertionValueRequired },
+      setQuickInsertionPopover((current) =>
+        current === null ? current : { ...current, error: copy.quickInsertionSelectionRequired },
       );
       return;
     }
 
     applySsmlTemplate(editorRef.current, template);
-    setQuickInsertionDialog(null);
+    setQuickInsertionPopover(null);
   };
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
@@ -2660,101 +2702,115 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               <fieldset aria-label={copy.quickInsertions} style={styles.selectionQuickGroup}>
                 <span style={styles.selectionCount}>{copy.quickInsertions}</span>
                 {quickInsertionButtons.map((button) => (
-                  <button
+                  <span
                     key={button.id}
-                    type="button"
-                    style={styles.selectionActionButton}
-                    title={`<${button.id}>`}
-                    disabled={isReadOnly}
-                    onClick={() => {
-                      if (!isReadOnly) {
-                        openQuickInsertionDialog(button.id);
-                      }
-                    }}
+                    ref={quickInsertionPopover?.definition.id === button.id ? quickInsertionAnchorRef : undefined}
+                    style={styles.quickInsertionPopoverAnchor}
                   >
-                    <span style={styles.selectionActionIcon} aria-hidden="true">
-                      {button.icon}
-                    </span>
-                    {button.label}
-                  </button>
+                    <button
+                      ref={quickInsertionPopover?.definition.id === button.id ? quickInsertionTriggerRef : undefined}
+                      type="button"
+                      style={styles.selectionActionButton}
+                      title={`<${button.id}>`}
+                      aria-expanded={quickInsertionPopover?.definition.id === button.id}
+                      aria-controls={
+                        quickInsertionPopover?.definition.id === button.id
+                          ? `${quickInsertionPopoverId}-${button.id}`
+                          : undefined
+                      }
+                      disabled={isReadOnly}
+                      onClick={() => {
+                        if (!isReadOnly) {
+                          openQuickInsertionPopover(button.id);
+                        }
+                      }}
+                    >
+                      <span style={styles.selectionActionIcon} aria-hidden="true">
+                        {button.icon}
+                      </span>
+                      {button.label}
+                    </button>
+                    {quickInsertionPopover?.definition.id === button.id && (
+                      <div
+                        id={`${quickInsertionPopoverId}-${button.id}`}
+                        role="group"
+                        aria-labelledby={`${quickInsertionPopoverId}-${button.id}-title`}
+                        style={styles.quickInsertionPopover}
+                        onMouseDown={(event) => event.stopPropagation()}
+                      >
+                        <div style={styles.quickInsertionPopoverHeader}>
+                          <h3
+                            id={`${quickInsertionPopoverId}-${button.id}-title`}
+                            style={styles.quickInsertionPopoverHeading}
+                          >
+                            {`<${quickInsertionPopover.definition.tagName}>`}
+                          </h3>
+                          <button
+                            type="button"
+                            style={styles.selectionActionButton}
+                            aria-label={copy.quickInsertionCancel}
+                            title={copy.quickInsertionCancel}
+                            onClick={() => setQuickInsertionPopover(null)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <p style={styles.quickInsertionPopoverDescription}>
+                          {copy.quickInsertionPopoverDescription}
+                        </p>
+                        <div style={styles.quickInsertionFields}>
+                          {quickInsertionPopover.definition.fields.map((field) => {
+                            const descriptionId = `${quickInsertionPopoverId}-${button.id}-${field.attribute}-description`;
+                            return (
+                              <label key={field.attribute} style={styles.quickInsertionField}>
+                                <span style={styles.quickInsertionFieldLabel}>
+                                  <span>
+                                    <strong>{field.labels[language]}</strong> <code>{field.attribute}</code>
+                                  </span>
+                                </span>
+                                <select
+                                  style={styles.quickInsertionSelect}
+                                  value={quickInsertionPopover.values[field.attribute] ?? ""}
+                                  aria-describedby={descriptionId}
+                                  onChange={(event) => updateQuickInsertionValue(field.attribute, event.target.value)}
+                                >
+                                  <option value="">{copy.quickInsertionSelectPlaceholder}</option>
+                                  {field.options.map((option) => (
+                                    <option key={option} value={option}>
+                                      {option}
+                                    </option>
+                                  ))}
+                                </select>
+                                <span id={descriptionId} style={styles.quickInsertionFieldDescription}>
+                                  {field.descriptions[language]}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {quickInsertionPopover.error && (
+                          <p style={styles.quickInsertionPopoverError} role="alert">
+                            {quickInsertionPopover.error}
+                          </p>
+                        )}
+                        <div style={styles.quickInsertionPopoverActions}>
+                          <button
+                            type="button"
+                            style={styles.selectionActionButton}
+                            onClick={() => setQuickInsertionPopover(null)}
+                          >
+                            {copy.quickInsertionCancel}
+                          </button>
+                          <button type="button" style={styles.selectionActionButton} onClick={applyQuickInsertionPopover}>
+                            {copy.quickInsertionApply}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </span>
                 ))}
               </fieldset>
             </div>
-          )}
-          {quickInsertionDialog && (
-            <section
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={`${quickInsertionDialogId}-title`}
-              style={styles.quickInsertionDialog}
-            >
-              <div style={styles.quickInsertionDialogHeader}>
-                <h3 id={`${quickInsertionDialogId}-title`} style={styles.quickInsertionDialogHeading}>
-                  {`<${quickInsertionDialog.definition.tagName}>`}
-                </h3>
-                <button
-                  type="button"
-                  style={styles.selectionActionButton}
-                  aria-label={copy.quickInsertionCancel}
-                  title={copy.quickInsertionCancel}
-                  onClick={() => setQuickInsertionDialog(null)}
-                >
-                  ×
-                </button>
-              </div>
-              <p style={styles.quickInsertionDialogDescription}>{copy.quickInsertionDialogDescription}</p>
-              <div style={styles.quickInsertionFields}>
-                {quickInsertionDialog.definition.fields.map((field) => {
-                  const optionListId = `${quickInsertionDialogId}-${field.attribute}-options`;
-                  const descriptionId = `${quickInsertionDialogId}-${field.attribute}-description`;
-                  return (
-                    <label key={field.attribute} style={styles.quickInsertionField}>
-                      <span style={styles.quickInsertionFieldLabel}>
-                        <span>
-                          <strong>{field.labels[language]}</strong> <code>{field.attribute}</code>
-                        </span>
-                      </span>
-                      <input
-                        type="text"
-                        style={styles.quickInsertionInput}
-                        value={quickInsertionDialog.values[field.attribute] ?? ""}
-                        placeholder={field.placeholders[language]}
-                        list={field.options ? optionListId : undefined}
-                        aria-describedby={descriptionId}
-                        onChange={(event) => updateQuickInsertionValue(field.attribute, event.target.value)}
-                      />
-                      {field.options && (
-                        <datalist id={optionListId}>
-                          {field.options.map((option) => (
-                            <option key={option} value={option} />
-                          ))}
-                        </datalist>
-                      )}
-                      <span id={descriptionId} style={styles.quickInsertionFieldDescription}>
-                        {field.descriptions[language]}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-              {quickInsertionDialog.error && (
-                <p style={styles.quickInsertionDialogError} role="alert">
-                  {quickInsertionDialog.error}
-                </p>
-              )}
-              <div style={styles.quickInsertionDialogActions}>
-                <button
-                  type="button"
-                  style={styles.selectionActionButton}
-                  onClick={() => setQuickInsertionDialog(null)}
-                >
-                  {copy.quickInsertionCancel}
-                </button>
-                <button type="button" style={styles.selectionActionButton} onClick={applyQuickInsertionDialog}>
-                  {copy.quickInsertionApply}
-                </button>
-              </div>
-            </section>
           )}
         </div>
         {syntaxError && (
