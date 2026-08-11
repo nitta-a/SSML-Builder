@@ -205,6 +205,12 @@ export default function Home() {
     if (theme === null) {
       return;
     }
+
+    if (!hasManualThemeRef.current && getStoredTheme() === null) {
+      globalThis.document.documentElement.removeAttribute("data-theme");
+      return;
+    }
+
     globalThis.document.documentElement.dataset.theme = theme;
   }, [theme]);
 
@@ -217,6 +223,10 @@ export default function Home() {
   };
 
   const toggleTheme = (): void => {
+    if (theme === null) {
+      return;
+    }
+
     hasManualThemeRef.current = true;
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
