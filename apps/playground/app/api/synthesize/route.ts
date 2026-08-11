@@ -1,5 +1,6 @@
 import { AzureTtsClient, AzureTtsError } from "@ssml-builder/azure-tts-client";
 import { parseSsml } from "@ssml-builder/ssml-core";
+import type { SsmlDocument } from "@ssml-builder/ssml-core";
 import { containsVoiceTag } from "./validation.ts";
 
 export const runtime = "nodejs";
@@ -71,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
     return errorResponse("SSML must not be empty.", 400);
   }
 
-  let parsedSsml: ReturnType<typeof parseSsml>;
+  let parsedSsml: SsmlDocument;
   try {
     parsedSsml = parseSsml(ssml);
   } catch (error) {
