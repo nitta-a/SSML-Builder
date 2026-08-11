@@ -12,6 +12,13 @@ import type {
 } from "@ssml-builder/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { formatXmlFragment } from "./formatXml";
+import {
+  createQuickInsertionTemplate,
+  QUICK_INSERTION_DEFINITIONS,
+  type QuickInsertionDefinition,
+  type QuickInsertionId,
+  type QuickInsertionValues,
+} from "./quickInsertions";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 
 const DEFAULT_LANGUAGE = "ja";
@@ -760,6 +767,10 @@ type EditorCopy = {
   quickBreak: string;
   quickProsody: string;
   quickExpressAs: string;
+  quickInsertionDialogDescription: string;
+  quickInsertionCancel: string;
+  quickInsertionApply: string;
+  quickInsertionValueRequired: string;
 };
 
 const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
@@ -788,6 +799,10 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     quickBreak: "break",
     quickProsody: "prosody",
     quickExpressAs: "express-as",
+    quickInsertionDialogDescription: "挿入する属性を選択または入力してください。",
+    quickInsertionCancel: "キャンセル",
+    quickInsertionApply: "挿入",
+    quickInsertionValueRequired: "少なくとも1つの属性値を入力してください。",
   },
   en: {
     editorAriaLabel: "SSML editor",
@@ -814,6 +829,10 @@ const EDITOR_COPY: Record<SsmlEditorLanguage, EditorCopy> = {
     quickBreak: "break",
     quickProsody: "prosody",
     quickExpressAs: "express-as",
+    quickInsertionDialogDescription: "Select or enter the attributes to insert.",
+    quickInsertionCancel: "Cancel",
+    quickInsertionApply: "Insert",
+    quickInsertionValueRequired: "Enter at least one attribute value.",
   },
 };
 
@@ -935,7 +954,7 @@ export interface SsmlEditorProps {
   onChange?: (document: SsmlDocument) => void;
   onSsmlChange?: (xml: string) => void;
   onSelectionChange?: (info: SelectionInfo) => void;
-  /** Called with the selected partial SSML when the selection preview action is used. */
+  /** Called with the selected partial SSML when the selection preview action is used. The action is disabled when omitted. */
   onPreviewSelection?: (ssml: string) => void;
   /** UI language. Japanese is used when omitted. */
   language?: SsmlEditorLanguage;
@@ -1226,6 +1245,77 @@ const styles: Record<string, CSSProperties> = {
     padding: 0,
     border: 0,
   },
+  quickInsertionDialog: {
+    position: "absolute",
+    zIndex: 30,
+    top: "0.5rem",
+    right: "0.5rem",
+    display: "grid",
+    gap: "0.75rem",
+    width: "min(28rem, calc(100% - 1rem))",
+    maxHeight: "calc(100% - 1rem)",
+    overflowY: "auto",
+    padding: "0.875rem",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.5rem",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "var(--ssml-editor-control-bg)",
+    boxShadow: "0 0.5rem 1.25rem rgb(0 0 0 / 25%)",
+  },
+  quickInsertionDialogHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "0.5rem",
+  },
+  quickInsertionDialogHeading: {
+    margin: 0,
+    fontSize: "1rem",
+  },
+  quickInsertionDialogDescription: {
+    margin: 0,
+    fontSize: "0.875rem",
+    lineHeight: 1.5,
+  },
+  quickInsertionFields: {
+    display: "grid",
+    gap: "0.625rem",
+  },
+  quickInsertionField: {
+    display: "grid",
+    gap: "0.25rem",
+  },
+  quickInsertionFieldLabel: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: "0.5rem",
+  },
+  quickInsertionFieldDescription: {
+    fontSize: "0.75rem",
+    lineHeight: 1.4,
+  },
+  quickInsertionInput: {
+    boxSizing: "border-box",
+    width: "100%",
+    minHeight: "2.25rem",
+    padding: "0.375rem 0.5rem",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.25rem",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "var(--ssml-editor-bg)",
+    font: "inherit",
+  },
+  quickInsertionDialogActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "0.5rem",
+  },
+  quickInsertionDialogError: {
+    margin: 0,
+    color: "var(--ssml-editor-error)",
+    fontSize: "0.875rem",
+  },
   error: {
     margin: 0,
     padding: "0.5rem 0.75rem",
@@ -1261,32 +1351,18 @@ interface SelectionOverlayState extends SelectionInfo {
   placement: "above" | "below";
 }
 
+interface QuickInsertionDialogState {
+  definition: QuickInsertionDefinition;
+  values: QuickInsertionValues;
+  error: string | null;
+}
+
 const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
   selectedText: "",
   characterCount: 0,
   hasSelection: false,
   position: null,
   placement: "above",
-};
-
-type QuickInsertionId = "break" | "prosody" | "express-as";
-
-const QUICK_INSERTION_TEMPLATES: Record<QuickInsertionId, SsmlEditorInsertionTemplate> = {
-  break: {
-    prefix: '<break time="500ms"/>',
-    suffix: "",
-    mode: "insert",
-  },
-  prosody: {
-    prefix: '<prosody pitch="+2st">',
-    suffix: "</prosody>",
-    mode: "wrap",
-  },
-  "express-as": {
-    prefix: '<mstts:express-as style="cheerful">',
-    suffix: "</mstts:express-as>",
-    mode: "wrap",
-  },
 };
 
 const hoverProviderRegistrations = new WeakMap<MonacoLanguages, HoverProviderRegistration>();
@@ -1643,17 +1719,6 @@ function getCurrentDocument(document: SsmlDocument, editor: MonacoEditor | null)
   return value === undefined ? document : updateText(document, value);
 }
 
-function getSelectedRangeText(editor: MonacoEditor): string | null {
-  const model = editor.getModel();
-  const selection = editor.getSelection();
-  if (!model || !selection) {
-    return null;
-  }
-
-  const selectedText = model.getValueInRange(selection);
-  return selectedText.length > 0 ? selectedText : null;
-}
-
 function getCurrentLineText(editor: MonacoEditor): string | null {
   const model = editor.getModel();
   const selection = editor.getSelection();
@@ -1684,38 +1749,6 @@ function getSelectedSsml(editor: MonacoEditor, document: SsmlDocument): string |
 function getCurrentLineSsml(editor: MonacoEditor, document: SsmlDocument): string | null {
   const currentLineText = getCurrentLineText(editor);
   return currentLineText === null ? null : buildPartialSsml(currentLineText, getPartialContext(document));
-}
-
-function getNativePreviewText(value: string, lang: string): string {
-  const text = getPlainText(parseEditableText(value, lang)).trim();
-  return text || stripMarkupForNativePreview(value).trim();
-}
-
-function stripMarkupForNativePreview(value: string): string {
-  let text = "";
-  let inTag = false;
-
-  for (const character of value) {
-    if (character === "<") {
-      inTag = true;
-      continue;
-    }
-    if (inTag) {
-      if (character === ">") {
-        inTag = false;
-      }
-      continue;
-    }
-    text += character;
-  }
-
-  return text;
-}
-
-function isNativePreviewAvailable(): boolean {
-  return (
-    typeof window !== "undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined"
-  );
 }
 
 function acquireSsmlHoverProvider(monaco: Monaco): () => void {
@@ -1865,6 +1898,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     ...(automaticLayout === undefined ? {} : { automaticLayout }),
   };
   const helpPanelId = useId();
+  const quickInsertionDialogId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const draftDocumentRef = useRef(document);
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -1877,7 +1911,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const onPreviewSelectionRef = useRef(onPreviewSelection);
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
   const [isDark, setIsDark] = useState(false);
-  const [nativePreviewAvailable, setNativePreviewAvailable] = useState(false);
+  const [quickInsertionDialog, setQuickInsertionDialog] = useState<QuickInsertionDialogState | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   draftDocumentRef.current = draftDocument;
@@ -1969,7 +2003,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
 
   useEffect(() => {
     injectEditorTheme();
-    setNativePreviewAvailable(isNativePreviewAvailable());
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     setIsDark(mq.matches);
     const handler = (e: MediaQueryListEvent): void => setIsDark(e.matches);
@@ -2027,15 +2060,10 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     onSsmlChange?.(buildSsml(nextDocument));
   };
 
-  const canPreviewSelection = onPreviewSelection !== undefined || nativePreviewAvailable;
+  const canPreviewSelection = onPreviewSelection !== undefined;
   const previewSelection = (): void => {
     const editor = editorRef.current;
     if (!editor) {
-      return;
-    }
-
-    const selectedText = getSelectedRangeText(editor);
-    if (selectedText === null) {
       return;
     }
 
@@ -2044,19 +2072,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       return;
     }
 
-    if (onPreviewSelectionRef.current) {
-      onPreviewSelectionRef.current(selectedSsml);
-      return;
-    }
-
-    if (!nativePreviewAvailable) {
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(getNativePreviewText(selectedText, draftDocumentRef.current.lang));
-    utterance.lang = draftDocumentRef.current.lang;
-    window.speechSynthesis.speak(utterance);
+    onPreviewSelectionRef.current?.(selectedSsml);
   };
 
   useImperativeHandle(
@@ -2083,6 +2099,48 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     ],
     [copy],
   );
+
+  const openQuickInsertionDialog = (id: QuickInsertionId): void => {
+    const definition = QUICK_INSERTION_DEFINITIONS.find((candidate) => candidate.id === id);
+    if (!definition) {
+      return;
+    }
+
+    const values = Object.fromEntries(definition.fields.map((field) => [field.attribute, ""]));
+    setQuickInsertionDialog({ definition, values, error: null });
+  };
+
+  const updateQuickInsertionValue = (attribute: string, value: string): void => {
+    setQuickInsertionDialog((current) =>
+      current === null
+        ? current
+        : {
+            ...current,
+            values: {
+              ...current.values,
+              [attribute]: value,
+            },
+            error: null,
+          },
+    );
+  };
+
+  const applyQuickInsertionDialog = (): void => {
+    if (!quickInsertionDialog || !editorRef.current) {
+      return;
+    }
+
+    const template = createQuickInsertionTemplate(quickInsertionDialog.definition, quickInsertionDialog.values);
+    if (!template) {
+      setQuickInsertionDialog((current) =>
+        current === null ? current : { ...current, error: copy.quickInsertionValueRequired },
+      );
+      return;
+    }
+
+    applySsmlTemplate(editorRef.current, template);
+    setQuickInsertionDialog(null);
+  };
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
     <details key={insertion.id} style={styles.toolbarDropdown}>
@@ -2449,8 +2507,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                     title={`<${button.id}>`}
                     disabled={isReadOnly}
                     onClick={() => {
-                      if (!isReadOnly && editorRef.current) {
-                        applySsmlTemplate(editorRef.current, QUICK_INSERTION_TEMPLATES[button.id]);
+                      if (!isReadOnly) {
+                        openQuickInsertionDialog(button.id);
                       }
                     }}
                   >
@@ -2462,6 +2520,81 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
                 ))}
               </fieldset>
             </div>
+          )}
+          {quickInsertionDialog && (
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={`${quickInsertionDialogId}-title`}
+              style={styles.quickInsertionDialog}
+            >
+              <div style={styles.quickInsertionDialogHeader}>
+                <h3 id={`${quickInsertionDialogId}-title`} style={styles.quickInsertionDialogHeading}>
+                  {`<${quickInsertionDialog.definition.tagName}>`}
+                </h3>
+                <button
+                  type="button"
+                  style={styles.selectionActionButton}
+                  aria-label={copy.quickInsertionCancel}
+                  title={copy.quickInsertionCancel}
+                  onClick={() => setQuickInsertionDialog(null)}
+                >
+                  ×
+                </button>
+              </div>
+              <p style={styles.quickInsertionDialogDescription}>{copy.quickInsertionDialogDescription}</p>
+              <div style={styles.quickInsertionFields}>
+                {quickInsertionDialog.definition.fields.map((field) => {
+                  const optionListId = `${quickInsertionDialogId}-${field.attribute}-options`;
+                  const descriptionId = `${quickInsertionDialogId}-${field.attribute}-description`;
+                  return (
+                    <label key={field.attribute} style={styles.quickInsertionField}>
+                      <span style={styles.quickInsertionFieldLabel}>
+                        <span>
+                          <strong>{field.labels[language]}</strong> <code>{field.attribute}</code>
+                        </span>
+                      </span>
+                      <input
+                        type="text"
+                        style={styles.quickInsertionInput}
+                        value={quickInsertionDialog.values[field.attribute] ?? ""}
+                        placeholder={field.placeholders[language]}
+                        list={field.options ? optionListId : undefined}
+                        aria-describedby={descriptionId}
+                        onChange={(event) => updateQuickInsertionValue(field.attribute, event.target.value)}
+                      />
+                      {field.options && (
+                        <datalist id={optionListId}>
+                          {field.options.map((option) => (
+                            <option key={option} value={option} />
+                          ))}
+                        </datalist>
+                      )}
+                      <span id={descriptionId} style={styles.quickInsertionFieldDescription}>
+                        {field.descriptions[language]}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {quickInsertionDialog.error && (
+                <p style={styles.quickInsertionDialogError} role="alert">
+                  {quickInsertionDialog.error}
+                </p>
+              )}
+              <div style={styles.quickInsertionDialogActions}>
+                <button
+                  type="button"
+                  style={styles.selectionActionButton}
+                  onClick={() => setQuickInsertionDialog(null)}
+                >
+                  {copy.quickInsertionCancel}
+                </button>
+                <button type="button" style={styles.selectionActionButton} onClick={applyQuickInsertionDialog}>
+                  {copy.quickInsertionApply}
+                </button>
+              </div>
+            </section>
           )}
         </div>
         {syntaxError && (
