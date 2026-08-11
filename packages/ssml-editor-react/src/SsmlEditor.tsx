@@ -12,7 +12,6 @@ import type {
 import {
   isSsmlEditorButtonVisible,
   type SsmlEditorButtonVisibility,
-  type SsmlEditorInsertionButton,
 } from "./buttonVisibility";
 import { formatXml } from "./formatXml";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
@@ -80,7 +79,7 @@ export type SsmlEditorCustomInsertion =
 
 export type SsmlEditorCustomInsertionCollection =
   | readonly SsmlEditorCustomInsertion[]
-  | Readonly<Record<string, SsmlEditorCustomInsertion>>;
+  | Readonly<Record<string, SsmlEditorCustomInsertion | undefined>>;
 
 export interface SsmlEditorInsertionGroup {
   id: string;
@@ -89,16 +88,8 @@ export interface SsmlEditorInsertionGroup {
 }
 
 export type SsmlEditorTheme = "system" | "light" | "dark";
-export type SsmlEditorWordWrap =
-  | "off"
-  | "on"
-  | "wordWrapColumn"
-  | "bounded";
-export type SsmlEditorLineNumbers =
-  | "on"
-  | "off"
-  | "relative"
-  | "interval";
+export type SsmlEditorWordWrap = "off" | "on" | "wordWrapColumn" | "bounded";
+export type SsmlEditorLineNumbers = "on" | "off" | "relative" | "interval";
 
 export interface SsmlEditorOptions {
   height?: string | number;
@@ -112,9 +103,9 @@ export interface SsmlEditorOptions {
   automaticLayout?: boolean;
 }
 
-type SsmlInsertionOption = SsmlEditorInsertionOption;
-type SsmlInsertionTemplate = SsmlEditorInsertionTemplate;
-type SsmlInsertionDefinition = SsmlEditorInsertionDefinition;
+export type SsmlInsertionOption = SsmlEditorInsertionOption;
+export type SsmlInsertionTemplate = SsmlEditorInsertionTemplate;
+export type SsmlInsertionDefinition = SsmlEditorInsertionDefinition;
 
 function localizedText(value: string): SsmlEditorLocalizedText {
   return { ja: value, en: value };
@@ -133,23 +124,22 @@ export function createSsmlEditorInsertionDefinition(
   definition: SsmlEditorCustomInsertionDefinition,
 ): SsmlEditorInsertionDefinition {
   const mode = definition.mode ?? "wrap";
-  const attribute = definition.attribute
-    ? ` ${definition.attribute}="`
-    : "";
+  const attribute = definition.attribute ? ` ${definition.attribute}="` : "";
 
   return {
     id: definition.id,
     icon: definition.icon ?? "＋",
     labels: definition.labels,
     titles:
-      definition.titles ??
-      localizedText(`Insert <${definition.tagName}>`),
+      definition.titles ?? localizedText(`Insert <${definition.tagName}>`),
     descriptions:
       definition.descriptions ??
       localizedText(`Inserts the <${definition.tagName}> element.`),
     parameterDescription:
       definition.parameterDescription ??
-      localizedText(`Selects the value for the <${definition.tagName}> element.`),
+      localizedText(
+        `Selects the value for the <${definition.tagName}> element.`,
+      ),
     options: definition.options,
     createTemplate: (value) => {
       const attributeValue = definition.attribute
@@ -596,8 +586,8 @@ function getConfiguredInsertions(
   }
 
   for (const insertion of [
-    ...getInsertionCollection(customInsertions),
     ...getInsertionCollection(additionalInsertions),
+    ...getInsertionCollection(customInsertions),
   ]) {
     const normalized =
       "createTemplate" in insertion
@@ -970,7 +960,7 @@ const styles: Record<string, CSSProperties> = {
 };
 
 type MonacoEditor = Parameters<OnMount>[0];
-type SsmlInsertion = (typeof SSML_INSERTIONS)[number];
+type SsmlInsertion = SsmlInsertionDefinition;
 type MonacoLanguages = Monaco["languages"];
 type MonacoModel = NonNullable<ReturnType<MonacoEditor["getModel"]>>;
 type MonacoHoverProvider = Parameters<
@@ -1368,8 +1358,8 @@ export function SsmlEditor({
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
   const resolvedTheme = resolvedEditorOptions.theme ?? "system";
-  const editorHeight = resolvedEditorOptions.height ?? "8rem";
   const editorMinHeight = resolvedEditorOptions.minHeight ?? "8rem";
+  const editorHeight = resolvedEditorOptions.height ?? editorMinHeight;
   const isReadOnly = resolvedEditorOptions.readOnly ?? false;
   const toolbarButtonStyle = showToolbarText
     ? styles.toolbarButton
@@ -1489,15 +1479,9 @@ export function SsmlEditor({
             onMouseDown={(event) => event.preventDefault()}
             onClick={(event) => {
               if (!isReadOnly && editorRef.current) {
-                applySsmlInsertion(
-                  editorRef.current,
-                  insertion,
-                  option,
-                );
+                applySsmlInsertion(editorRef.current, insertion, option);
               }
-              event.currentTarget
-                .closest("details")
-                ?.removeAttribute("open");
+              event.currentTarget.closest("details")?.removeAttribute("open");
             }}
           >
             {option.labels[language]}
@@ -1544,14 +1528,13 @@ export function SsmlEditor({
             </button>
           )}
           {visibleInsertionGroups.map(({ group, insertions }) => (
-            <div
+            <fieldset
               key={group.id}
               style={styles.toolbarGroup}
-              role="group"
               aria-label={group.labels[language]}
             >
               {insertions.map(renderInsertion)}
-            </div>
+            </fieldset>
           ))}
           {ungroupedInsertions.map(renderInsertion)}
           {isSsmlEditorButtonVisible(buttonVisibility, "undo") && (
@@ -1698,8 +1681,7 @@ export function SsmlEditor({
             height={editorHeight}
             language="xml"
             theme={
-              resolvedTheme === "dark" ||
-              (resolvedTheme === "system" && isDark)
+              resolvedTheme === "dark" || (resolvedTheme === "system" && isDark)
                 ? "vs-dark"
                 : "light"
             }

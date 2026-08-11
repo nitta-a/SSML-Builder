@@ -24,6 +24,9 @@ export type {
   SsmlEditorProps,
   SsmlEditorTheme,
   SsmlEditorWordWrap,
+  SsmlInsertionDefinition,
+  SsmlInsertionOption,
+  SsmlInsertionTemplate,
 } from "./SsmlEditor";
 export {
   createSsmlEditorInsertionDefinition,
