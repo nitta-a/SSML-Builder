@@ -1,4 +1,7 @@
-export type SsmlInsertionMode = "insert" | "wrap";
+// @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
+import { SSML_INSERTION_MODES } from "./constants/ui.ts";
+
+export type SsmlInsertionMode = (typeof SSML_INSERTION_MODES)[keyof typeof SSML_INSERTION_MODES];
 
 export interface SsmlInsertionTemplate {
   prefix: string;
@@ -35,7 +38,7 @@ export function createSsmlInsertionEdit(
 ): SsmlInsertionEdit {
   const selectedText = source.slice(startOffset, endOffset);
 
-  if (template.mode === "wrap") {
+  if (template.mode === SSML_INSERTION_MODES.wrap) {
     return {
       replacement: `${template.prefix}${selectedText}${template.suffix}`,
       selectionOffset: template.prefix.length,

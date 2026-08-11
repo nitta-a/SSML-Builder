@@ -13,6 +13,26 @@ import type {
 } from "@ssml-builder-js/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import { clearSsmlDocument } from "./clearSsmlDocument";
+import {
+  BREAK_TIME_DESCRIPTIONS,
+  BREAK_TIME_PRESETS,
+  EMPHASIS_LEVEL_DESCRIPTIONS,
+  EMPHASIS_LEVEL_PRESETS,
+  EXPRESS_AS_STYLE_DESCRIPTIONS,
+  EXPRESS_AS_STYLE_PRESETS,
+  LANGUAGE_DESCRIPTIONS,
+  LANGUAGE_PRESETS,
+  PROSODY_PITCH_DESCRIPTIONS,
+  PROSODY_PITCH_PRESETS,
+  PROSODY_RATE_DESCRIPTIONS,
+  PROSODY_RATE_PRESETS,
+  PROSODY_VOLUME_DESCRIPTIONS,
+  PROSODY_VOLUME_PRESETS,
+  SAY_AS_DESCRIPTIONS,
+  SAY_AS_PRESETS,
+  SILENCE_VALUE_DESCRIPTIONS,
+  SILENCE_VALUE_PRESETS,
+} from "./constants/ssmlPresets";
 import { formatXmlFragment } from "./formatXml";
 import {
   EDITOR_COPY,
@@ -24,10 +44,8 @@ import {
 } from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
-
-const DEFAULT_LOCALE = "ja";
+import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES, OVERLAY_Z_INDEX } from "./constants/ui";
 const SSML_MARKER_OWNER = "ssml-builder";
-const SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES = 4;
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
 const EDITABLE_SSML_SUFFIX = "</speak>";
@@ -161,19 +179,13 @@ export function createSsmlEditorInsertionDefinition(
 }
 
 function createInsertionOptions(
-  values: readonly string[] | Readonly<Record<string, SsmlEditorLocalizedText>>,
+  values: readonly string[],
+  descriptions?: Readonly<Record<string, SsmlEditorLocalizedText>>,
 ): readonly SsmlInsertionOption[] {
-  if (Array.isArray(values)) {
-    return values.map((value) => ({
-      value,
-      labels: { ja: value, en: value },
-    }));
-  }
-
-  return Object.entries(values).map(([value, descriptions]) => ({
+  return values.map((value) => ({
     value,
     labels: { ja: value, en: value },
-    descriptions,
+    ...(descriptions?.[value] ? { descriptions: descriptions[value] } : {}),
   }));
 }
 
@@ -192,24 +204,7 @@ export const SSML_INSERTIONS = [
       ja: "無音にする時間を選択します。",
       en: "Selects the duration of the silent pause.",
     },
-    options: createInsertionOptions({
-      "500ms": {
-        ja: "500ミリ秒の無音",
-        en: "Inserts 500 milliseconds of silence.",
-      },
-      "1s": {
-        ja: "1秒の無音",
-        en: "Inserts one second of silence.",
-      },
-      "2s": {
-        ja: "2秒の無音",
-        en: "Inserts two seconds of silence.",
-      },
-      "3s": {
-        ja: "3秒の無音",
-        en: "Inserts three seconds of silence.",
-      },
-    }),
+    options: createInsertionOptions(BREAK_TIME_PRESETS, BREAK_TIME_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<break time="${value}"/>`,
       suffix: "",
@@ -229,24 +224,7 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の強調レベルを選択します。",
       en: "Selects the emphasis level for the selected text.",
     },
-    options: createInsertionOptions({
-      strong: {
-        ja: "強い強調",
-        en: "Applies strong emphasis.",
-      },
-      moderate: {
-        ja: "中程度の強調",
-        en: "Applies moderate emphasis.",
-      },
-      reduced: {
-        ja: "弱めの強調",
-        en: "Applies reduced emphasis.",
-      },
-      none: {
-        ja: "強調なし",
-        en: "Applies no emphasis.",
-      },
-    }),
+    options: createInsertionOptions(EMPHASIS_LEVEL_PRESETS, EMPHASIS_LEVEL_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<emphasis level="${value}">`,
       suffix: "</emphasis>",
@@ -266,28 +244,7 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の読み上げ速度を選択します。",
       en: "Selects the speech rate for the selected text.",
     },
-    options: createInsertionOptions({
-      "x-slow": {
-        ja: "最も遅い速度",
-        en: "Uses the slowest speech rate.",
-      },
-      slow: {
-        ja: "遅い速度",
-        en: "Uses a slow speech rate.",
-      },
-      medium: {
-        ja: "標準的な速度",
-        en: "Uses the standard speech rate.",
-      },
-      fast: {
-        ja: "速い速度",
-        en: "Uses a fast speech rate.",
-      },
-      "x-fast": {
-        ja: "最も速い速度",
-        en: "Uses the fastest speech rate.",
-      },
-    }),
+    options: createInsertionOptions(PROSODY_RATE_PRESETS, PROSODY_RATE_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<prosody rate="${value}">`,
       suffix: "</prosody>",
@@ -307,44 +264,7 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の声の高さを半音単位で選択します。",
       en: "Selects the pitch adjustment in semitone steps.",
     },
-    options: createInsertionOptions({
-      "+2st": {
-        ja: "基準の声の高さより2半音上",
-        en: "Raises the pitch by two semitones.",
-      },
-      "-2st": {
-        ja: "基準の声の高さより2半音下",
-        en: "Lowers the pitch by two semitones.",
-      },
-      "0st": {
-        ja: "基準の声の高さ",
-        en: "Keeps the baseline pitch.",
-      },
-      "+4st": {
-        ja: "基準の声の高さより4半音上",
-        en: "Raises the pitch by four semitones.",
-      },
-      "-4st": {
-        ja: "基準の声の高さより4半音下",
-        en: "Lowers the pitch by four semitones.",
-      },
-      "+8st": {
-        ja: "基準の声の高さより8半音上",
-        en: "Raises the pitch by eight semitones.",
-      },
-      "-8st": {
-        ja: "基準の声の高さより8半音下",
-        en: "Lowers the pitch by eight semitones.",
-      },
-      "+12st": {
-        ja: "基準の声の高さより12半音上",
-        en: "Raises the pitch by twelve semitones.",
-      },
-      "-12st": {
-        ja: "基準の声の高さより12半音下",
-        en: "Lowers the pitch by twelve semitones.",
-      },
-    }),
+    options: createInsertionOptions(PROSODY_PITCH_PRESETS, PROSODY_PITCH_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<prosody pitch="${value}">`,
       suffix: "</prosody>",
@@ -364,32 +284,7 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の音量レベルを選択します。",
       en: "Selects the volume level for the selected text.",
     },
-    options: createInsertionOptions({
-      silent: {
-        ja: "無音",
-        en: "Makes the selected text silent.",
-      },
-      "x-soft": {
-        ja: "最も小さい音量",
-        en: "Uses the quietest volume.",
-      },
-      soft: {
-        ja: "小さい音量",
-        en: "Uses a soft volume.",
-      },
-      medium: {
-        ja: "標準的な音量",
-        en: "Uses the standard volume.",
-      },
-      loud: {
-        ja: "大きい音量",
-        en: "Uses a loud volume.",
-      },
-      "x-loud": {
-        ja: "最も大きい音量",
-        en: "Uses the loudest volume.",
-      },
-    }),
+    options: createInsertionOptions(PROSODY_VOLUME_PRESETS, PROSODY_VOLUME_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<prosody volume="${value}">`,
       suffix: "</prosody>",
@@ -409,36 +304,7 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲に適用する音声の感情スタイルを選択します。",
       en: "Selects the voice emotion style to apply.",
     },
-    options: createInsertionOptions({
-      cheerful: {
-        ja: "明るく元気なスタイル",
-        en: "Uses a cheerful style.",
-      },
-      friendly: {
-        ja: "親しみやすいスタイル",
-        en: "Uses a friendly style.",
-      },
-      calm: {
-        ja: "穏やかなスタイル",
-        en: "Uses a calm style.",
-      },
-      sad: {
-        ja: "悲しげなスタイル",
-        en: "Uses a sad style.",
-      },
-      angry: {
-        ja: "怒ったようなスタイル",
-        en: "Uses an angry style.",
-      },
-      excited: {
-        ja: "興奮したスタイル",
-        en: "Uses an excited style.",
-      },
-      serious: {
-        ja: "真剣なスタイル",
-        en: "Uses a serious style.",
-      },
-    }),
+    options: createInsertionOptions(EXPRESS_AS_STYLE_PRESETS, EXPRESS_AS_STYLE_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<mstts:express-as style="${value}">`,
       suffix: "</mstts:express-as>",
@@ -458,56 +324,7 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲の読み上げ方を選択します。",
       en: "Selects how the selected text is spoken.",
     },
-    options: createInsertionOptions({
-      characters: {
-        ja: "1文字ずつの読み上げ",
-        en: "Speaks the characters one by one.",
-      },
-      "spell-out": {
-        ja: "綴りの読み上げ（1文字ずつ）",
-        en: "Spells out the text character by character.",
-      },
-      cardinal: {
-        ja: "基数としての読み上げ",
-        en: "Speaks the value as a cardinal number.",
-      },
-      ordinal: {
-        ja: "序数としての読み上げ",
-        en: "Speaks the value as an ordinal number.",
-      },
-      number: {
-        ja: "数値としての読み上げ",
-        en: "Speaks the value as a number.",
-      },
-      date: {
-        ja: "日付としての読み上げ",
-        en: "Speaks the value as a date.",
-      },
-      time: {
-        ja: "時刻としての読み上げ",
-        en: "Speaks the value as a time.",
-      },
-      telephone: {
-        ja: "電話番号としての読み上げ",
-        en: "Speaks the value as a telephone number.",
-      },
-      fraction: {
-        ja: "分数としての読み上げ",
-        en: "Speaks the value as a fraction.",
-      },
-      address: {
-        ja: "住所としての読み上げ",
-        en: "Speaks the value as an address.",
-      },
-      name: {
-        ja: "名前としての読み上げ",
-        en: "Speaks the value as a name.",
-      },
-      currency: {
-        ja: "通貨としての読み上げ",
-        en: "Speaks the value as currency.",
-      },
-    }),
+    options: createInsertionOptions(SAY_AS_PRESETS, SAY_AS_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<say-as interpret-as="${value}">`,
       suffix: "</say-as>",
@@ -527,24 +344,7 @@ export const SSML_INSERTIONS = [
       ja: "選択範囲に適用する BCP-47 言語タグを選択します。",
       en: "Selects the BCP-47 language tag for the selected text.",
     },
-    options: createInsertionOptions({
-      "ja-JP": {
-        ja: "日本語（日本）で読み上げます。",
-        en: "Speaks the text in Japanese (Japan).",
-      },
-      "en-US": {
-        ja: "英語（米国）で読み上げます。",
-        en: "Speaks the text in English (United States).",
-      },
-      "de-DE": {
-        ja: "ドイツ語（ドイツ）で読み上げます。",
-        en: "Speaks the text in German (Germany).",
-      },
-      "fr-FR": {
-        ja: "フランス語（フランス）で読み上げます。",
-        en: "Speaks the text in French (France).",
-      },
-    }),
+    options: createInsertionOptions(LANGUAGE_PRESETS, LANGUAGE_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<lang xml:lang="${value}">`,
       suffix: "</lang>",
@@ -565,20 +365,7 @@ export const SSML_INSERTIONS = [
       ja: "無音にする時間を選択します。",
       en: "Selects the silence duration.",
     },
-    options: createInsertionOptions({
-      "300ms": {
-        ja: "先頭に300ミリ秒の無音を挿入します。",
-        en: "Inserts 300 milliseconds of leading silence.",
-      },
-      "500ms": {
-        ja: "先頭に500ミリ秒の無音を挿入します。",
-        en: "Inserts 500 milliseconds of leading silence.",
-      },
-      "1s": {
-        ja: "先頭に1秒の無音を挿入します。",
-        en: "Inserts one second of leading silence.",
-      },
-    }),
+    options: createInsertionOptions(SILENCE_VALUE_PRESETS, SILENCE_VALUE_DESCRIPTIONS),
     createTemplate: (value) => ({
       prefix: `<mstts:silence type="Leading" value="${value}"/>`,
       suffix: "",
@@ -1030,7 +817,7 @@ const styles: Record<string, CSSProperties> = {
   },
   toolbarMenu: {
     position: "fixed",
-    zIndex: 9999,
+    zIndex: OVERLAY_Z_INDEX,
     display: "grid",
     minWidth: "max-content",
     maxHeight: "min(24rem, calc(100vh - 1rem))",
@@ -1127,7 +914,7 @@ const styles: Record<string, CSSProperties> = {
   },
   selectionActions: {
     position: "absolute",
-    zIndex: 9999,
+    zIndex: OVERLAY_Z_INDEX,
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",

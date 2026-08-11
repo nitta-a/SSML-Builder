@@ -1,8 +1,7 @@
 import { buildSsml } from "./builder.ts";
+import { DEFAULT_SSML_LANGUAGE, DEFAULT_SSML_VERSION, SYNTHESIS_NAMESPACE } from "./constants/ssml.ts";
 import { parseSsml } from "./parser.ts";
 import type { ProsodyElement, SsmlAttributes, SsmlDocument, SsmlNode, VoiceElement } from "./types.ts";
-
-const SYNTHESIS_NAMESPACE = "http://www.w3.org/2001/10/synthesis";
 
 export type SsmlPartialVoice = Pick<VoiceElement, "name" | "effect" | "attributes">;
 
@@ -68,8 +67,8 @@ function getVoiceContext(context: SsmlPartialContext): SsmlPartialVoice | undefi
 }
 
 function serializePartialSsml(text: string, context: SsmlPartialContext): string {
-  const version = context.version ?? "1.0";
-  const lang = context.lang ?? "en-US";
+  const version = context.version ?? DEFAULT_SSML_VERSION;
+  const lang = context.lang ?? DEFAULT_SSML_LANGUAGE;
   let children = getPartialTextNodes(text, version, lang);
 
   if (context.prosody) {
