@@ -57,7 +57,7 @@ Speech の音声を生成します。Azure のサブスクリプションキー�
 ```dotenv
 AZURE_SPEECH_KEY=your-subscription-key
 AZURE_SPEECH_REGION=japaneast
-# AZURE_SPEECH_ENDPOINT=https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
+# AZURE_SPEECH_ENDPOINT=https://{region}.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1
 ```
 
 `apps/playground/.env.example` をコピーして使用できます。設定後、リポジトリのルートから
@@ -116,7 +116,7 @@ const parsed = parseSsml(ssml);
 | --- | --- |
 | `buildSsml(document)` | SSML ドキュメントを XML 文字列に変換 |
 | `buildSsml(content, lang?)` | 本文から `SsmlDocument` を作成する簡易形式（`content` を使用する旧形式） |
-| `buildPartialSsml(text, context?)` | 言語、音声、プロソディなどのコンテキスト付きで部分テキストから最小の SSML を生成 |
+| `buildPartialSsml(text, context?)` / `buildPartialSsml({ text, ...context })` | 言語、音声、プロソディなどのコンテキスト付きで部分テキストから最小の SSML を生成 |
 | `parseSsml(xml)` | `<speak>` XML を `SsmlDocument` に変換 |
 | `validateSsml(xml)` | SSML の構文エラーを `{ message, position }` または `null` で返す |
 
@@ -124,7 +124,7 @@ const parsed = parseSsml(ssml);
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`break` と `prosody` のタグには、間やピッチ変化を示すインラインバッジも表示されます。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体または選択範囲の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
+`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`showDecorations` が有効な場合、`break` と `prosody` のタグに間やピッチ変化を示すインラインバッジが表示され、Monaco のインライン装飾も有効になります。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体、選択範囲、または現在行の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
 
 ```tsx
 import { useState } from "react";
@@ -158,7 +158,7 @@ export function App() {
 - `document`: 編集対象の `SsmlDocument`
 - `onChange`: 編集後の `SsmlDocument` を受け取るコールバック
 - `onSsmlChange`: 編集後に生成された SSML 文字列を受け取るコールバック
-- `ref`: `SsmlEditorRef` の `getFullSsml()` で全体の SSML を、`getSelectedSsml()` で選択範囲（未選択時はカーソル行）の SSML を取得
+- `ref`: `SsmlEditorRef` の `getFullSsml()` で全体の SSML、`getSelectedSsml()` で選択範囲（未選択時はカーソル行）の SSML、`getCurrentLineSsml()` で現在行の SSML を取得
 - `onSelectionChange`: 選択テキスト、文字数、選択状態を受け取るコールバック
 - `onPreviewSelection`: フローティングアクションの試聴ボタン押下時に、選択部分の SSML を受け取るコールバック。省略時は試聴ボタンが無効になります。Azure などの音声 API はこのコールバックから呼び出してください
 - `language`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`
@@ -167,10 +167,11 @@ export function App() {
 - `showDecorations`: 本文中のインライン装飾（バッジや Inlay Hints）の表示（デフォルトは `false`）。ツールバーの「装飾」スイッチで表示・非表示を切り替えられます
 - `buttonVisibility`: ツールバーボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`undo`、`redo`、`clearAll`、`format`、`decorations`、カスタム挿入 ID を指定でき、未指定のボタンは表示されます
 - `editorOptions` / `settings`: Monaco の設定。`height`、`minHeight`、`readOnly`、`theme`（`system` / `light` / `dark`）、`fontSize`、`wordWrap`、`lineNumbers`、`minimap`、`automaticLayout` を指定できます。これらは同名のトップレベル props でも指定できます
+- `loadingFallback`: Monaco の読み込み中に表示する React ノード
 - `toolbarOrder`: ツールバー全体のボタン ID の表示順。指定されていないボタンは後ろに続きます
 - `toolbarGroups`: ツールバー全体を縦線で区切るグループ設定。`{ id, buttonIds }` 形式で指定し、枠線付きのグループは使用しません
 - `insertionOrder`: 挿入メニューの ID の表示順。`toolbarOrder` が未指定の場合の挿入メニュー順にも使用されます
-- `insertionGroups`: `toolbarGroups` が未指定の場合に挿入メニューを縦線で区切る設定。省略時は間・無音、声の調整、表現、読み上げのグループに分けて表示されます
+- `insertionGroups`: 挿入メニューを縦線で区切るグループ設定。`toolbarGroups` を省略した場合は、この設定からツールバーの既定グループも作成されます。省略時は間・無音、声の調整、表現、読み上げに分けて表示されます
 - `emotionStyles`: `emotion` メニューに表示する音声スタイル候補
 - `customInsertions` / `additionalInsertions`: カスタム SSML 挿入定義。`customInsertions` は同じ ID の標準定義を置き換え、`additionalInsertions` は標準定義へ追加します
 - `className` / `style`: エディター全体のクラス名とインラインスタイル
@@ -180,7 +181,7 @@ export function App() {
 - 挿入専用の要素（`break`、`mstts:silence`、カスタム挿入の `mode: "insert"`）は、本文内で独立した行になるよう自動的に改行されます。選択範囲を囲む要素はインラインのまま挿入されます
 - 本文を変更すると SSML 構文を検証し、エラー箇所をエディター上に表示します
 
-標準の挿入メニューには `lang`、`mstts:silence` も含まれます。カスタム要素は `createSsmlEditorInsertionDefinition` でタグ名と属性を指定して作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
+標準の挿入メニューには `break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence` が含まれます。これらの定義は `SSML_INSERTIONS` から参照できます。カスタム挿入定義は配列または ID をキーにしたオブジェクトで指定でき、`createSsmlEditorInsertionDefinition` でタグ名と任意の 1 属性を持つ定義を作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
 
 「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは `voice` 要素を保持したまま、それ以外の XML 要素を削除して本文を残します。ドキュメントの `version`、`lang`、その他の属性も保持されます。
 
@@ -200,7 +201,20 @@ const audio = await client.synthesize(ssml);
 // audio は audio/mpeg の ArrayBuffer
 ```
 
-内部では Microsoft Cognitive Services Speech SDK の `SpeechSynthesizer` を使用します。エンドポイントを明示する場合は `endpoint` を指定できます。省略すると `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` が使用されます。独自エンドポイントに `{region}` を含めた場合は、設定したリージョンに置き換えられます。
+低レベルの `synthesizeSpeech` 関数も利用できます。この関数では `TtsConfig` の
+`endpoint`、`subscriptionKey`、`region` を指定します。
+
+```ts
+import { synthesizeSpeech } from "@ssml-builder/azure-tts-client";
+
+const audio = await synthesizeSpeech(ssml, {
+  endpoint: "https://japaneast.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1",
+  subscriptionKey: process.env.AZURE_SPEECH_KEY!,
+  region: "japaneast",
+});
+```
+
+内部では Microsoft Cognitive Services Speech SDK の `SpeechSynthesizer` を使用します。`AzureTtsClient` の `endpoint` を省略すると `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` が使用されます。上の Playground の例では `.env.example` に合わせて WebSocket エンドポイントを明示しています。独自エンドポイントに `{region}` を含めた場合は、設定したリージョンに置き換えられます。
 `outputFormat` には Speech SDK がサポートする出力形式を指定できます。省略時は `audio-16khz-128kbitrate-mono-mp3` が使用されます。
 
 Speech SDK の合成エラーでは `AzureTtsSdkError`（`AzureTtsError` のサブクラス）がスローされ、`errorDetails` または `responseBody` から SDK のエラー詳細を確認できます。SDK が HTTP ステータスやリクエスト ID を公開しないため、SDK 経由のエラーでは `status` は `0`、`statusText` は `"Speech SDK"`、`requestId` は `null` です。Playground のサーバー側ログにもこれらの情報とリージョン、SSML の文字数が出力されます。ログに出力するエラー詳細は 4,096 文字までに制限されます。サブスクリプションキーや SSML 本文自体はログに出力されません。
@@ -225,6 +239,7 @@ Speech SDK の合成エラーでは `AzureTtsSdkError`（`AzureTtsError` のサ�
 | `npm run format` | Biome によるフォーマットチェック |
 | `npm run format:write` | Biome によるフォーマット適用 |
 | `npm run lint` | Biome による静的チェック |
+| `npm run check` | `format` と lint をまとめた Biome チェック |
 | `npm run typecheck` | 全ワークスペースの TypeScript 型チェック |
 | `npm run build` | 各パッケージのビルド |
 | `npm test` | 各パッケージのテスト |
@@ -295,7 +310,7 @@ browser, set the following values in `apps/playground/.env.local`:
 ```dotenv
 AZURE_SPEECH_KEY=your-subscription-key
 AZURE_SPEECH_REGION=japaneast
-# AZURE_SPEECH_ENDPOINT=https://{region}.tts.speech.microsoft.com/cognitiveservices/v1
+# AZURE_SPEECH_ENDPOINT=https://{region}.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1
 ```
 
 Copy `apps/playground/.env.example` to get started. Then run the playground from the repository root:
@@ -353,7 +368,7 @@ The main `buildSsml` and `parseSsml` signatures are:
 | --- | --- |
 | `buildSsml(document)` | Converts an SSML document into an XML string |
 | `buildSsml(content, lang?)` | Convenience form that creates an `SsmlDocument` from text (legacy `content` form) |
-| `buildPartialSsml(text, context?)` | Builds minimal playable SSML for partial text with language, voice, and prosody context |
+| `buildPartialSsml(text, context?)` / `buildPartialSsml({ text, ...context })` | Builds minimal playable SSML for partial text with language, voice, and prosody context |
 | `parseSsml(xml)` | Converts a `<speak>` XML document into an `SsmlDocument` |
 | `validateSsml(xml)` | Returns `{ message, position }` for a syntax error, or `null` |
 
@@ -361,7 +376,7 @@ Typed representations are available for elements such as `voice`, `prosody`, `br
 
 ## Using `ssml-editor-react`
 
-`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Selecting text displays a floating action bar with the character count and preview action. Inline badges for pause and pitch changes are rendered next to `break` and `prosody` tags. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full or selected SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English.
+`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Selecting text displays a floating action bar with the character count and preview action. When `showDecorations` is enabled, inline badges for pause and pitch changes are rendered next to `break` and `prosody` tags, and Monaco inline decorations are enabled. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full, selected, or current-line SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English.
 
 ```tsx
 import { useState } from "react";
@@ -408,7 +423,7 @@ export function App() {
 - `toolbarOrder`: Display order for all toolbar button IDs; unlisted buttons follow
 - `toolbarGroups`: Groups all toolbar buttons with vertical separators using `{ id, buttonIds }`; groups are not rendered with borders
 - `insertionOrder`: Display order for insertion menu IDs; also supplies the insertion order used when `toolbarOrder` is omitted
-- `insertionGroups`: Groups insertion menus with vertical separators when `toolbarGroups` is omitted; menus are grouped into pauses, voice, expression, and pronunciation by default
+- `insertionGroups`: Groups insertion menus with vertical separators; when `toolbarGroups` is omitted, these groups also define the default toolbar groups. Menus are grouped into pauses, voice, expression, and pronunciation by default
 - `emotionStyles`: Candidate voice styles shown by the `emotion` menu
 - `customInsertions` / `additionalInsertions`: Custom SSML insertion definitions. `customInsertions` replaces a built-in definition with the same ID, while `additionalInsertions` adds definitions to the built-ins
 - `className` / `style`: A class name and inline styles for the editor container
@@ -418,7 +433,7 @@ export function App() {
 - Standalone elements (`break`, `mstts:silence`, and custom insertions with `mode: "insert"`) are automatically placed on separate lines; elements that wrap a selection remain inline
 - Changing the text validates SSML syntax and displays errors in the editor
 
-The built-in insertion menus also include `lang` and `mstts:silence`. Use `createSsmlEditorInsertionDefinition` to create a custom insertion from a tag and one attribute. For arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
+The built-in insertion menus are `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, and `mstts:silence`. Their definitions are available through `SSML_INSERTIONS`. Custom insertion definitions can be supplied as an array or an object keyed by ID. Use `createSsmlEditorInsertionDefinition` to create a definition from a tag and one optional attribute; for arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
 
 Click the **Description** button to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button preserves `voice` elements, removes the other XML elements, and leaves the text in place. The document's `version`, `lang`, and other attributes are also preserved.
 
@@ -438,7 +453,20 @@ const audio = await client.synthesize(ssml);
 // audio is an audio/mpeg ArrayBuffer
 ```
 
-Internally, the client uses the Microsoft Cognitive Services Speech SDK's `SpeechSynthesizer`. Set `endpoint` to use an explicit endpoint. If omitted, `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` is used. If a custom endpoint contains `{region}`, it is replaced with the configured region.
+The lower-level `synthesizeSpeech` function is also available. It requires
+`endpoint`, `subscriptionKey`, and `region` in its `TtsConfig` argument.
+
+```ts
+import { synthesizeSpeech } from "@ssml-builder/azure-tts-client";
+
+const audio = await synthesizeSpeech(ssml, {
+  endpoint: "https://japaneast.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1",
+  subscriptionKey: process.env.AZURE_SPEECH_KEY!,
+  region: "japaneast",
+});
+```
+
+Internally, the client uses the Microsoft Cognitive Services Speech SDK's `SpeechSynthesizer`. If `endpoint` is omitted from `AzureTtsClient`, `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` is used. The Playground example explicitly uses the WebSocket endpoint from `.env.example`. If a custom endpoint contains `{region}`, it is replaced with the configured region.
 Set `outputFormat` to a format supported by the Speech SDK. If omitted, `audio-16khz-128kbitrate-mono-mp3` is used.
 
 Speech SDK synthesis errors throw `AzureTtsSdkError` (a subclass of `AzureTtsError`); its `errorDetails` and `responseBody` fields contain the SDK error details. Because the SDK does not expose HTTP status or request IDs, SDK errors use `0` for `status`, `"Speech SDK"` for `statusText`, and `null` for `requestId`. The playground's server-side logs include these fields along with the region and SSML character count. Logged error details are limited to 4,096 characters. The subscription key and SSML content itself are not written to logs.
@@ -463,6 +491,7 @@ Run the following commands from the repository root:
 | `npm run format` | Check formatting with Biome |
 | `npm run format:write` | Apply formatting with Biome |
 | `npm run lint` | Run static checks with Biome |
+| `npm run check` | Run Biome formatting and lint checks together |
 | `npm run typecheck` | Type-check all workspaces with TypeScript |
 | `npm run build` | Build each package |
 | `npm test` | Run tests for each package |
