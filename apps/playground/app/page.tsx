@@ -165,10 +165,16 @@ export default function Home() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioCaptionTrack, setAudioCaptionTrack] = useState<string | null>(
+    null,
+  );
+  const [audioCaptionLanguage, setAudioCaptionLanguage] = useState<
+    string | null
+  >(null);
   const audioUrlRef = useRef<string | null>(null);
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
-  const captionTrack = createCaptionTrack(document);
+  const currentCaptionTrack = createCaptionTrack(document);
 
   useEffect(() => {
     return () => {
@@ -189,6 +195,8 @@ export default function Home() {
   const generateAudio = async (): Promise<void> => {
     setIsGeneratingAudio(true);
     setAudioError(null);
+    setAudioCaptionTrack(null);
+    setAudioCaptionLanguage(null);
     replaceAudioUrl(null);
 
     try {
@@ -205,6 +213,8 @@ export default function Home() {
       }
 
       const audioBlob = await response.blob();
+      setAudioCaptionTrack(currentCaptionTrack);
+      setAudioCaptionLanguage(document.lang);
       replaceAudioUrl(URL.createObjectURL(audioBlob));
     } catch (error) {
       setAudioError(
@@ -318,8 +328,8 @@ export default function Home() {
             <track
               kind="captions"
               label="SSML text"
-              src={captionTrack}
-              srcLang={document.lang}
+              src={audioCaptionTrack ?? ""}
+              srcLang={audioCaptionLanguage ?? ""}
               default
             />
             Your browser does not support audio playback.
