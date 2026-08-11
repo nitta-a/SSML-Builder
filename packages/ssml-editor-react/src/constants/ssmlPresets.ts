@@ -1,0 +1,286 @@
+type SsmlPresetDescription = Readonly<Record<"ja" | "en", string>>;
+
+export const BREAK_TIME_PRESETS = ["500ms", "1s", "2s", "3s"] as const;
+export const BREAK_STRENGTH_PRESETS = ["none", "x-weak", "weak", "medium", "strong", "x-strong"] as const;
+
+export const PROSODY_RATE_PRESETS = ["x-slow", "slow", "medium", "fast", "x-fast"] as const;
+export const PROSODY_RATE_VALUES = [...PROSODY_RATE_PRESETS, "percentage"] as const;
+export const PROSODY_PITCH_PRESETS = ["+2st", "-2st", "0st", "+4st", "-4st", "+8st", "-8st", "+12st", "-12st"] as const;
+export const PROSODY_VOLUME_PRESETS = ["silent", "x-soft", "soft", "medium", "loud", "x-loud"] as const;
+
+export const EXPRESS_AS_STYLE_PRESETS = ["cheerful", "friendly", "calm", "sad", "angry", "excited", "serious"] as const;
+export const EMPHASIS_LEVEL_PRESETS = ["strong", "moderate", "reduced", "none"] as const;
+export const SAY_AS_PRESETS = [
+  "characters",
+  "spell-out",
+  "cardinal",
+  "ordinal",
+  "number",
+  "date",
+  "time",
+  "telephone",
+  "fraction",
+  "address",
+  "name",
+  "currency",
+] as const;
+export const LANGUAGE_PRESETS = ["ja-JP", "en-US", "de-DE", "fr-FR"] as const;
+export const SILENCE_VALUE_PRESETS = ["300ms", "500ms", "1s"] as const;
+export const SILENCE_TYPE_PRESETS = [
+  "Leading",
+  "Tailing",
+  "Sentenceboundary",
+  "Comma",
+  "Semicolon",
+  "Enumerationcomma",
+] as const;
+export const PHONEME_ALPHABET_PRESETS = ["ipa", "sapi", "ups", "x-sampa"] as const;
+export const VISEME_TYPE_PRESETS = ["redlips_front", "FacialExpression"] as const;
+
+export const BREAK_TIME_DESCRIPTIONS = {
+  "500ms": {
+    ja: "500ミリ秒の無音",
+    en: "Inserts 500 milliseconds of silence.",
+  },
+  "1s": {
+    ja: "1秒の無音",
+    en: "Inserts one second of silence.",
+  },
+  "2s": {
+    ja: "2秒の無音",
+    en: "Inserts two seconds of silence.",
+  },
+  "3s": {
+    ja: "3秒の無音",
+    en: "Inserts three seconds of silence.",
+  },
+} as const satisfies Readonly<Record<(typeof BREAK_TIME_PRESETS)[number], SsmlPresetDescription>>;
+
+export const EMPHASIS_LEVEL_DESCRIPTIONS = {
+  strong: {
+    ja: "強い強調",
+    en: "Applies strong emphasis.",
+  },
+  moderate: {
+    ja: "中程度の強調",
+    en: "Applies moderate emphasis.",
+  },
+  reduced: {
+    ja: "弱めの強調",
+    en: "Applies reduced emphasis.",
+  },
+  none: {
+    ja: "強調なし",
+    en: "Applies no emphasis.",
+  },
+} as const satisfies Readonly<Record<(typeof EMPHASIS_LEVEL_PRESETS)[number], SsmlPresetDescription>>;
+
+export const PROSODY_RATE_DESCRIPTIONS = {
+  "x-slow": {
+    ja: "最も遅い速度",
+    en: "Uses the slowest speech rate.",
+  },
+  slow: {
+    ja: "遅い速度",
+    en: "Uses a slow speech rate.",
+  },
+  medium: {
+    ja: "標準的な速度",
+    en: "Uses the standard speech rate.",
+  },
+  fast: {
+    ja: "速い速度",
+    en: "Uses a fast speech rate.",
+  },
+  "x-fast": {
+    ja: "最も速い速度",
+    en: "Uses the fastest speech rate.",
+  },
+} as const satisfies Readonly<Record<(typeof PROSODY_RATE_PRESETS)[number], SsmlPresetDescription>>;
+
+export const PROSODY_PITCH_DESCRIPTIONS = {
+  "+2st": {
+    ja: "基準の声の高さより2半音上",
+    en: "Raises the pitch by two semitones.",
+  },
+  "-2st": {
+    ja: "基準の声の高さより2半音下",
+    en: "Lowers the pitch by two semitones.",
+  },
+  "0st": {
+    ja: "基準の声の高さ",
+    en: "Keeps the baseline pitch.",
+  },
+  "+4st": {
+    ja: "基準の声の高さより4半音上",
+    en: "Raises the pitch by four semitones.",
+  },
+  "-4st": {
+    ja: "基準の声の高さより4半音下",
+    en: "Lowers the pitch by four semitones.",
+  },
+  "+8st": {
+    ja: "基準の声の高さより8半音上",
+    en: "Raises the pitch by eight semitones.",
+  },
+  "-8st": {
+    ja: "基準の声の高さより8半音下",
+    en: "Lowers the pitch by eight semitones.",
+  },
+  "+12st": {
+    ja: "基準の声の高さより12半音上",
+    en: "Raises the pitch by twelve semitones.",
+  },
+  "-12st": {
+    ja: "基準の声の高さより12半音下",
+    en: "Lowers the pitch by twelve semitones.",
+  },
+} as const satisfies Readonly<Record<(typeof PROSODY_PITCH_PRESETS)[number], SsmlPresetDescription>>;
+
+export const PROSODY_VOLUME_DESCRIPTIONS = {
+  silent: {
+    ja: "無音",
+    en: "Makes the selected text silent.",
+  },
+  "x-soft": {
+    ja: "最も小さい音量",
+    en: "Uses the quietest volume.",
+  },
+  soft: {
+    ja: "小さい音量",
+    en: "Uses a soft volume.",
+  },
+  medium: {
+    ja: "標準的な音量",
+    en: "Uses the standard volume.",
+  },
+  loud: {
+    ja: "大きい音量",
+    en: "Uses a loud volume.",
+  },
+  "x-loud": {
+    ja: "最も大きい音量",
+    en: "Uses the loudest volume.",
+  },
+} as const satisfies Readonly<Record<(typeof PROSODY_VOLUME_PRESETS)[number], SsmlPresetDescription>>;
+
+export const EXPRESS_AS_STYLE_DESCRIPTIONS = {
+  cheerful: {
+    ja: "明るく元気なスタイル",
+    en: "Uses a cheerful style.",
+  },
+  friendly: {
+    ja: "親しみやすいスタイル",
+    en: "Uses a friendly style.",
+  },
+  calm: {
+    ja: "穏やかなスタイル",
+    en: "Uses a calm style.",
+  },
+  sad: {
+    ja: "悲しげなスタイル",
+    en: "Uses a sad style.",
+  },
+  angry: {
+    ja: "怒ったようなスタイル",
+    en: "Uses an angry style.",
+  },
+  excited: {
+    ja: "興奮したスタイル",
+    en: "Uses an excited style.",
+  },
+  serious: {
+    ja: "真剣なスタイル",
+    en: "Uses a serious style.",
+  },
+} as const satisfies Readonly<Record<(typeof EXPRESS_AS_STYLE_PRESETS)[number], SsmlPresetDescription>>;
+
+export const SAY_AS_DESCRIPTIONS = {
+  characters: {
+    ja: "1文字ずつの読み上げ",
+    en: "Speaks the characters one by one.",
+  },
+  "spell-out": {
+    ja: "綴りの読み上げ（1文字ずつ）",
+    en: "Spells out the text character by character.",
+  },
+  cardinal: {
+    ja: "基数としての読み上げ",
+    en: "Speaks the value as a cardinal number.",
+  },
+  ordinal: {
+    ja: "序数としての読み上げ",
+    en: "Speaks the value as an ordinal number.",
+  },
+  number: {
+    ja: "数値としての読み上げ",
+    en: "Speaks the value as a number.",
+  },
+  date: {
+    ja: "日付としての読み上げ",
+    en: "Speaks the value as a date.",
+  },
+  time: {
+    ja: "時刻としての読み上げ",
+    en: "Speaks the value as a time.",
+  },
+  telephone: {
+    ja: "電話番号としての読み上げ",
+    en: "Speaks the value as a telephone number.",
+  },
+  fraction: {
+    ja: "分数としての読み上げ",
+    en: "Speaks the value as a fraction.",
+  },
+  address: {
+    ja: "住所としての読み上げ",
+    en: "Speaks the value as an address.",
+  },
+  name: {
+    ja: "名前としての読み上げ",
+    en: "Speaks the value as a name.",
+  },
+  currency: {
+    ja: "通貨としての読み上げ",
+    en: "Speaks the value as currency.",
+  },
+} as const satisfies Readonly<Record<(typeof SAY_AS_PRESETS)[number], SsmlPresetDescription>>;
+
+export const LANGUAGE_DESCRIPTIONS = {
+  "ja-JP": {
+    ja: "日本語（日本）で読み上げます。",
+    en: "Speaks the text in Japanese (Japan).",
+  },
+  "en-US": {
+    ja: "英語（米国）で読み上げます。",
+    en: "Speaks the text in English (United States).",
+  },
+  "de-DE": {
+    ja: "ドイツ語（ドイツ）で読み上げます。",
+    en: "Speaks the text in German (Germany).",
+  },
+  "fr-FR": {
+    ja: "フランス語（フランス）で読み上げます。",
+    en: "Speaks the text in French (France).",
+  },
+} as const satisfies Readonly<Record<(typeof LANGUAGE_PRESETS)[number], SsmlPresetDescription>>;
+
+export const SILENCE_VALUE_DESCRIPTIONS = {
+  "300ms": {
+    ja: "先頭に300ミリ秒の無音を挿入します。",
+    en: "Inserts 300 milliseconds of leading silence.",
+  },
+  "500ms": {
+    ja: "先頭に500ミリ秒の無音を挿入します。",
+    en: "Inserts 500 milliseconds of leading silence.",
+  },
+  "1s": {
+    ja: "先頭に1秒の無音を挿入します。",
+    en: "Inserts one second of leading silence.",
+  },
+} as const satisfies Readonly<Record<(typeof SILENCE_VALUE_PRESETS)[number], SsmlPresetDescription>>;
+
+export const SSML_INSERTION_MODES = {
+  insert: "insert",
+  wrap: "wrap",
+} as const;
