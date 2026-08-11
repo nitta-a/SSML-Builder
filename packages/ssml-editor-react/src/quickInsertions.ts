@@ -150,9 +150,7 @@ export function createQuickInsertionTemplate(
     return null;
   }
 
-  const attributeText = attributes
-    .map(([attribute, value]) => ` ${attribute}="${escapeXmlAttribute(value)}"`)
-    .join("");
+  const attributeText = attributes.map(([attribute, value]) => ` ${attribute}="${escapeXmlAttribute(value)}"`).join("");
 
   if (definition.mode === "insert") {
     return {

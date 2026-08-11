@@ -14,7 +14,10 @@ function getDefinition(id: QuickInsertionDefinition["id"]): QuickInsertionDefini
 
 test("requires explicit attributes for quick insertions", () => {
   assert.equal(createQuickInsertionTemplate(getDefinition("prosody"), {}), null);
-  assert.equal(createQuickInsertionTemplate(getDefinition("express-as"), { style: "cheerful" })?.prefix, '<mstts:express-as style="cheerful">');
+  assert.equal(
+    createQuickInsertionTemplate(getDefinition("express-as"), { style: "cheerful" })?.prefix,
+    '<mstts:express-as style="cheerful">',
+  );
 });
 
 test("supports multiple selected prosody attributes and escapes values", () => {
