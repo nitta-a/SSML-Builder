@@ -175,6 +175,8 @@ export default function Home() {
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
   const currentCaptionTrack = createCaptionTrack(document);
+  const captionTrackSource = audioCaptionTrack ?? currentCaptionTrack;
+  const captionLanguage = audioCaptionLanguage ?? document.lang;
 
   useEffect(() => {
     return () => {
@@ -328,8 +330,8 @@ export default function Home() {
             <track
               kind="captions"
               label="SSML text"
-              src={audioCaptionTrack ?? ""}
-              srcLang={audioCaptionLanguage ?? ""}
+              src={captionTrackSource}
+              srcLang={captionLanguage}
               default
             />
             Your browser does not support audio playback.
