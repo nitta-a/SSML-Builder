@@ -413,7 +413,7 @@ The subscription key is sent in a request header, so do not hard-code it in sour
 This project primarily targets the SSML implementation provided by Azure Speech. Azure Speech's SSML implementation is based on W3C SSML Version 1.0, but its supported elements and behavior can differ from the W3C standard and include Azure-specific `mstts:` extensions.
 
 - [Azure Speech SSML document structure and events (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-structure)
-- [Azure Speech SSML reference (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-reference)
+- [Azure Speech SSML reference (Microsoft Learn)](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup)
 - [Speech Synthesis Markup Language (SSML) Version 1.0 (W3C Recommendation)](https://www.w3.org/TR/2004/REC-speech-synthesis-20040907/)
 - Reference version: **W3C SSML 1.0** (Recommendation dated September 7, 2004). Microsoft Learn's Azure Speech documentation does not expose a fixed product version, so check the linked documentation for the latest Azure behavior when using this project.
 
