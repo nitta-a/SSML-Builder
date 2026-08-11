@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AzureTtsClient, synthesizeSpeech } from "../src/index.ts";
+import {
+  AzureTtsClient,
+  AzureTtsError,
+  synthesizeSpeech,
+} from "../src/index.ts";
 
 type CapturedRequest = {
   input: RequestInfo | URL;
@@ -124,12 +128,21 @@ test("synthesize sends SSML to the regional Azure endpoint", async () => {
 
 test("synthesize reports unsuccessful Azure responses", async () => {
   const originalFetch = globalThis.fetch;
+  const responseBody = JSON.stringify({
+    error: {
+      code: "InvalidRequest",
+      message: "The SSML is invalid.",
+    },
+  });
 
   try {
     globalThis.fetch = async () =>
-      new Response("Unauthorized", {
-        status: 401,
-        statusText: "Unauthorized",
+      new Response(responseBody, {
+        status: 400,
+        statusText: "Bad Request",
+        headers: {
+          "x-requestid": "request-id",
+        },
       });
 
     await assert.rejects(
@@ -137,7 +150,18 @@ test("synthesize reports unsuccessful Azure responses", async () => {
         subscriptionKey: "subscription-key",
         region: "japaneast",
       }).synthesize("<speak>Hello</speak>"),
-      new Error("Azure TTS request failed: 401 Unauthorized"),
+      (error: unknown) => {
+        assert.ok(error instanceof AzureTtsError);
+        assert.equal(
+          error.message,
+          "Azure TTS request failed: 400 Bad Request",
+        );
+        assert.equal(error.status, 400);
+        assert.equal(error.statusText, "Bad Request");
+        assert.equal(error.responseBody, responseBody);
+        assert.equal(error.requestId, "request-id");
+        return true;
+      },
     );
   } finally {
     globalThis.fetch = originalFetch;
