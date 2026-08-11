@@ -163,6 +163,7 @@ export function App() {
 - `onPreviewSelection`: フローティングアクションの試聴ボタン押下時に、選択部分の SSML を受け取るコールバック。省略時は試聴ボタンが無効になります。Azure などの音声 API はこのコールバックから呼び出してください
 - `locale`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`。ホバーヘルプを含む UI の翻訳にも使用されます
 - `language`: `locale` の旧名称。既存コードとの互換性のため利用できますが、新しいコードでは `locale` を使用してください
+- `showToolbar`: ツールバー領域を表示するかどうか（デフォルトは `true`）
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
 - `showDecorations`: 本文中のインライン装飾（バッジや Inlay Hints）の表示（デフォルトは `false`）。ツールバーの「装飾」スイッチで表示・非表示を切り替えられます
@@ -416,6 +417,7 @@ export function App() {
 - `onPreviewSelection`: A callback that receives the selected partial SSML when the floating preview action is pressed. The preview action is disabled when this callback is omitted; call an audio API such as Azure from the callback
 - `locale`: The UI language (`"ja"` or `"en"`); defaults to `"ja"` and also controls hover-help translations
 - `language`: Legacy name for `locale`, retained for compatibility; use `locale` in new code
+- `showToolbar`: Whether to display the toolbar (defaults to `true`)
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
 - `showDecorations`: Whether inline decorations such as badges and inlay hints are shown in the text (defaults to `false`); use the **Decorations** toolbar switch to toggle them at runtime
