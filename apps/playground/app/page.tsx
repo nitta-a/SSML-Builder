@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildSsml } from "@ssml-builder/ssml-core";
 import type { SsmlDocument } from "@ssml-builder/ssml-core";
 import type { SsmlNode } from "@ssml-builder/ssml-core";
@@ -159,22 +159,31 @@ export default function Home() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
   const captionTrack = createCaptionTrack(document);
 
   useEffect(() => {
-    if (!audioUrl) {
-      return;
-    }
+    return () => {
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+      }
+    };
+  }, []);
 
-    return () => URL.revokeObjectURL(audioUrl);
-  }, [audioUrl]);
+  const replaceAudioUrl = (nextAudioUrl: string | null): void => {
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+    }
+    audioUrlRef.current = nextAudioUrl;
+    setAudioUrl(nextAudioUrl);
+  };
 
   const generateAudio = async (): Promise<void> => {
     setIsGeneratingAudio(true);
     setAudioError(null);
-    setAudioUrl(null);
+    replaceAudioUrl(null);
 
     try {
       const response = await fetch("/api/synthesize", {
@@ -190,7 +199,7 @@ export default function Home() {
       }
 
       const audioBlob = await response.blob();
-      setAudioUrl(URL.createObjectURL(audioBlob));
+      replaceAudioUrl(URL.createObjectURL(audioBlob));
     } catch (error) {
       setAudioError(
         error instanceof Error ? error.message : "Audio generation failed.",
