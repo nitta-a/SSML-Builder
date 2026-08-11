@@ -22,7 +22,7 @@ async function replaceEditorText(page: Page, text: string) {
   const editor = monacoEditor(page);
   await editor.locator(".view-lines").click();
   await page.keyboard.press("ControlOrMeta+A");
-  await page.keyboard.insertText(text);
+  await page.keyboard.type(text);
   await expect(editor.locator(".view-lines")).toContainText(text);
 }
 
