@@ -1,52 +1,109 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
+import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 import { AzureTtsClient, synthesizeSpeech } from "../src/index.ts";
 
-test("synthesizeSpeech replaces every endpoint region placeholder", async () => {
-  const originalFetch = globalThis.fetch;
-  let requestUrl: RequestInfo | URL | undefined;
+function installSuccessfulSpeechSdkMock(
+  testContext: TestContext,
+  audio: ArrayBuffer,
+): { endpoint?: URL } {
+  const captured: { endpoint?: URL } = {};
+  const originalFromEndpoint = SpeechSDK.SpeechConfig.fromEndpoint;
+
+  testContext.mock.method(
+    SpeechSDK.SpeechConfig,
+    "fromEndpoint",
+    (endpoint, subscriptionKey) => {
+      captured.endpoint = endpoint;
+      return originalFromEndpoint(endpoint, String(subscriptionKey));
+    },
+  );
+  testContext.mock.method(
+    SpeechSDK.SpeechSynthesizer.prototype,
+    "speakSsmlAsync",
+    (_ssml, callback) => {
+      callback?.({
+        audioData: audio,
+        errorDetails: "",
+        reason: SpeechSDK.ResultReason.SynthesizingAudioCompleted,
+      } as SpeechSDK.SpeechSynthesisResult);
+    },
+  );
+  testContext.mock.method(
+    SpeechSDK.SpeechSynthesizer.prototype,
+    "close",
+    () => {},
+  );
+
+  return captured;
+}
+
+test("synthesizeSpeech replaces every endpoint region placeholder", async (t) => {
   const audio = new ArrayBuffer(1);
+  const speechSdkMock = installSuccessfulSpeechSdkMock(t, audio);
 
-  globalThis.fetch = async (input) => {
-    requestUrl = input;
-    return {
-      ok: true,
-      arrayBuffer: async () => audio,
-    } as Response;
-  };
+  const result = await synthesizeSpeech("<speak>Hello</speak>", {
+    endpoint: "https://{region}.example.test/{region}",
+    subscriptionKey: "subscription-key",
+    region: "japan-east",
+  });
 
-  try {
-    const result = await synthesizeSpeech("<speak>Hello</speak>", {
-      endpoint: "https://{region}.example.test/{region}",
-      subscriptionKey: "subscription-key",
-      region: "japan east",
-    });
-
-    assert.equal(requestUrl, "https://japan%20east.example.test/japan%20east");
-    assert.strictEqual(result, audio);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.equal(
+    speechSdkMock.endpoint?.href,
+    "https://japan-east.example.test/japan-east",
+  );
+  assert.strictEqual(result, audio);
 });
 
-test("AzureTtsClient propagates network failures", async () => {
-  const originalFetch = globalThis.fetch;
-  const networkError = new Error("network unavailable");
+test("synthesizeSpeech URL-encodes special regions in endpoint paths", async (t) => {
+  const audio = new ArrayBuffer(1);
+  const speechSdkMock = installSuccessfulSpeechSdkMock(t, audio);
 
-  globalThis.fetch = async () => {
-    throw networkError;
-  };
+  await synthesizeSpeech("<speak>Hello</speak>", {
+    endpoint: "https://speech.example.test/{region}/{region}",
+    subscriptionKey: "subscription-key",
+    region: "japan east",
+  });
 
-  try {
-    await assert.rejects(
-      new AzureTtsClient({
-        endpoint: "https://speech.example.test/cognitiveservices/v1",
-        subscriptionKey: "subscription-key",
-        region: "japaneast",
-      }).synthesize("<speak>Hello</speak>"),
-      networkError,
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.equal(
+    speechSdkMock.endpoint?.href,
+    "https://speech.example.test/japan%20east/japan%20east",
+  );
+});
+
+test("AzureTtsClient reports Speech SDK callback failures", async (t) => {
+  const errorDetails = "network unavailable";
+  const originalFromEndpoint = SpeechSDK.SpeechConfig.fromEndpoint;
+
+  t.mock.method(
+    SpeechSDK.SpeechConfig,
+    "fromEndpoint",
+    (endpoint, subscriptionKey) =>
+      originalFromEndpoint(endpoint, String(subscriptionKey)),
+  );
+  t.mock.method(
+    SpeechSDK.SpeechSynthesizer.prototype,
+    "speakSsmlAsync",
+    (_ssml, _callback, errorCallback) => {
+      errorCallback?.(errorDetails);
+    },
+  );
+  t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "close", () => {});
+
+  await assert.rejects(
+    new AzureTtsClient({
+      endpoint: "https://speech.example.test/cognitiveservices/v1",
+      subscriptionKey: "subscription-key",
+      region: "japaneast",
+    }).synthesize("<speak>Hello</speak>"),
+    (error: unknown) => {
+      assert.equal(
+        error instanceof Error ? error.message : error,
+        "Azure TTS synthesis failed: network unavailable",
+      );
+      assert.ok(error instanceof Error);
+      assert.equal(error.name, "AzureTtsSdkError");
+      return true;
+    },
+  );
 });
