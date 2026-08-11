@@ -976,7 +976,7 @@ export interface SsmlEditorProps {
   showToolbarIcons?: boolean;
   /** Whether toolbar action text labels are displayed. */
   showToolbarLabels?: boolean;
-  /** Whether inline SSML decorations are displayed. The toolbar toggle can change this at runtime. */
+  /** Whether inline SSML decorations are displayed. The toolbar menu can change this at runtime. */
   showDecorations?: boolean;
   /** Controls which editor action buttons are displayed. Unspecified buttons are shown. */
   buttonVisibility?: SsmlEditorButtonVisibility;
@@ -1484,6 +1484,139 @@ function ToolbarInsertionMenu({
             </span>
           )}
           {showToolbarText && <span>{insertion.labels[language]}</span>}
+          <span style={styles.toolbarChevron} aria-hidden="true">
+            ▾
+          </span>
+        </button>
+      </div>
+      {menu && createPortal(menu, document.body)}
+    </>
+  );
+}
+
+interface ToolbarDecorationsMenuProps {
+  copy: EditorCopy;
+  isDarkTheme: boolean;
+  showToolbarIcons: boolean;
+  showToolbarText: boolean;
+  toolbarButtonStyle: CSSProperties;
+  decorationsVisible: boolean;
+  onVisibilityChange: (visible: boolean) => void;
+}
+
+function ToolbarDecorationsMenu({
+  copy,
+  isDarkTheme,
+  showToolbarIcons,
+  showToolbarText,
+  toolbarButtonStyle,
+  decorationsVisible,
+  onVisibilityChange,
+}: ToolbarDecorationsMenuProps): ReactElement {
+  const menuId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMenuPosition(null);
+      return;
+    }
+
+    const updateMenuPosition = (): void => {
+      const trigger = triggerRef.current;
+      if (!trigger) {
+        return;
+      }
+
+      const triggerBounds = trigger.getBoundingClientRect();
+      setMenuPosition({
+        top: triggerBounds.bottom + 4,
+        left: triggerBounds.left,
+      });
+    };
+
+    const handlePointerDown = (event: PointerEvent): void => {
+      const target = event.target;
+      if (target instanceof Node && !triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const menu = isOpen && menuPosition && typeof document !== "undefined" && (
+    <div
+      ref={menuRef}
+      id={menuId}
+      data-ssml-editor=""
+      data-theme={isDarkTheme ? "dark" : "light"}
+      style={{ ...styles.toolbarMenu, top: menuPosition.top, left: menuPosition.left }}
+      role="menu"
+      aria-label={copy.decorations}
+    >
+      {[
+        { label: copy.decorationsShowTitle, visible: true },
+        { label: copy.decorationsHideTitle, visible: false },
+      ].map((option) => (
+        <button
+          key={option.label}
+          type="button"
+          role="menuitemradio"
+          aria-checked={decorationsVisible === option.visible}
+          style={styles.toolbarOption}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            onVisibilityChange(option.visible);
+            setIsOpen(false);
+          }}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <>
+      <div style={styles.toolbarDropdown}>
+        <button
+          ref={triggerRef}
+          type="button"
+          style={toolbarButtonStyle}
+          aria-label={copy.decorations}
+          title={decorationsVisible ? copy.decorationsHideTitle : copy.decorationsShowTitle}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          aria-controls={isOpen ? menuId : undefined}
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          {showToolbarIcons && (
+            <span style={styles.toolbarIcon} aria-hidden="true">
+              ✧
+            </span>
+          )}
+          {showToolbarText && <span>{copy.decorations}</span>}
           <span style={styles.toolbarChevron} aria-hidden="true">
             ▾
           </span>
@@ -2456,22 +2589,16 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     [
       "decorations",
       () => (
-        <button
+        <ToolbarDecorationsMenu
           key="decorations"
-          type="button"
-          style={toolbarButtonStyle}
-          aria-label={copy.decorations}
-          title={decorationsVisible ? copy.decorationsHideTitle : copy.decorationsShowTitle}
-          aria-pressed={decorationsVisible}
-          onClick={() => setDecorationsVisible((visible) => !visible)}
-        >
-          {showToolbarIcons && (
-            <span style={styles.toolbarIcon} aria-hidden="true">
-              ✧
-            </span>
-          )}
-          {showToolbarText && <span>{copy.decorations}</span>}
-        </button>
+          copy={copy}
+          isDarkTheme={isDarkTheme}
+          showToolbarIcons={showToolbarIcons}
+          showToolbarText={showToolbarText}
+          toolbarButtonStyle={toolbarButtonStyle}
+          decorationsVisible={decorationsVisible}
+          onVisibilityChange={setDecorationsVisible}
+        />
       ),
     ],
     [
