@@ -1060,7 +1060,7 @@ const styles: Record<string, CSSProperties> = {
     position: "absolute",
     top: "calc(100% + 0.25rem)",
     left: 0,
-    zIndex: 1,
+    zIndex: 10,
     display: "grid",
     minWidth: "max-content",
     gap: "0.125rem",
