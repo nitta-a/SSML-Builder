@@ -972,7 +972,6 @@ export function SsmlEditor({
     };
   }, []);
 
-  const children = getDocumentChildren(draftDocument);
   const text = getEditableText(draftDocument);
 
   useEffect(() => {
