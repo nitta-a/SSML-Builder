@@ -816,6 +816,17 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid var(--ssml-editor-border)",
     borderRadius: "0.25rem",
   },
+  toolbarGroupLegend: {
+    position: "absolute",
+    width: "1px",
+    height: "1px",
+    margin: "-1px",
+    padding: 0,
+    overflow: "hidden",
+    border: 0,
+    clip: "rect(0 0 0 0)",
+    whiteSpace: "nowrap",
+  },
   toolbarDropdown: {
     position: "relative",
     display: "inline-block",
@@ -1533,6 +1544,9 @@ export function SsmlEditor({
               style={styles.toolbarGroup}
               aria-label={group.labels[language]}
             >
+              <legend style={styles.toolbarGroupLegend}>
+                {group.labels[language]}
+              </legend>
               {insertions.map(renderInsertion)}
             </fieldset>
           ))}
