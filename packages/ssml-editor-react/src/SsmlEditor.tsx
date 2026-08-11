@@ -1155,7 +1155,10 @@ export function SsmlEditor({
             style={toolbarButtonStyle}
             aria-label={copy.format}
             title={copy.formatTitle}
-            onClick={() => commit(updateText(draftDocument, formatXml(text)))}
+            onClick={() => {
+              const value = editorRef.current?.getValue() ?? text;
+              commit(updateText(draftDocument, formatXml(value)));
+            }}
           >
             {showToolbarIcons && (
               <span style={styles.toolbarIcon} aria-hidden="true">
