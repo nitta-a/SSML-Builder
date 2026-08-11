@@ -160,12 +160,19 @@ export function App() {
 - `language`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
-- `buttonVisibility`: ボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`phoneme`、`undo`、`redo`、`clearAll`、`format` を指定でき、未指定のボタンは表示されます
+- `buttonVisibility`: ボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`phoneme`、`audio`、`sub`、`lang`、`mark`、`bookmark`、`mstts:silence`、`mstts:viseme`、`undo`、`redo`、`clearAll`、`format`、カスタム挿入 ID を指定でき、未指定のボタンは表示されます
+- `editorOptions` / `settings`: Monaco の設定。`height`、`minHeight`、`readOnly`、`theme`（`system` / `light` / `dark`）、`fontSize`、`wordWrap`、`lineNumbers`、`minimap`、`automaticLayout` を指定できます。これらは同名のトップレベル props でも指定できます
+- `insertionOrder`: 挿入メニューの ID の表示順。指定されていないメニューは後ろに続きます
+- `insertionGroups`: 挿入メニューをツールバー上でグループ化する設定
+- `emotionStyles`: `emotion` メニューに表示する Azure 音声スタイル候補
+- `customInsertions` / `additionalInsertions`: カスタム SSML 挿入定義。`customInsertions` は同じ ID の標準定義を置き換え、`additionalInsertions` は標準定義へ追加します
 - `className` / `style`: エディター全体のクラス名とインラインスタイル
 - `toolbarClassName` / `toolbarStyle`: ツールバーのクラス名とインラインスタイル
 - `displayClassName` / `displayStyle`: 本文表示エリアのクラス名とインラインスタイル
 - ツールバーの「フォーマット」ボタンで本文の XML を整形できます
 - 本文を変更すると SSML 構文を検証し、エラー箇所をエディター上に表示します
+
+標準の挿入メニューには `audio`、`sub`、`lang`、`mark`、`bookmark`、`mstts:silence`、`mstts:viseme` も含まれます。カスタム要素は `createSsmlEditorInsertionDefinition` でタグ名と属性を指定して作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
 
 本文ツールバーの「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは XML 要素だけを削除し、本文を残します。ドキュメントの `version`、`lang`、その他の属性は保持されます。
 
@@ -379,12 +386,19 @@ export function App() {
 - `language`: The UI language (`"ja"` or `"en"`); defaults to `"ja"`
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
-- `buttonVisibility`: Per-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `phoneme`, `undo`, `redo`, `clearAll`, and `format`; unspecified buttons are shown
+- `buttonVisibility`: Per-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `phoneme`, `audio`, `sub`, `lang`, `mark`, `bookmark`, `mstts:silence`, `mstts:viseme`, `undo`, `redo`, `clearAll`, `format`, and custom insertion IDs; unspecified buttons are shown
+- `editorOptions` / `settings`: Monaco settings for `height`, `minHeight`, `readOnly`, `theme` (`system` / `light` / `dark`), `fontSize`, `wordWrap`, `lineNumbers`, `minimap`, and `automaticLayout`. The same settings can also be supplied as top-level props
+- `insertionOrder`: Display order for insertion menu IDs; unlisted menus follow
+- `insertionGroups`: Groups insertion menus visually in the toolbar
+- `emotionStyles`: Candidate Azure voice styles shown by the `emotion` menu
+- `customInsertions` / `additionalInsertions`: Custom SSML insertion definitions. `customInsertions` replaces a built-in definition with the same ID, while `additionalInsertions` adds definitions to the built-ins
 - `className` / `style`: A class name and inline styles for the editor container
 - `toolbarClassName` / `toolbarStyle`: A class name and inline styles for the toolbar
 - `displayClassName` / `displayStyle`: A class name and inline styles for the text display area
 - Use the **Format** button to format the XML in the text display area
 - Changing the text validates SSML syntax and displays errors in the editor
+
+The built-in insertion menus also include `audio`, `sub`, `lang`, `mark`, `bookmark`, `mstts:silence`, and `mstts:viseme`. Use `createSsmlEditorInsertionDefinition` to create a custom insertion from a tag and one attribute. For arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
 
 Click the **Description** button in the text toolbar to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button removes only XML elements and leaves the text in place. The document's `version`, `lang`, and other attributes are preserved.
 

@@ -22,6 +22,14 @@ test("shows editor buttons by default and hides configured buttons", () => {
   assert.equal(isSsmlEditorButtonVisible(visibility, "rate"), false);
   assert.equal(isSsmlEditorButtonVisible(visibility, "pitch"), true);
   assert.equal(isSsmlEditorButtonVisible(visibility, "format"), true);
+  assert.equal(
+    isSsmlEditorButtonVisible({ "mstts:silence": false }, "mstts:silence"),
+    false,
+  );
+  assert.equal(
+    isSsmlEditorButtonVisible({ customTag: false }, "customTag"),
+    false,
+  );
 });
 
 test("defines the supported SSML tags", () => {
