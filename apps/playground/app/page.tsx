@@ -140,6 +140,21 @@ async function getSynthesisError(response: Response): Promise<string> {
   return `Audio generation failed (${response.status}).`;
 }
 
+function getStoredTheme(): PlaygroundTheme | null {
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return storedTheme === "light" || storedTheme === "dark" ? storedTheme : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeTheme(theme: PlaygroundTheme): void {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {}
+}
+
 export default function Home() {
   const [document, setDocument] = useState<SsmlDocument>(initialDocument);
   const [selectedLanguage, setSelectedLanguage] = useState<SpeechLanguage>("en-US");
@@ -166,8 +181,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (storedTheme === "light" || storedTheme === "dark") {
+    const storedTheme = getStoredTheme();
+    if (storedTheme !== null) {
       setTheme(storedTheme);
       return;
     }
@@ -181,7 +196,7 @@ export default function Home() {
     }
 
     globalThis.document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    storeTheme(theme);
   }, [theme]);
 
   const replaceAudioUrl = (nextAudioUrl: string | null): void => {
