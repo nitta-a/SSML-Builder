@@ -44,13 +44,7 @@ import {
 } from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
-import {
-  clearSsmlDiagnostics,
-  type MonacoModel,
-  type SsmlSyntaxError,
-  updateSsmlDiagnostics,
-  validateSsmlText,
-} from "./ssmlDiagnostics";
+import { clearSsmlDiagnostics, type MonacoModel, type SsmlSyntaxError, updateSsmlDiagnostics } from "./ssmlDiagnostics";
 import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES, OVERLAY_Z_INDEX } from "./constants/ui";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const SSML_DIAGNOSTICS_DEBOUNCE_MS = 300;
@@ -1856,8 +1850,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   useEffect(() => {
     const previousText = previousTextRef.current;
     previousTextRef.current = text;
-    const nextSyntaxError = validateSsmlText(text);
-    setSyntaxError(nextSyntaxError);
 
     const model = editorRef.current?.getModel();
     if (model && monacoRef.current) {
