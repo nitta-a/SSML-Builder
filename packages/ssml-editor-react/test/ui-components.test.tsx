@@ -278,6 +278,8 @@ describe("SsmlEditor props", () => {
       const contentDispose = monacoState.getLatestContentDispose();
 
       expect(contentDispose).not.toBeNull();
+      monacoState.setValue("<voice>");
+      monacoState.emitContentChange();
       unmount();
 
       expect(contentDispose).toHaveBeenCalledTimes(1);
