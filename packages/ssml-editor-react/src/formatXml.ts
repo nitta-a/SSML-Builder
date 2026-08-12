@@ -458,9 +458,23 @@ function stripTrailingWhitespace(value: string): string {
   return value.replace(/[ \t]+$/gm, "");
 }
 
-function getTrailingLineBreak(value: string): string {
-  const match = value.match(/(?:\r\n|\r|\n)$/);
-  return match?.[0] ?? "";
+function getTrailingLineBreaks(value: string): string {
+  let start = value.length;
+  while (start > 0) {
+    if (value[start - 1] === "\n") {
+      start -= 1;
+      if (start > 0 && value[start - 1] === "\r") {
+        start -= 1;
+      }
+      continue;
+    }
+    if (value[start - 1] === "\r") {
+      start -= 1;
+      continue;
+    }
+    break;
+  }
+  return value.slice(start);
 }
 
 function stripTrailingLineBreaks(value: string): string {
@@ -482,12 +496,12 @@ function stripTrailingLineBreaks(value: string): string {
   return value.slice(0, end);
 }
 
-function preserveTrailingLineBreak(formatted: string, trailingLineBreak: string): string {
-  if (trailingLineBreak === "") {
+function preserveTrailingLineBreak(formatted: string, trailingLineBreaks: string): string {
+  if (trailingLineBreaks === "") {
     return formatted;
   }
 
-  return `${stripTrailingLineBreaks(formatted)}${trailingLineBreak}`;
+  return `${stripTrailingLineBreaks(formatted)}${trailingLineBreaks}`;
 }
 
 function renderDocument(document: XmlDocument): string {
@@ -508,14 +522,14 @@ function renderDocument(document: XmlDocument): string {
 }
 
 export function formatXml(xml: string): string {
-  const trailingLineBreak = getTrailingLineBreak(xml);
+  const trailingLineBreaks = getTrailingLineBreaks(xml);
   const source = xml.trim();
   if (source === "") {
     return "";
   }
 
   try {
-    return preserveTrailingLineBreak(renderDocument(parseXml(source)), trailingLineBreak);
+    return preserveTrailingLineBreak(renderDocument(parseXml(source)), trailingLineBreaks);
   } catch {
     return xml;
   }
@@ -547,7 +561,7 @@ function unwrapFormattedFragment(formatted: string): string | undefined {
 }
 
 export function formatXmlFragment(xml: string): string {
-  const trailingLineBreak = getTrailingLineBreak(xml);
+  const trailingLineBreaks = getTrailingLineBreaks(xml);
   const source = xml.trim();
   if (source === "") {
     return "";
@@ -561,5 +575,5 @@ export function formatXmlFragment(xml: string): string {
     return xml;
   }
 
-  return preserveTrailingLineBreak(unwrapFormattedFragment(formatted) ?? xml, trailingLineBreak);
+  return preserveTrailingLineBreak(unwrapFormattedFragment(formatted) ?? xml, trailingLineBreaks);
 }

@@ -79,6 +79,10 @@ test("formatXml preserves a trailing line ending", () => {
   assert.equal(formatXmlFragment(formattedFragment), formattedFragment);
 });
 
+test("formatXml preserves repeated trailing line endings", () => {
+  assert.equal(formatXml("<root/>\n\n"), "<root/>\n\n");
+});
+
 test("formatXmlFragment preserves mixed content and malformed input", () => {
   const mixed = 'Hello<break time="500ms"/>world';
   const malformed = " \n<break><emphasis></break> \n";
