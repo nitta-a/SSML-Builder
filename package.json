@@ -24,11 +24,6 @@
       "types": "./dist/react.d.ts",
       "import": "./dist/react.mjs",
       "require": "./dist/react.js"
-    },
-    "./azure-tts-client": {
-      "types": "./dist/azure-tts-client.d.ts",
-      "import": "./dist/azure-tts-client.mjs",
-      "require": "./dist/azure-tts-client.js"
     }
   },
   "files": [

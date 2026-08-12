@@ -13,12 +13,11 @@ SSML の XML エスケープや Azure Speech 拡張要素に対応したコア�
 
 | サブパス | 内容 |
 | --- | --- |
-| `ssml-builder-js` | コア機能 |
+| `ssml-builder-js` | コア機能と Azure Text-to-Speech クライアント |
 | `ssml-builder-js/core` | SSML の型定義、ドキュメントの生成（`buildSsml`）、XML からの解析（`parseSsml`）、構文検証（`validateSsml`） |
 | `ssml-builder-js/react` | ツールバーと本文の表示エリアを備えた `SsmlEditor` コンポーネント |
-| `ssml-builder-js/azure-tts-client` | Microsoft Speech SDK で SSML を Azure Text-to-Speech に送信し、音声データを `ArrayBuffer` で取得するクライアント |
 
-`ssml-builder-js` と `ssml-builder-js/core` は同じコア機能を提供します。React エディタと Azure TTS は、それぞれ対応するサブパスから読み込みます。
+`ssml-builder-js` と `ssml-builder-js/core` は同じコア機能を提供します。React エディタは `ssml-builder-js/react` から読み込み、Azure TTS クライアントは `ssml-builder-js` から読み込みます。
 
 ## セットアップ
 
@@ -49,7 +48,7 @@ npm ci
 ### Playground で音声を生成する
 
 `apps/playground` の「音声を生成」ボタンは、現在の SSML をサーバー側の
-Next.js Route Handler に送信し、`ssml-builder-js/azure-tts-client` で Azure
+Next.js Route Handler に送信し、`ssml-builder-js` で Azure
 Speech の音声を生成します。Azure のサブスクリプションキーをブラウザへ公開しないため、
 `apps/playground/.env.local` に次の値を設定してください。
 
@@ -191,7 +190,7 @@ export function App() {
 `AzureTtsClient` に Azure Speech のサブスクリプションキーとリージョンを渡し、`synthesize` に SSML を渡します。戻り値は音声データの `ArrayBuffer` です。
 
 ```ts
-import { AzureTtsClient } from "ssml-builder-js/azure-tts-client";
+import { AzureTtsClient } from "ssml-builder-js";
 
 const client = new AzureTtsClient({
   subscriptionKey: process.env.AZURE_SPEECH_KEY!,
@@ -206,7 +205,7 @@ const audio = await client.synthesize(ssml);
 `endpoint`、`subscriptionKey`、`region` を指定します。
 
 ```ts
-import { synthesizeSpeech } from "ssml-builder-js/azure-tts-client";
+import { synthesizeSpeech } from "ssml-builder-js";
 
 const audio = await synthesizeSpeech(ssml, {
   endpoint: "https://japaneast.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1",
@@ -267,12 +266,11 @@ It provides a core library with XML escaping and Azure Speech extension support,
 
 | Subpath | Description |
 | --- | --- |
-| `ssml-builder-js` | Core functionality |
+| `ssml-builder-js` | Core functionality and the Azure Text-to-Speech client |
 | `ssml-builder-js/core` | SSML type definitions, document generation (`buildSsml`), XML parsing (`parseSsml`), and syntax validation (`validateSsml`) |
 | `ssml-builder-js/react` | The `SsmlEditor` component with a toolbar and text display area |
-| `ssml-builder-js/azure-tts-client` | A client that uses the Microsoft Speech SDK to send SSML to Azure Text-to-Speech and return audio data as an `ArrayBuffer` |
 
-`ssml-builder-js` and `ssml-builder-js/core` provide the same core functionality. Import the React editor and Azure TTS client from their respective subpaths.
+`ssml-builder-js` and `ssml-builder-js/core` provide the same core functionality. Import the React editor from `ssml-builder-js/react`; the Azure TTS client is available from `ssml-builder-js`.
 
 ## Setup
 
@@ -303,7 +301,7 @@ npm ci
 ### Generating audio in the playground
 
 The **Generate audio** button in `apps/playground` sends the current SSML to a
-server-side Next.js Route Handler, which uses `ssml-builder-js/azure-tts-client` to
+server-side Next.js Route Handler, which uses `ssml-builder-js` to
 generate speech with Azure Speech. To keep the Azure subscription key out of the
 browser, set the following values in `apps/playground/.env.local`:
 
@@ -444,7 +442,7 @@ Click the **Description** button to see descriptions of each control, button, an
 Pass an Azure Speech subscription key and region to `AzureTtsClient`, then pass SSML to `synthesize`. The return value is an `ArrayBuffer` containing audio data.
 
 ```ts
-import { AzureTtsClient } from "ssml-builder-js/azure-tts-client";
+import { AzureTtsClient } from "ssml-builder-js";
 
 const client = new AzureTtsClient({
   subscriptionKey: process.env.AZURE_SPEECH_KEY!,
@@ -459,7 +457,7 @@ The lower-level `synthesizeSpeech` function is also available. It requires
 `endpoint`, `subscriptionKey`, and `region` in its `TtsConfig` argument.
 
 ```ts
-import { synthesizeSpeech } from "ssml-builder-js/azure-tts-client";
+import { synthesizeSpeech } from "ssml-builder-js";
 
 const audio = await synthesizeSpeech(ssml, {
   endpoint: "https://japaneast.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1",

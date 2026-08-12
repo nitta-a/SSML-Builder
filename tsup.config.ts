@@ -5,12 +5,11 @@ export default defineConfig({
     index: "src/index.ts",
     core: "src/core.ts",
     react: "src/react.tsx",
-    "azure-tts-client": "src/azure-tts-client.ts",
   },
   format: ["esm", "cjs"],
   outDir: "dist",
   dts: {
-    resolve: ["@ssml-builder-js/ssml-core", "@ssml-builder-js/ssml-editor-react", "@ssml-builder-js/azure-tts-client"],
+    resolve: ["@ssml-builder-js/ssml-core", "@ssml-builder-js/ssml-editor-react"],
     compilerOptions: {
       composite: false,
       ignoreDeprecations: "6.0",
@@ -21,5 +20,5 @@ export default defineConfig({
   },
   sourcemap: true,
   clean: true,
-  noExternal: ["@ssml-builder-js/ssml-core", "@ssml-builder-js/ssml-editor-react", "@ssml-builder-js/azure-tts-client"],
+  noExternal: ["@ssml-builder-js/ssml-core", "@ssml-builder-js/ssml-editor-react"],
 });
