@@ -6,7 +6,7 @@ const EDITABLE_SSML_SUFFIX = "</speak>";
 
 export const SSML_DIAGNOSTIC_OWNER = "ssml";
 
-type MonacoEditor = Parameters<OnMount>[0];
+export type MonacoEditor = Parameters<OnMount>[0];
 export type MonacoModel = NonNullable<ReturnType<MonacoEditor["getModel"]>>;
 
 export interface SsmlSyntaxError {

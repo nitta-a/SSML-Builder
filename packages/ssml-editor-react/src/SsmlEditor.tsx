@@ -1,6 +1,6 @@
 import { Fragment, forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
-import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
+import Editor, { type Monaco } from "@monaco-editor/react";
 import { createPortal } from "react-dom";
 import { buildPartialSsml, buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
 import type {
@@ -44,7 +44,13 @@ import {
 } from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
-import { clearSsmlDiagnostics, type MonacoModel, type SsmlSyntaxError, updateSsmlDiagnostics } from "./ssmlDiagnostics";
+import {
+  clearSsmlDiagnostics,
+  type MonacoEditor,
+  type MonacoModel,
+  type SsmlSyntaxError,
+  updateSsmlDiagnostics,
+} from "./ssmlDiagnostics";
 import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES, OVERLAY_Z_INDEX } from "./constants/ui";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const SSML_DIAGNOSTICS_DEBOUNCE_MS = 300;
@@ -968,7 +974,6 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-type MonacoEditor = Parameters<OnMount>[0];
 type SsmlInsertion = SsmlInsertionDefinition;
 type MonacoLanguages = Monaco["languages"];
 type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
@@ -1849,7 +1854,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
 
   useEffect(() => {
     const model = editorRef.current?.getModel();
-    if (model && monacoRef.current) {
+    const monaco = monacoRef.current;
+    if (model && monaco) {
       const previousText = previousTextRef.current;
       previousTextRef.current = text;
       inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
@@ -1860,7 +1866,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
         inlineDecorationIdsRef.current,
       );
       if (previousText !== null && previousText !== text && editorRef.current) {
-        scheduleSsmlDiagnostics(editorRef.current, monacoRef.current);
+        scheduleSsmlDiagnostics(editorRef.current, monaco);
       }
     }
   }, [decorationsVisible, language, scheduleSsmlDiagnostics, text]);
