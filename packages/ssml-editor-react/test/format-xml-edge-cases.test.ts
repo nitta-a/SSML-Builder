@@ -69,6 +69,11 @@ test("formatXmlFragment formats sibling elements from the editor body", () => {
   );
 });
 
+test("formatXml preserves a trailing line ending", () => {
+  assert.equal(formatXml("<root><child/></root>\n"), "<root>\n  <child/>\n</root>\n");
+  assert.equal(formatXmlFragment("<break time=\"500ms\"/>\r\n"), '<break time="500ms"/>\r\n');
+});
+
 test("formatXmlFragment preserves mixed content and malformed input", () => {
   const mixed = 'Hello<break time="500ms"/>world';
   const malformed = " \n<break><emphasis></break> \n";
