@@ -77,6 +77,7 @@ const monacoState = vi.hoisted(() => {
       registerCompletionItemProvider: vi.fn(disposable),
       CompletionItemKind: {
         Snippet: 27,
+        Value: 18,
       },
       CompletionItemInsertTextRule: {
         InsertAsSnippet: 4,
