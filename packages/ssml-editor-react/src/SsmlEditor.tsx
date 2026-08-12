@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { Fragment, forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { createPortal } from "react-dom";
@@ -1681,6 +1681,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
+  const previousTextRef = useRef<string | null>(null);
   const language = localeProp ?? languageProp ?? DEFAULT_LOCALE;
   const languageRef = useRef(language);
   draftDocumentRef.current = draftDocument;
@@ -1772,7 +1773,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     }
   };
 
-  const runSsmlDiagnostics = (editor: MonacoEditor, monaco: Monaco): void => {
+  const runSsmlDiagnostics = useCallback((editor: MonacoEditor, monaco: Monaco): void => {
     const model = editor.getModel();
     if (!model) {
       setSyntaxError(null);
@@ -1780,18 +1781,21 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     }
 
     setSyntaxError(updateSsmlDiagnostics(monaco, model));
-  };
+  }, []);
 
-  const scheduleSsmlDiagnostics = (editor: MonacoEditor, monaco: Monaco): void => {
-    if (diagnosticsTimeoutRef.current !== null) {
-      clearTimeout(diagnosticsTimeoutRef.current);
-    }
+  const scheduleSsmlDiagnostics = useCallback(
+    (editor: MonacoEditor, monaco: Monaco): void => {
+      if (diagnosticsTimeoutRef.current !== null) {
+        clearTimeout(diagnosticsTimeoutRef.current);
+      }
 
-    diagnosticsTimeoutRef.current = setTimeout(() => {
-      diagnosticsTimeoutRef.current = null;
-      runSsmlDiagnostics(editor, monaco);
-    }, SSML_DIAGNOSTICS_DEBOUNCE_MS);
-  };
+      diagnosticsTimeoutRef.current = setTimeout(() => {
+        diagnosticsTimeoutRef.current = null;
+        runSsmlDiagnostics(editor, monaco);
+      }, SSML_DIAGNOSTICS_DEBOUNCE_MS);
+    },
+    [runSsmlDiagnostics],
+  );
 
   useEffect(() => {
     injectEditorTheme();
@@ -1850,6 +1854,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const text = getEditableText(draftDocument);
 
   useEffect(() => {
+    const previousText = previousTextRef.current;
+    previousTextRef.current = text;
     const nextSyntaxError = validateSsmlText(text);
     setSyntaxError(nextSyntaxError);
 
@@ -1862,8 +1868,11 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
         decorationsVisible,
         inlineDecorationIdsRef.current,
       );
+      if (previousText !== null && previousText !== text && editorRef.current) {
+        scheduleSsmlDiagnostics(editorRef.current, monacoRef.current);
+      }
     }
-  }, [decorationsVisible, language, text]);
+  }, [decorationsVisible, language, scheduleSsmlDiagnostics, text]);
 
   const commit = (nextDocument: SsmlDocument): void => {
     draftDocumentRef.current = nextDocument;
