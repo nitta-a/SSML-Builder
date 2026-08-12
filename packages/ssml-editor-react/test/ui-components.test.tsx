@@ -227,6 +227,21 @@ describe("SsmlEditor toolbar menus", () => {
     expect(screen.queryByRole("menu", { name: "Break" })).toBeNull();
   });
 
+  it("wraps selected text when a wrapping tag option is clicked", async () => {
+    const user = userEvent.setup();
+    monacoState.setSelectionOffsets(6, 11);
+    renderEditor({ locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Rate" }));
+    const menu = screen.getByRole("menu", { name: "Rate" });
+    await user.click(within(menu).getByRole("menuitem", { name: "slow" }));
+
+    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toBe(
+      '<prosody rate="slow">world</prosody>\n',
+    );
+    expect(monacoState.getValue()).toBe('Hello <prosody rate="slow">world</prosody>\n');
+  });
+
   it("inserts a tag and closes the popover when Enter is pressed", async () => {
     const user = userEvent.setup();
     renderEditor({ locale: "en" });
