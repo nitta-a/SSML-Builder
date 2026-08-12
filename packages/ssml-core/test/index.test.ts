@@ -1,12 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  DEFAULT_SSML_LANGUAGE,
+  DEFAULT_SSML_VERSION,
+  MSTTS_NAMESPACE,
+  SSML_ATTRS,
+  SSML_TAGS,
+  SYNTHESIS_NAMESPACE,
+} from "../src/constants/ssml.ts";
 import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "../src/index.ts";
 
+function speakDocument(body: string, lang = DEFAULT_SSML_LANGUAGE, includeMsttsNamespace = false): string {
+  const msttsNamespace = includeMsttsNamespace ? ` ${SSML_ATTRS.MSTTS_XMLNS}="${MSTTS_NAMESPACE}"` : "";
+  return `<${SSML_TAGS.SPEAK} ${SSML_ATTRS.VERSION}="${DEFAULT_SSML_VERSION}" ${SSML_ATTRS.XMLNS}="${SYNTHESIS_NAMESPACE}" ${SSML_ATTRS.XML_LANG}="${lang}"${msttsNamespace}>${body}</${SSML_TAGS.SPEAK}>`;
+}
+
+const mismatchedVoiceMessage = `Mismatched closing element: expected </${SSML_TAGS.VOICE}> but found </${SSML_TAGS.SPEAK}>`;
+
 test("buildPartialSsml creates a minimal playable document", () => {
-  assert.equal(
-    buildPartialSsml("Hello", { lang: "en-US" }),
-    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">Hello</speak>',
-  );
+  assert.equal(buildPartialSsml("Hello", { lang: DEFAULT_SSML_LANGUAGE }), speakDocument("Hello"));
 });
 
 test("buildPartialSsml preserves voice and prosody context", () => {
@@ -17,36 +29,41 @@ test("buildPartialSsml preserves voice and prosody context", () => {
       voiceName: "ja-JP-NanamiNeural",
       prosody: { rate: "slow", pitch: "+2st" },
     }),
-    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ja-JP"><voice name="ja-JP-NanamiNeural"><prosody rate="slow" pitch="+2st">こんにちは</prosody></voice></speak>',
+    speakDocument(
+      `<${SSML_TAGS.VOICE} ${SSML_ATTRS.NAME}="ja-JP-NanamiNeural"><${SSML_TAGS.PROSODY} ${SSML_ATTRS.RATE}="slow" ${SSML_ATTRS.PITCH}="+2st">こんにちは</${SSML_TAGS.PROSODY}></${SSML_TAGS.VOICE}>`,
+      "ja-JP",
+    ),
   );
 });
 
 test("buildPartialSsml parses valid XML fragments and escapes invalid fragments", () => {
   assert.equal(
-    buildPartialSsml('<break time="300ms"/>Hello', { lang: "en-US", voice: "en-US-JennyNeural" }),
-    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural"><break time="300ms"/>Hello</voice></speak>',
+    buildPartialSsml(`<${SSML_TAGS.BREAK} ${SSML_ATTRS.TIME}="300ms"/>Hello`, {
+      lang: DEFAULT_SSML_LANGUAGE,
+      voice: "en-US-JennyNeural",
+    }),
+    speakDocument(
+      `<${SSML_TAGS.VOICE} ${SSML_ATTRS.NAME}="en-US-JennyNeural"><${SSML_TAGS.BREAK} ${SSML_ATTRS.TIME}="300ms"/>Hello</${SSML_TAGS.VOICE}>`,
+    ),
   );
-  assert.equal(
-    buildPartialSsml("1 < 2", { lang: "en-US" }),
-    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">1 &lt; 2</speak>',
-  );
+  assert.equal(buildPartialSsml("1 < 2", { lang: DEFAULT_SSML_LANGUAGE }), speakDocument("1 &lt; 2"));
 });
 
 test("buildPartialSsml accepts a voice shorthand in object options", () => {
   assert.equal(
     buildPartialSsml({
       text: "Hello",
-      lang: "en-US",
+      lang: DEFAULT_SSML_LANGUAGE,
       voice: "en-US-JennyNeural",
     }),
-    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural">Hello</voice></speak>',
+    speakDocument(`<${SSML_TAGS.VOICE} ${SSML_ATTRS.NAME}="en-US-JennyNeural">Hello</${SSML_TAGS.VOICE}>`),
   );
 });
 
 test("buildSsml uses the default language", () => {
   assert.deepEqual(buildSsml("Hello"), {
-    version: "1.0",
-    lang: "en-US",
+    version: DEFAULT_SSML_VERSION,
+    lang: DEFAULT_SSML_LANGUAGE,
     content: "Hello",
   });
 });
@@ -62,23 +79,23 @@ test("buildSsml accepts a custom language and content", () => {
 test("buildSsml serializes nested SSML elements", () => {
   assert.equal(
     buildSsml({
-      version: "1.0",
-      lang: "en-US",
+      version: DEFAULT_SSML_VERSION,
+      lang: DEFAULT_SSML_LANGUAGE,
       children: [
         "Hello & ",
         {
-          type: "voice",
+          type: SSML_TAGS.VOICE,
           name: "en-US-JennyNeural",
           children: [
             {
-              type: "prosody",
+              type: SSML_TAGS.PROSODY,
               rate: "slow",
               pitch: "+2st",
               children: ["world"],
             },
-            { type: "break", time: "500ms" },
+            { type: SSML_TAGS.BREAK, time: "500ms" },
             {
-              type: "express-as",
+              type: SSML_TAGS.EXPRESS_AS,
               style: "cheerful",
               children: ["!"],
             },
@@ -86,52 +103,58 @@ test("buildSsml serializes nested SSML elements", () => {
         },
       ],
     }),
-    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US" xmlns:mstts="http://www.w3.org/2001/mstts">Hello &amp; <voice name="en-US-JennyNeural"><prosody rate="slow" pitch="+2st">world</prosody><break time="500ms"/><mstts:express-as style="cheerful">!</mstts:express-as></voice></speak>',
+    speakDocument(
+      `Hello &amp; <${SSML_TAGS.VOICE} ${SSML_ATTRS.NAME}="en-US-JennyNeural"><${SSML_TAGS.PROSODY} ${SSML_ATTRS.RATE}="slow" ${SSML_ATTRS.PITCH}="+2st">world</${SSML_TAGS.PROSODY}><${SSML_TAGS.BREAK} ${SSML_ATTRS.TIME}="500ms"/><${SSML_TAGS.MSTTS_EXPRESS_AS} ${SSML_ATTRS.STYLE}="cheerful">!</${SSML_TAGS.MSTTS_EXPRESS_AS}></${SSML_TAGS.VOICE}>`,
+      DEFAULT_SSML_LANGUAGE,
+      true,
+    ),
   );
 });
 
 test("buildSsml escapes text and attribute values", () => {
   assert.equal(
     buildSsml({
-      version: "1.0",
-      lang: "en-US",
+      version: DEFAULT_SSML_VERSION,
+      lang: DEFAULT_SSML_LANGUAGE,
       children: [
         {
-          type: "voice",
+          type: SSML_TAGS.VOICE,
           name: 'voice & "name"',
           children: ["Say <this> & that"],
         },
       ],
     }),
-    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="voice &amp; &quot;name&quot;">Say &lt;this&gt; &amp; that</voice></speak>',
+    speakDocument(
+      `<${SSML_TAGS.VOICE} ${SSML_ATTRS.NAME}="voice &amp; &quot;name&quot;">Say &lt;this&gt; &amp; that</${SSML_TAGS.VOICE}>`,
+    ),
   );
 });
 
 test("parseSsml converts nested XML into an SSML document", () => {
   assert.deepEqual(
     parseSsml(
-      '<?xml version="1.0"?><speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US" xmlns:mstts="http://www.w3.org/2001/mstts"><voice name="en-US-JennyNeural" data-source="test">Hello &amp; <prosody rate="slow" pitch="+2st">world</prosody><break time="500ms"/><mstts:express-as style="cheerful">!</mstts:express-as></voice></speak>',
+      `<?xml ${SSML_ATTRS.VERSION}="${DEFAULT_SSML_VERSION}"?><${SSML_TAGS.SPEAK} ${SSML_ATTRS.VERSION}="${DEFAULT_SSML_VERSION}" ${SSML_ATTRS.XMLNS}="${SYNTHESIS_NAMESPACE}" ${SSML_ATTRS.XML_LANG}="${DEFAULT_SSML_LANGUAGE}" ${SSML_ATTRS.MSTTS_XMLNS}="${MSTTS_NAMESPACE}"><${SSML_TAGS.VOICE} ${SSML_ATTRS.NAME}="en-US-JennyNeural" data-source="test">Hello &amp; <${SSML_TAGS.PROSODY} ${SSML_ATTRS.RATE}="slow" ${SSML_ATTRS.PITCH}="+2st">world</${SSML_TAGS.PROSODY}><${SSML_TAGS.BREAK} ${SSML_ATTRS.TIME}="500ms"/><${SSML_TAGS.MSTTS_EXPRESS_AS} ${SSML_ATTRS.STYLE}="cheerful">!</${SSML_TAGS.MSTTS_EXPRESS_AS}></${SSML_TAGS.VOICE}></${SSML_TAGS.SPEAK}>`,
     ),
     {
-      type: "speak",
-      version: "1.0",
-      lang: "en-US",
+      type: SSML_TAGS.SPEAK,
+      version: DEFAULT_SSML_VERSION,
+      lang: DEFAULT_SSML_LANGUAGE,
       children: [
         {
-          type: "voice",
+          type: SSML_TAGS.VOICE,
           name: "en-US-JennyNeural",
           attributes: { "data-source": "test" },
           children: [
             "Hello & ",
             {
-              type: "prosody",
+              type: SSML_TAGS.PROSODY,
               rate: "slow",
               pitch: "+2st",
               children: ["world"],
             },
-            { type: "break", time: "500ms" },
+            { type: SSML_TAGS.BREAK, time: "500ms" },
             {
-              type: "mstts:express-as",
+              type: SSML_TAGS.MSTTS_EXPRESS_AS,
               style: "cheerful",
               children: ["!"],
             },
@@ -145,11 +168,11 @@ test("parseSsml converts nested XML into an SSML document", () => {
 test("parseSsml decodes text, CDATA, and custom elements", () => {
   assert.deepEqual(
     parseSsml(
-      '<speak version="1.0" xml:lang="ja-JP">A &lt; B<!-- ignored --><![CDATA[ &amp; C ]]><custom-tag answer="42">D</custom-tag></speak>',
+      `<${SSML_TAGS.SPEAK} ${SSML_ATTRS.VERSION}="${DEFAULT_SSML_VERSION}" ${SSML_ATTRS.XML_LANG}="ja-JP">A &lt; B<!-- ignored --><![CDATA[ &amp; C ]]><custom-tag answer="42">D</custom-tag></${SSML_TAGS.SPEAK}>`,
     ),
     {
-      type: "speak",
-      version: "1.0",
+      type: SSML_TAGS.SPEAK,
+      version: DEFAULT_SSML_VERSION,
       lang: "ja-JP",
       children: [
         "A < B &amp; C ",
@@ -165,15 +188,15 @@ test("parseSsml decodes text, CDATA, and custom elements", () => {
 });
 
 test("validateSsml returns no error for valid SSML", () => {
-  assert.equal(validateSsml('<speak version="1.0" xml:lang="en-US">Hello</speak>'), null);
+  assert.equal(validateSsml(speakDocument("Hello")), null);
 });
 
 test("validateSsml returns a message and parser position for invalid SSML", () => {
-  const source = '<speak version="1.0" xml:lang="en-US"><voice>Hello</speak>';
+  const source = speakDocument(`<${SSML_TAGS.VOICE}>Hello`);
   const error = validateSsml(source);
 
   assert.deepEqual(error, {
-    message: "Mismatched closing element: expected </voice> but found </speak>",
+    message: mismatchedVoiceMessage,
     position: source.length,
   });
 });

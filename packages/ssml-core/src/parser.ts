@@ -23,13 +23,7 @@ import type {
   VoiceElement,
   WordElement,
 } from "./types.ts";
-import {
-  MAX_NESTING_DEPTH,
-  MSTTS_NAMESPACE,
-  SSML_ATTRS,
-  SSML_TAGS,
-  SYNTHESIS_NAMESPACE,
-} from "./constants/ssml.ts";
+import { MAX_NESTING_DEPTH, MSTTS_NAMESPACE, SSML_ATTRS, SSML_TAGS, SYNTHESIS_NAMESPACE } from "./constants/ssml.ts";
 
 interface XmlElementNode {
   name: string;
