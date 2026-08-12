@@ -31,7 +31,7 @@ function createCompletionProvider(): CompletionProvider {
   return provider;
 }
 
-function getSuggestions(source: string) {
+function getSuggestions(source: string, column = source.length + 1) {
   const provider = createCompletionProvider();
   const model = {
     getValue: () => source,
@@ -39,7 +39,7 @@ function getSuggestions(source: string) {
     getValueInRange: (range: { startColumn: number; endColumn: number }) =>
       source.slice(range.startColumn - 1, range.endColumn - 1),
   } as CompletionModel;
-  const position = { lineNumber: 1, column: source.length + 1 } as CompletionPosition;
+  const position = { lineNumber: 1, column } as CompletionPosition;
   const result = provider.provideCompletionItems?.(model, position);
 
   assert.ok(result && !(result instanceof Promise));
@@ -93,6 +93,18 @@ test("replaces a typed opening bracket when selecting a tag completion", () => {
     startColumn: 1,
     endLineNumber: 1,
     endColumn: 2,
+  });
+});
+
+test("replaces an automatically inserted closing bracket after an opening bracket", () => {
+  const suggestions = getSuggestions("<>", 2);
+  const subSuggestion = suggestions.find((suggestion) => suggestion.label === "sub");
+
+  assert.deepEqual(subSuggestion?.range, {
+    startLineNumber: 1,
+    startColumn: 1,
+    endLineNumber: 1,
+    endColumn: 3,
   });
 });
 

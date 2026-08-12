@@ -140,7 +140,10 @@ vi.mock("@monaco-editor/react", () => ({
     options,
     onMount,
   }: {
-    options?: { inlayHints?: { enabled?: string } };
+    options?: {
+      autoClosingBrackets?: string;
+      inlayHints?: { enabled?: string };
+    };
     onMount?: (editor: typeof monacoState.editor, monaco: typeof monacoState.monaco) => void;
   }) {
     const mounted = useRef(false);
@@ -151,7 +154,13 @@ vi.mock("@monaco-editor/react", () => ({
       }
     }, [onMount]);
 
-    return <div data-testid="monaco-editor" data-inlay-hints={options?.inlayHints?.enabled} />;
+    return (
+      <div
+        data-testid="monaco-editor"
+        data-auto-closing-brackets={options?.autoClosingBrackets}
+        data-inlay-hints={options?.inlayHints?.enabled}
+      />
+    );
   },
 }));
 
@@ -284,6 +293,12 @@ describe("SsmlEditor props", () => {
 
     expect(screen.getByTestId("monaco-editor").getAttribute("data-inlay-hints")).toBe("on");
     expect(screen.getByRole("switch", { name: "装飾" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("disables automatic bracket closing for SSML completion", () => {
+    renderEditor();
+
+    expect(screen.getByTestId("monaco-editor").getAttribute("data-auto-closing-brackets")).toBe("never");
   });
 
   it("does not render the toolbar when showToolbar is false", () => {

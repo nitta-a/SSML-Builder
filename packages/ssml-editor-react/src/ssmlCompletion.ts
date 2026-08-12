@@ -56,11 +56,19 @@ export function registerSsmlCompletionProvider(
           endLineNumber: position.lineNumber,
           endColumn: position.column,
         }) === "<";
+      const hasClosingBracket =
+        isAfterBracket &&
+        model.getValueInRange({
+          startLineNumber: position.lineNumber,
+          startColumn: position.column,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column + 1,
+        }) === ">";
       const range = {
         startLineNumber: position.lineNumber,
         startColumn: isAfterBracket ? position.column - 1 : position.column,
         endLineNumber: position.lineNumber,
-        endColumn: position.column,
+        endColumn: hasClosingBracket ? position.column + 1 : position.column,
       };
 
       return {

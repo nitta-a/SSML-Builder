@@ -1690,6 +1690,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             theme={isDarkTheme ? "vs-dark" : "light"}
             options={{
               automaticLayout: resolvedEditorOptions.automaticLayout ?? true,
+              autoClosingBrackets: "never",
               fontSize: resolvedEditorOptions.fontSize,
               hover: { enabled: "on" },
               inlayHints: { enabled: decorationsVisible ? "on" : "off" },
