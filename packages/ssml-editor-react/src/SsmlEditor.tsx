@@ -1,6 +1,6 @@
-import { Fragment, forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
-import Editor, { type Monaco } from "@monaco-editor/react";
+import Editor from "@monaco-editor/react";
 import { createPortal } from "react-dom";
 import { buildPartialSsml, buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
 import type {
@@ -36,24 +36,20 @@ import {
 import { formatXmlFragment } from "./formatXml";
 import {
   EDITOR_COPY,
-  INLINE_BADGE_COPY,
   type EditorCopy,
   type SsmlEditorLanguage,
   type SsmlEditorLocale,
   type SsmlEditorLocalizedText,
 } from "./locales";
-import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
 import {
-  clearSsmlDiagnostics,
   type MonacoEditor,
-  type MonacoModel,
   type SsmlSyntaxError,
-  updateSsmlDiagnostics,
 } from "./ssmlDiagnostics";
-import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES, OVERLAY_Z_INDEX } from "./constants/ui";
+import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "./constants/ui";
+import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
+import { editorStyles as styles } from "./styles/editorStyles";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
-const SSML_DIAGNOSTICS_DEBOUNCE_MS = 300;
 
 export type { SsmlEditorLanguage, SsmlEditorLocalizedText } from "./locales";
 
@@ -727,266 +723,7 @@ export interface SsmlEditorRef {
   getFullSsml(): string;
 }
 
-const styles: Record<string, CSSProperties> = {
-  container: {
-    display: "grid",
-    gap: "0.75rem",
-    padding: "1rem",
-    border: "1px solid var(--ssml-editor-border)",
-    borderRadius: "0.5rem",
-    color: "var(--ssml-editor-color)",
-    backgroundColor: "var(--ssml-editor-bg)",
-  },
-  toolbarContainer: {
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-  },
-  toolbarActions: {
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-  },
-  toolbarSeparator: {
-    width: "1px",
-    height: "2.25rem",
-    margin: "0 0.25rem",
-    backgroundColor: "var(--ssml-editor-border)",
-  },
-  toolbarDropdown: {
-    position: "relative",
-    display: "inline-block",
-  },
-  toolbarSwitch: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "0.375rem",
-    minHeight: "2.25rem",
-    color: "var(--ssml-editor-color)",
-    font: "inherit",
-  },
-  toolbarSwitchTrack: {
-    display: "inline-flex",
-    alignItems: "center",
-    width: "2.75rem",
-    height: "1.5rem",
-    padding: "0.1875rem",
-    border: 0,
-    borderRadius: "999px",
-    backgroundColor: "var(--ssml-editor-control-border)",
-    cursor: "pointer",
-    font: "inherit",
-    transition: "background-color 0.2s ease",
-  },
-  toolbarSwitchThumb: {
-    width: "1.125rem",
-    height: "1.125rem",
-    borderRadius: "50%",
-    backgroundColor: "var(--ssml-editor-bg)",
-    transition: "transform 0.2s ease",
-  },
-  toolbarButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "0.375rem",
-    minHeight: "2.25rem",
-    padding: "0.375rem 0.625rem",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.25rem",
-    color: "var(--ssml-editor-color)",
-    backgroundColor: "var(--ssml-editor-control-bg)",
-    font: "inherit",
-    cursor: "pointer",
-  },
-  display: {
-    display: "grid",
-    gap: "0.5rem",
-  },
-  toolbarIconOnly: {
-    justifyContent: "center",
-    minWidth: "2.25rem",
-    padding: "0.375rem",
-  },
-  toolbarIcon: {
-    display: "inline-flex",
-    width: "1.25rem",
-    justifyContent: "center",
-    fontSize: "1.1rem",
-    lineHeight: 1,
-  },
-  toolbarChevron: {
-    fontSize: "0.7rem",
-    lineHeight: 1,
-  },
-  toolbarMenu: {
-    position: "fixed",
-    zIndex: OVERLAY_Z_INDEX,
-    display: "grid",
-    minWidth: "max-content",
-    maxHeight: "min(24rem, calc(100vh - 1rem))",
-    gap: "0.125rem",
-    padding: "0.25rem",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.25rem",
-    backgroundColor: "var(--ssml-editor-control-bg)",
-    boxShadow: "0 0.25rem 0.75rem rgb(0 0 0 / 20%)",
-    overflowY: "auto",
-  },
-  toolbarOption: {
-    padding: "0.375rem 0.5rem",
-    border: 0,
-    borderRadius: "0.125rem",
-    color: "var(--ssml-editor-color)",
-    backgroundColor: "transparent",
-    font: "inherit",
-    textAlign: "left",
-    whiteSpace: "nowrap",
-    cursor: "pointer",
-  },
-  helpPanel: {
-    display: "grid",
-    gap: "0.5rem",
-    width: "100%",
-    padding: "0.75rem",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.25rem",
-    backgroundColor: "var(--ssml-editor-preview-bg)",
-  },
-  helpHeading: {
-    margin: 0,
-    fontSize: "1rem",
-  },
-  helpDescription: {
-    margin: 0,
-    lineHeight: 1.5,
-  },
-  helpList: {
-    display: "grid",
-    gap: "0.375rem",
-    margin: 0,
-    paddingLeft: "1.25rem",
-  },
-  helpItem: {
-    listStyleType: "none",
-    lineHeight: 1.45,
-  },
-  helpIcon: {
-    display: "inline-flex",
-    width: "1.25rem",
-    justifyContent: "center",
-    fontSize: "1.1rem",
-    lineHeight: 1.45,
-  },
-  helpSettingsAccordion: {
-    marginTop: "0.375rem",
-    overflow: "hidden",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.25rem",
-    backgroundColor: "var(--ssml-editor-control-bg)",
-  },
-  helpSettingsSummary: {
-    display: "grid",
-    gridTemplateColumns: "1rem 1.25rem minmax(0, 1fr)",
-    columnGap: "0.5rem",
-    alignItems: "start",
-    padding: "0.5rem 0.625rem",
-    cursor: "pointer",
-  },
-  helpSettingsSummaryContent: {
-    minWidth: 0,
-  },
-  helpSettingsDescription: {
-    margin: "0.5rem 0.75rem 0",
-    fontSize: "0.875rem",
-  },
-  helpSettingsList: {
-    display: "grid",
-    gap: "0.125rem",
-    margin: "0.25rem 0.75rem 0.75rem",
-    paddingLeft: "1.25rem",
-    fontSize: "0.875rem",
-  },
-  editor: {
-    boxSizing: "border-box",
-    position: "relative",
-    width: "100%",
-    minHeight: "8rem",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.25rem",
-    overflow: "visible",
-  },
-  selectionActions: {
-    position: "absolute",
-    zIndex: OVERLAY_Z_INDEX,
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "0.25rem",
-    maxWidth: "calc(100% - 1rem)",
-    padding: "0.25rem",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.375rem",
-    color: "var(--ssml-editor-color)",
-    backgroundColor: "var(--ssml-editor-control-bg)",
-    boxShadow: "0 0.25rem 0.75rem rgb(0 0 0 / 20%)",
-  },
-  selectionCount: {
-    padding: "0.25rem 0.375rem",
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    whiteSpace: "nowrap",
-  },
-  selectionActionsDivider: {
-    width: "1px",
-    height: "1.5rem",
-    backgroundColor: "var(--ssml-editor-border)",
-  },
-  selectionActionButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "0.25rem",
-    minHeight: "1.75rem",
-    padding: "0.25rem 0.375rem",
-    border: "1px solid var(--ssml-editor-control-border)",
-    borderRadius: "0.25rem",
-    color: "var(--ssml-editor-color)",
-    backgroundColor: "var(--ssml-editor-bg)",
-    font: "inherit",
-    fontSize: "0.875rem",
-    cursor: "pointer",
-  },
-  selectionActionIcon: {
-    display: "inline-flex",
-    width: "1rem",
-    justifyContent: "center",
-    lineHeight: 1,
-  },
-  error: {
-    margin: 0,
-    padding: "0.5rem 0.75rem",
-    border: "1px solid var(--ssml-editor-error)",
-    borderRadius: "0.25rem",
-    color: "var(--ssml-editor-error)",
-    backgroundColor: "var(--ssml-editor-error-bg)",
-    lineHeight: 1.5,
-  },
-};
-
 type SsmlInsertion = SsmlInsertionDefinition;
-type MonacoLanguages = Monaco["languages"];
-type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
-type MonacoContentDisposable = ReturnType<MonacoEditor["onDidChangeModelContent"]>;
-type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
-type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
-type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
-type MonacoDecoration = Parameters<MonacoModel["deltaDecorations"]>[1][number];
-
-interface HoverProviderRegistration {
-  disposable: ReturnType<MonacoLanguages["registerHoverProvider"]>;
-  references: number;
-}
 
 interface SelectionOverlayState extends SelectionInfo {
   position: {
@@ -1178,82 +915,6 @@ const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
   position: null,
   placement: "above",
 };
-
-const hoverProviderRegistrations = new WeakMap<MonacoLanguages, Map<SsmlEditorLocale, HoverProviderRegistration>>();
-
-function getSsmlAttributeValue(tag: string, attributeName: string): string | undefined {
-  const escapedAttributeName = attributeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = tag.match(new RegExp(`\\b${escapedAttributeName}\\s*=\\s*("|')([^"']*)\\1`, "i"));
-  return match?.[2];
-}
-
-function getSsmlInlineDecorations(model: MonacoModel, value: string, language: SsmlEditorLanguage): MonacoDecoration[] {
-  const decorations: MonacoDecoration[] = [];
-  const tagPattern = /<(break|prosody)\b[^>]*>/gi;
-  const badgeCopy = INLINE_BADGE_COPY[language];
-
-  for (const match of value.matchAll(tagPattern)) {
-    const tag = match[0];
-    const tagName = match[1].toLowerCase();
-    const startOffset = match.index ?? 0;
-    const endOffset = startOffset + tag.length;
-    const start = model.getPositionAt(startOffset);
-    const end = model.getPositionAt(endOffset);
-    const pauseValue = getSsmlAttributeValue(tag, "time") ?? getSsmlAttributeValue(tag, "strength");
-    const pitchValue =
-      getSsmlAttributeValue(tag, "pitch") ??
-      getSsmlAttributeValue(tag, "contour") ??
-      getSsmlAttributeValue(tag, "range");
-    const prosodyValue = pitchValue ?? getSsmlAttributeValue(tag, "rate") ?? getSsmlAttributeValue(tag, "volume");
-
-    const badge =
-      tagName === "break"
-        ? `${badgeCopy.pause}${pauseValue ? ` ${pauseValue}` : ""}`
-        : `${pitchValue ? badgeCopy.pitch : badgeCopy.prosody}${prosodyValue ? ` ${prosodyValue}` : ""}`;
-
-    decorations.push({
-      range: {
-        startLineNumber: start.lineNumber,
-        startColumn: start.column,
-        endLineNumber: end.lineNumber,
-        endColumn: end.column,
-      },
-      options: {
-        after: {
-          content: ` ${badge}`,
-          inlineClassName: `ssml-editor-inline-badge ssml-editor-inline-badge-${tagName === "break" ? "pause" : "prosody"}`,
-        },
-      },
-    });
-  }
-
-  return decorations;
-}
-
-function updateSsmlInlineDecorations(
-  model: MonacoModel,
-  value: string,
-  language: SsmlEditorLanguage,
-  decorationIds: string[],
-): string[] {
-  return model.deltaDecorations(decorationIds, getSsmlInlineDecorations(model, value, language));
-}
-
-function clearSsmlInlineDecorations(model: MonacoModel, decorationIds: string[]): string[] {
-  return model.deltaDecorations(decorationIds, []);
-}
-
-function syncSsmlInlineDecorations(
-  model: MonacoModel,
-  value: string,
-  language: SsmlEditorLanguage,
-  showDecorations: boolean,
-  decorationIds: string[],
-): string[] {
-  return showDecorations
-    ? updateSsmlInlineDecorations(model, value, language, decorationIds)
-    : clearSsmlInlineDecorations(model, decorationIds);
-}
 
 function isSsmlElement(node: SsmlNode): node is SsmlElement {
   return typeof node !== "string" && node.type !== "text";
@@ -1508,67 +1169,6 @@ function getCurrentLineSsml(editor: MonacoEditor, document: SsmlDocument): strin
   return currentLineText === null ? null : buildPartialSsml(currentLineText, getPartialContext(document));
 }
 
-function acquireSsmlHoverProvider(monaco: Monaco, locale: SsmlEditorLocale): () => void {
-  const languages = monaco.languages;
-  let registrations = hoverProviderRegistrations.get(languages);
-  if (!registrations) {
-    registrations = new Map();
-    hoverProviderRegistrations.set(languages, registrations);
-  }
-  let registration = registrations.get(locale);
-
-  if (!registration) {
-    const provider: Parameters<MonacoLanguages["registerHoverProvider"]>[1] = {
-      provideHover(model: MonacoHoverModel, position: MonacoHoverPosition) {
-        const target = findSsmlHoverTarget(model.getValue(), position.lineNumber, position.column);
-        if (!target) {
-          return undefined;
-        }
-
-        return {
-          contents: [
-            {
-              isTrusted: false,
-              supportHtml: false,
-              value: formatSsmlHover(target, locale),
-            },
-          ],
-          range: target.range,
-        };
-      },
-    };
-    const disposable = languages.registerHoverProvider("xml", {
-      ...provider,
-    });
-    registration = { disposable, references: 0 };
-    registrations.set(locale, registration);
-  }
-
-  registration.references += 1;
-  let released = false;
-  return () => {
-    if (released) {
-      return;
-    }
-    released = true;
-
-    const currentRegistrations = hoverProviderRegistrations.get(languages);
-    const current = currentRegistrations?.get(locale);
-    if (!current) {
-      return;
-    }
-
-    current.references -= 1;
-    if (current.references === 0) {
-      current.disposable.dispose();
-      currentRegistrations?.delete(locale);
-      if (currentRegistrations?.size === 0) {
-        hoverProviderRegistrations.delete(languages);
-      }
-    }
-  };
-}
-
 function applySsmlTemplate(editor: MonacoEditor, template: SsmlEditorInsertionTemplate): void {
   const model = editor.getModel();
   const selection = editor.getSelection();
@@ -1671,14 +1271,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const helpPanelId = useId();
   const [draftDocument, setDraftDocument] = useState(document);
   const draftDocumentRef = useRef(document);
-  const editorRef = useRef<MonacoEditor | null>(null);
-  const monacoRef = useRef<Monaco | null>(null);
-  const releaseHoverProviderRef = useRef<(() => void) | null>(null);
-  const selectionChangeRef = useRef<MonacoDisposable | null>(null);
-  const diagnosticsChangeRef = useRef<MonacoContentDisposable | null>(null);
-  const diagnosticsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const selectionLayoutDisposablesRef = useRef<MonacoDisposable[]>([]);
-  const inlineDecorationIdsRef = useRef<string[]>([]);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onPreviewSelectionRef = useRef(onPreviewSelection);
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
@@ -1686,11 +1278,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
-  const previousTextRef = useRef<string | null>(null);
   const language = localeProp ?? languageProp ?? DEFAULT_LOCALE;
-  const languageRef = useRef(language);
   draftDocumentRef.current = draftDocument;
-  languageRef.current = language;
   onSelectionChangeRef.current = onSelectionChange;
   onPreviewSelectionRef.current = onPreviewSelection;
   const copy = EDITOR_COPY[language];
@@ -1778,39 +1367,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     }
   };
 
-  const runSsmlDiagnostics = useCallback((editor: MonacoEditor, monaco: Monaco): void => {
-    const model = editor.getModel();
-    if (!model) {
-      setSyntaxError(null);
-      return;
-    }
-
-    setSyntaxError(updateSsmlDiagnostics(monaco, model));
-  }, []);
-
-  const scheduleSsmlDiagnostics = useCallback(
-    (editor: MonacoEditor, monaco: Monaco): void => {
-      if (diagnosticsTimeoutRef.current !== null) {
-        clearTimeout(diagnosticsTimeoutRef.current);
-      }
-
-      diagnosticsTimeoutRef.current = setTimeout(() => {
-        diagnosticsTimeoutRef.current = null;
-        runSsmlDiagnostics(editor, monaco);
-      }, SSML_DIAGNOSTICS_DEBOUNCE_MS);
-    },
-    [runSsmlDiagnostics],
-  );
-
-  const clearSsmlDiagnosticsResources = useCallback((): void => {
-    if (diagnosticsTimeoutRef.current !== null) {
-      clearTimeout(diagnosticsTimeoutRef.current);
-      diagnosticsTimeoutRef.current = null;
-    }
-    diagnosticsChangeRef.current?.dispose();
-    diagnosticsChangeRef.current = null;
-  }, []);
-
   useEffect(() => {
     injectEditorTheme();
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -1829,58 +1385,14 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     setDecorationsVisible(showDecorations);
   }, [showDecorations]);
 
-  useEffect(() => {
-    return () => {
-      clearSsmlDiagnosticsResources();
-      const model = editorRef.current?.getModel();
-      if (model && monacoRef.current) {
-        clearSsmlDiagnostics(monacoRef.current, model);
-        inlineDecorationIdsRef.current = clearSsmlInlineDecorations(model, inlineDecorationIdsRef.current);
-      }
-      selectionChangeRef.current?.dispose();
-      selectionChangeRef.current = null;
-      for (const disposable of selectionLayoutDisposablesRef.current) {
-        disposable.dispose();
-      }
-      selectionLayoutDisposablesRef.current = [];
-      releaseHoverProviderRef.current?.();
-      releaseHoverProviderRef.current = null;
-      editorRef.current = null;
-      monacoRef.current = null;
-    };
-  }, [clearSsmlDiagnosticsResources]);
-
-  useEffect(() => {
-    const monaco = monacoRef.current;
-    if (!monaco) {
-      return;
-    }
-
-    releaseHoverProviderRef.current?.();
-    releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, language);
-  }, [language]);
-
   const text = getEditableText(draftDocument);
-
-  useEffect(() => {
-    const editor = editorRef.current;
-    const monaco = monacoRef.current;
-    const model = editor?.getModel();
-    if (editor && model && monaco) {
-      const previousText = previousTextRef.current;
-      previousTextRef.current = text;
-      inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
-        model,
-        text,
-        language,
-        decorationsVisible,
-        inlineDecorationIdsRef.current,
-      );
-      if (previousText === null || previousText !== text) {
-        scheduleSsmlDiagnostics(editor, monaco);
-      }
-    }
-  }, [decorationsVisible, language, scheduleSsmlDiagnostics, text]);
+  const { editorRef, onMount } = useSsmlMonaco({
+    language,
+    text,
+    decorationsVisible,
+    onSelectionOverlayChange: refreshSelectionOverlay,
+    onSyntaxErrorChange: setSyntaxError,
+  });
 
   const commit = (nextDocument: SsmlDocument): void => {
     draftDocumentRef.current = nextDocument;
@@ -2192,40 +1704,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             }}
             value={text}
             loading={loadingFallback}
-            onMount={(editor, monaco) => {
-              editorRef.current = editor;
-              monacoRef.current = monaco;
-              selectionChangeRef.current?.dispose();
-              selectionChangeRef.current = editor.onDidChangeCursorSelection(() => {
-                refreshSelectionOverlay(editor, true);
-              });
-              clearSsmlDiagnosticsResources();
-              diagnosticsChangeRef.current = editor.onDidChangeModelContent(() => {
-                scheduleSsmlDiagnostics(editor, monaco);
-              });
-              for (const disposable of selectionLayoutDisposablesRef.current) {
-                disposable.dispose();
-              }
-              selectionLayoutDisposablesRef.current = [
-                editor.onDidScrollChange(() => refreshSelectionOverlay(editor, false)),
-                editor.onDidLayoutChange(() => refreshSelectionOverlay(editor, false)),
-                editor.onDidContentSizeChange(() => refreshSelectionOverlay(editor, false)),
-              ];
-              releaseHoverProviderRef.current?.();
-              releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, languageRef.current);
-              runSsmlDiagnostics(editor, monaco);
-              const model = editor.getModel();
-              if (model) {
-                inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
-                  model,
-                  editor.getValue(),
-                  language,
-                  decorationsVisible,
-                  inlineDecorationIdsRef.current,
-                );
-              }
-              refreshSelectionOverlay(editor, true);
-            }}
+            onMount={onMount}
             onChange={(value) => {
               commit(updateText(draftDocument, value ?? ""));
               if (editorRef.current) {
