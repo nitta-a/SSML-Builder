@@ -1,8 +1,8 @@
-import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { Fragment, forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
-import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
+import Editor, { type Monaco } from "@monaco-editor/react";
 import { createPortal } from "react-dom";
-import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder-js/ssml-core";
+import { buildPartialSsml, buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
 import type {
   ProsodyElement,
   SsmlDocument,
@@ -44,11 +44,16 @@ import {
 } from "./locales";
 import { findSsmlHoverTarget, formatSsmlHover } from "./ssmlHover";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
+import {
+  clearSsmlDiagnostics,
+  type MonacoEditor,
+  type MonacoModel,
+  type SsmlSyntaxError,
+  updateSsmlDiagnostics,
+} from "./ssmlDiagnostics";
 import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES, OVERLAY_Z_INDEX } from "./constants/ui";
-const SSML_MARKER_OWNER = "ssml-builder";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
-const EDITABLE_SSML_PREFIX = '<speak version="1.0" xml:lang="en-US">';
-const EDITABLE_SSML_SUFFIX = "</speak>";
+const SSML_DIAGNOSTICS_DEBOUNCE_MS = 300;
 
 export type { SsmlEditorLanguage, SsmlEditorLocalizedText } from "./locales";
 
@@ -969,11 +974,10 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-type MonacoEditor = Parameters<OnMount>[0];
 type SsmlInsertion = SsmlInsertionDefinition;
 type MonacoLanguages = Monaco["languages"];
-type MonacoModel = NonNullable<ReturnType<MonacoEditor["getModel"]>>;
 type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
+type MonacoContentDisposable = ReturnType<MonacoEditor["onDidChangeModelContent"]>;
 type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
 type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
 type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
@@ -1177,34 +1181,6 @@ const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
 
 const hoverProviderRegistrations = new WeakMap<MonacoLanguages, Map<SsmlEditorLocale, HoverProviderRegistration>>();
 
-function updateSsmlMarkers(
-  monaco: Monaco,
-  model: MonacoModel,
-  value: string,
-  syntaxError: SsmlSyntaxError | null,
-): void {
-  if (!syntaxError) {
-    monaco.editor.setModelMarkers(model, SSML_MARKER_OWNER, []);
-    return;
-  }
-
-  const startOffset = value.length === 0 ? 0 : Math.min(syntaxError.offset, value.length - 1);
-  const endOffset = Math.min(startOffset + 1, value.length);
-  const start = model.getPositionAt(startOffset);
-  const end = model.getPositionAt(endOffset);
-
-  monaco.editor.setModelMarkers(model, SSML_MARKER_OWNER, [
-    {
-      message: syntaxError.message,
-      severity: monaco.MarkerSeverity.Error,
-      startLineNumber: start.lineNumber,
-      startColumn: start.column,
-      endLineNumber: end.lineNumber,
-      endColumn: end.column,
-    },
-  ]);
-}
-
 function getSsmlAttributeValue(tag: string, attributeName: string): string | undefined {
   const escapedAttributeName = attributeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = tag.match(new RegExp(`\\b${escapedAttributeName}\\s*=\\s*("|')([^"']*)\\1`, "i"));
@@ -1399,28 +1375,6 @@ function parseEditableText(value: string, lang: string): SsmlNode[] {
   } catch {
     return [value];
   }
-}
-
-interface SsmlSyntaxError {
-  message: string;
-  offset: number;
-}
-
-function validateEditableText(value: string): SsmlSyntaxError | null {
-  if (!value.includes("<")) {
-    return null;
-  }
-
-  const source = `${EDITABLE_SSML_PREFIX}${value}${EDITABLE_SSML_SUFFIX}`;
-  const validationError = validateSsml(source);
-  if (!validationError) {
-    return null;
-  }
-
-  return {
-    message: validationError.message,
-    offset: Math.min(Math.max(validationError.position - EDITABLE_SSML_PREFIX.length, 0), value.length),
-  };
 }
 
 function serializeEditableText(nodes: SsmlNode[], lang: string): string {
@@ -1715,6 +1669,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const monacoRef = useRef<Monaco | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const selectionChangeRef = useRef<MonacoDisposable | null>(null);
+  const diagnosticsChangeRef = useRef<MonacoContentDisposable | null>(null);
+  const diagnosticsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectionLayoutDisposablesRef = useRef<MonacoDisposable[]>([]);
   const inlineDecorationIdsRef = useRef<string[]>([]);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -1724,6 +1680,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
+  const previousTextRef = useRef<string | null>(null);
   const language = localeProp ?? languageProp ?? DEFAULT_LOCALE;
   const languageRef = useRef(language);
   draftDocumentRef.current = draftDocument;
@@ -1815,6 +1772,30 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     }
   };
 
+  const runSsmlDiagnostics = useCallback((editor: MonacoEditor, monaco: Monaco): void => {
+    const model = editor.getModel();
+    if (!model) {
+      setSyntaxError(null);
+      return;
+    }
+
+    setSyntaxError(updateSsmlDiagnostics(monaco, model));
+  }, []);
+
+  const scheduleSsmlDiagnostics = useCallback(
+    (editor: MonacoEditor, monaco: Monaco): void => {
+      if (diagnosticsTimeoutRef.current !== null) {
+        clearTimeout(diagnosticsTimeoutRef.current);
+      }
+
+      diagnosticsTimeoutRef.current = setTimeout(() => {
+        diagnosticsTimeoutRef.current = null;
+        runSsmlDiagnostics(editor, monaco);
+      }, SSML_DIAGNOSTICS_DEBOUNCE_MS);
+    },
+    [runSsmlDiagnostics],
+  );
+
   useEffect(() => {
     injectEditorTheme();
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -1835,13 +1816,19 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
 
   useEffect(() => {
     return () => {
+      if (diagnosticsTimeoutRef.current !== null) {
+        clearTimeout(diagnosticsTimeoutRef.current);
+        diagnosticsTimeoutRef.current = null;
+      }
       const model = editorRef.current?.getModel();
       if (model && monacoRef.current) {
-        updateSsmlMarkers(monacoRef.current, model, model.getValue(), null);
+        clearSsmlDiagnostics(monacoRef.current, model);
         inlineDecorationIdsRef.current = clearSsmlInlineDecorations(model, inlineDecorationIdsRef.current);
       }
       selectionChangeRef.current?.dispose();
       selectionChangeRef.current = null;
+      diagnosticsChangeRef.current?.dispose();
+      diagnosticsChangeRef.current = null;
       for (const disposable of selectionLayoutDisposablesRef.current) {
         disposable.dispose();
       }
@@ -1866,12 +1853,12 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const text = getEditableText(draftDocument);
 
   useEffect(() => {
-    const nextSyntaxError = validateEditableText(text);
-    setSyntaxError(nextSyntaxError);
-
-    const model = editorRef.current?.getModel();
-    if (model && monacoRef.current) {
-      updateSsmlMarkers(monacoRef.current, model, text, nextSyntaxError);
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    const model = editor?.getModel();
+    if (editor && model && monaco) {
+      const previousText = previousTextRef.current;
+      previousTextRef.current = text;
       inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
         model,
         text,
@@ -1879,8 +1866,11 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
         decorationsVisible,
         inlineDecorationIdsRef.current,
       );
+      if (previousText === null || previousText !== text) {
+        scheduleSsmlDiagnostics(editor, monaco);
+      }
     }
-  }, [decorationsVisible, language, text]);
+  }, [decorationsVisible, language, scheduleSsmlDiagnostics, text]);
 
   const commit = (nextDocument: SsmlDocument): void => {
     draftDocumentRef.current = nextDocument;
@@ -2199,6 +2189,10 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               selectionChangeRef.current = editor.onDidChangeCursorSelection(() => {
                 refreshSelectionOverlay(editor, true);
               });
+              diagnosticsChangeRef.current?.dispose();
+              diagnosticsChangeRef.current = editor.onDidChangeModelContent(() => {
+                scheduleSsmlDiagnostics(editor, monaco);
+              });
               for (const disposable of selectionLayoutDisposablesRef.current) {
                 disposable.dispose();
               }
@@ -2209,11 +2203,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               ];
               releaseHoverProviderRef.current?.();
               releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, languageRef.current);
+              runSsmlDiagnostics(editor, monaco);
               const model = editor.getModel();
-              const nextSyntaxError = validateEditableText(editor.getValue());
-              setSyntaxError(nextSyntaxError);
               if (model) {
-                updateSsmlMarkers(monaco, model, editor.getValue(), nextSyntaxError);
                 inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
                   model,
                   editor.getValue(),

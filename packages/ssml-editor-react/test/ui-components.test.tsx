@@ -6,7 +6,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const monacoState = vi.hoisted(() => {
-  const value = "Hello world";
+  let value = "Hello world";
+  const contentChangeListeners = new Set<() => void>();
   const positionAt = (offset: number) => ({ lineNumber: 1, column: offset + 1 });
   const selection = {
     selectionStartLineNumber: 1,
@@ -32,6 +33,12 @@ const monacoState = vi.hoisted(() => {
     getScrolledVisiblePosition: () => null,
     getLayoutInfo: () => ({ height: 100 }),
     onDidChangeCursorSelection: vi.fn(disposable),
+    onDidChangeModelContent: vi.fn((listener: () => void) => {
+      contentChangeListeners.add(listener);
+      return {
+        dispose: vi.fn(() => contentChangeListeners.delete(listener)),
+      };
+    }),
     onDidScrollChange: vi.fn(disposable),
     onDidLayoutChange: vi.fn(disposable),
     onDidContentSizeChange: vi.fn(disposable),
@@ -59,6 +66,7 @@ const monacoState = vi.hoisted(() => {
     reset: () => {
       for (const mock of [
         editor.onDidChangeCursorSelection,
+        editor.onDidChangeModelContent,
         editor.onDidScrollChange,
         editor.onDidLayoutChange,
         editor.onDidContentSizeChange,
@@ -72,6 +80,16 @@ const monacoState = vi.hoisted(() => {
         monaco.editor.setModelMarkers,
       ]) {
         mock.mockClear();
+      }
+      value = "Hello world";
+      contentChangeListeners.clear();
+    },
+    setValue: (nextValue: string) => {
+      value = nextValue;
+    },
+    emitContentChange: () => {
+      for (const listener of contentChangeListeners) {
+        listener();
       }
     },
   };
@@ -227,5 +245,26 @@ describe("SsmlEditor props", () => {
 
     expect(screen.queryByRole("toolbar", { name: "SSMLツールバー" })).toBeNull();
     expect(screen.getByTestId("monaco-editor")).toBeTruthy();
+  });
+
+  it("debounces diagnostics after Monaco model content changes", () => {
+    vi.useFakeTimers();
+    try {
+      renderEditor();
+      const initialMarkerCallCount = monacoState.monaco.editor.setModelMarkers.mock.calls.length;
+
+      monacoState.setValue("<voice>");
+      monacoState.emitContentChange();
+
+      vi.advanceTimersByTime(299);
+      expect(monacoState.monaco.editor.setModelMarkers).toHaveBeenCalledTimes(initialMarkerCallCount);
+
+      vi.advanceTimersByTime(1);
+      expect(monacoState.monaco.editor.setModelMarkers).toHaveBeenCalledTimes(initialMarkerCallCount + 1);
+      expect(monacoState.monaco.editor.setModelMarkers.mock.lastCall?.[1]).toBe("ssml");
+      expect(monacoState.monaco.editor.setModelMarkers.mock.lastCall?.[2]).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
