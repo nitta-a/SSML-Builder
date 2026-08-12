@@ -66,6 +66,12 @@
   "peerDependenciesMeta": {
     "@monaco-editor/react": {
       "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
     }
   },
   "dependencies": {
