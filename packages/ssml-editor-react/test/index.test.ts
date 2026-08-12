@@ -130,6 +130,21 @@ test("moves an empty insertion cursor past an existing line ending", () => {
   );
 });
 
+test("terminates an insertion at the end of the document with a line ending", () => {
+  const tag = '<break time="500ms"/>';
+  assert.deepEqual(
+    createSsmlInsertionEdit("Hello", 5, 5, {
+      prefix: tag,
+      suffix: "",
+      mode: "insert",
+    }),
+    {
+      replacement: `\n${tag}\n`,
+      selectionOffset: `\n${tag}\n`.length,
+    },
+  );
+});
+
 test("defines the supported SSML tags", () => {
   assert.ok(SSML_TAG_DEFINITIONS.length > 0);
   assert.equal(getSsmlTagDefinition("prosody")?.name, "prosody");
