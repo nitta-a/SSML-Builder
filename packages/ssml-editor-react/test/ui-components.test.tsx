@@ -236,9 +236,7 @@ describe("SsmlEditor toolbar menus", () => {
     const menu = screen.getByRole("menu", { name: "Rate" });
     await user.click(within(menu).getByRole("menuitem", { name: "slow" }));
 
-    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toBe(
-      '<prosody rate="slow">world</prosody>\n',
-    );
+    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toBe('<prosody rate="slow">world</prosody>\n');
     expect(monacoState.getValue()).toBe('Hello <prosody rate="slow">world</prosody>\n');
   });
 
