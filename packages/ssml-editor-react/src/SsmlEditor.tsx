@@ -1853,9 +1853,10 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const text = getEditableText(draftDocument);
 
   useEffect(() => {
-    const model = editorRef.current?.getModel();
+    const editor = editorRef.current;
     const monaco = monacoRef.current;
-    if (model && monaco) {
+    const model = editor?.getModel();
+    if (editor && model && monaco) {
       const previousText = previousTextRef.current;
       previousTextRef.current = text;
       inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
@@ -1865,8 +1866,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
         decorationsVisible,
         inlineDecorationIdsRef.current,
       );
-      if ((previousText === null || previousText !== text) && editorRef.current) {
-        scheduleSsmlDiagnostics(editorRef.current, monaco);
+      if (previousText === null || previousText !== text) {
+        scheduleSsmlDiagnostics(editor, monaco);
       }
     }
   }, [decorationsVisible, language, scheduleSsmlDiagnostics, text]);
