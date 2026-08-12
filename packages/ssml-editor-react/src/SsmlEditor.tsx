@@ -1848,11 +1848,10 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const text = getEditableText(draftDocument);
 
   useEffect(() => {
-    const previousText = previousTextRef.current;
-    previousTextRef.current = text;
-
     const model = editorRef.current?.getModel();
     if (model && monacoRef.current) {
+      const previousText = previousTextRef.current;
+      previousTextRef.current = text;
       inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
         model,
         text,
