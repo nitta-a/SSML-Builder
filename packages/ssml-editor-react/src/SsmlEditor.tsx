@@ -1175,12 +1175,14 @@ function applySsmlTemplate(editor: MonacoEditor, template: SsmlEditorInsertionTe
 
   const startOffset = model.getOffsetAt(selection.getStartPosition());
   const endOffset = model.getOffsetAt(selection.getEndPosition());
+  const selectedText = selection.isEmpty() ? "" : model.getValueInRange(selection);
   const { replacement, selectionOffset } = createSsmlInsertionEdit(
     model.getValue(),
     startOffset,
     endOffset,
     template,
     model.getEOL(),
+    selectedText,
   );
 
   editor.pushUndoStop();
