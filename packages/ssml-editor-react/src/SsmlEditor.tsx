@@ -2,7 +2,7 @@ import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, us
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { createPortal } from "react-dom";
-import { buildPartialSsml, buildSsml, parseSsml, validateSsml } from "@ssml-builder-js/ssml-core";
+import { buildPartialSsml, buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
 import type {
   ProsodyElement,
   SsmlDocument,
