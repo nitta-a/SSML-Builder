@@ -10,7 +10,7 @@ export default defineConfig({
   format: ["esm", "cjs"],
   outDir: "dist",
   dts: {
-    resolve: ["@ssml-builder-js/ssml-core"],
+    resolve: ["@ssml-builder-js/ssml-core", "@ssml-builder-js/ssml-editor-react", "@ssml-builder-js/azure-tts-client"],
     compilerOptions: {
       composite: false,
       ignoreDeprecations: "6.0",
