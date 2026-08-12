@@ -28,7 +28,7 @@ interface HoverProviderRegistration {
 const hoverProviderRegistrations = new WeakMap<MonacoLanguages, Map<SsmlEditorLocale, HoverProviderRegistration>>();
 
 export interface UseSsmlMonacoOptions {
-  language: SsmlEditorLocale;
+  language: SsmlEditorLanguage;
   text: string;
   decorationsVisible: boolean;
   onSelectionOverlayChange: (editor: MonacoEditor, notify: boolean) => void;
