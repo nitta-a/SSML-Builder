@@ -37,6 +37,16 @@ export const PROSODY_PITCH_PRESETS = ["+2st", "-2st", "0st", "+4st", "-4st", "+8
 export const PROSODY_VOLUME_PRESETS = ["silent", "x-soft", "soft", "medium", "loud", "x-loud"] as const;
 
 export const EXPRESS_AS_STYLE_PRESETS = ["cheerful", "friendly", "calm", "sad", "angry", "excited", "serious"] as const;
+export const EXPRESS_AS_ROLE_PRESETS = [
+  "Girl",
+  "Boy",
+  "YoungAdultFemale",
+  "YoungAdultMale",
+  "OlderAdultFemale",
+  "OlderAdultMale",
+  "SeniorFemale",
+  "SeniorMale",
+] as const;
 export const EMPHASIS_LEVEL_PRESETS = ["strong", "moderate", "reduced", "none"] as const;
 export const SAY_AS_PRESETS = [
   "characters",
@@ -64,6 +74,59 @@ export const SILENCE_TYPE_PRESETS = [
 ] as const;
 export const PHONEME_ALPHABET_PRESETS = ["ipa", "sapi", "ups", "x-sampa"] as const;
 export const VISEME_TYPE_PRESETS = ["redlips_front", "FacialExpression"] as const;
+
+export const SSML_ATTRIBUTE_PRESETS = {
+  break: {
+    strength: BREAK_STRENGTH_PRESETS,
+    time: BREAK_TIME_PRESETS,
+  },
+  prosody: {
+    rate: PROSODY_RATE_PRESETS,
+    pitch: PROSODY_PITCH_PRESETS,
+    volume: PROSODY_VOLUME_PRESETS,
+  },
+  "mstts:express-as": {
+    style: EXPRESS_AS_STYLE_PRESETS,
+    role: EXPRESS_AS_ROLE_PRESETS,
+  },
+  "express-as": {
+    style: EXPRESS_AS_STYLE_PRESETS,
+    role: EXPRESS_AS_ROLE_PRESETS,
+  },
+  expressAs: {
+    style: EXPRESS_AS_STYLE_PRESETS,
+    role: EXPRESS_AS_ROLE_PRESETS,
+  },
+  "say-as": {
+    "interpret-as": SAY_AS_PRESETS,
+  },
+  sayAs: {
+    "interpret-as": SAY_AS_PRESETS,
+  },
+  emphasis: {
+    level: EMPHASIS_LEVEL_PRESETS,
+  },
+  lang: {
+    "xml:lang": LANGUAGE_PRESETS,
+  },
+  phoneme: {
+    alphabet: PHONEME_ALPHABET_PRESETS,
+  },
+  "mstts:silence": {
+    type: SILENCE_TYPE_PRESETS,
+    value: SILENCE_VALUE_PRESETS,
+  },
+  silence: {
+    type: SILENCE_TYPE_PRESETS,
+    value: SILENCE_VALUE_PRESETS,
+  },
+  "mstts:viseme": {
+    type: VISEME_TYPE_PRESETS,
+  },
+  viseme: {
+    type: VISEME_TYPE_PRESETS,
+  },
+} as const satisfies Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
 
 export const SSML_PRESET_EXAMPLES = {
   breakTime: "500ms",

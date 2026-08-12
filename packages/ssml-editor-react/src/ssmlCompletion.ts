@@ -1,7 +1,20 @@
 import type { Monaco } from "@monaco-editor/react";
+import { SSML_ATTRIBUTE_PRESETS } from "./constants/ssmlPresets";
 
 type MonacoLanguages = Monaco["languages"];
 type MonacoCompletionProvider = Parameters<MonacoLanguages["registerCompletionItemProvider"]>[1];
+
+const SSML_ATTRIBUTE_VALUE_PATTERN = /<([\w:-]+)\s+[^>]*?\b([\w:-]+)=["']([^"']*)$/i;
+
+function findSsmlAttributePresets(tagName: string, attributeName: string): readonly string[] | undefined {
+  const tagPresets = Object.entries(SSML_ATTRIBUTE_PRESETS).find(
+    ([presetTagName]) => presetTagName.toLowerCase() === tagName.toLowerCase(),
+  )?.[1];
+
+  return Object.entries(tagPresets ?? {}).find(
+    ([presetAttributeName]) => presetAttributeName.toLowerCase() === attributeName.toLowerCase(),
+  )?.[1];
+}
 
 const SSML_COMPLETION_SNIPPETS = [
   {
@@ -26,17 +39,28 @@ export function registerSsmlCompletionProvider(
   monaco: Monaco,
 ): ReturnType<MonacoLanguages["registerCompletionItemProvider"]> {
   const provider: MonacoCompletionProvider = {
-    provideCompletionItems() {
+    provideCompletionItems(model, position) {
+      const textBeforeCursor = model.getValue().slice(0, model.getOffsetAt(position));
+      const attributeMatch = SSML_ATTRIBUTE_VALUE_PATTERN.exec(textBeforeCursor);
+      const attributeValues = attributeMatch ? findSsmlAttributePresets(attributeMatch[1], attributeMatch[2]) : undefined;
+
       return {
-        suggestions: SSML_COMPLETION_SNIPPETS.map(({ label, insertText }) => ({
-          label,
-          kind: monaco.languages.CompletionItemKind.Snippet,
-          insertText,
-          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-        })),
+        suggestions: [
+          ...SSML_COMPLETION_SNIPPETS.map(({ label, insertText }) => ({
+            label,
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          })),
+          ...(attributeValues?.map((value) => ({
+            label: value,
+            kind: monaco.languages.CompletionItemKind.Value,
+            insertText: value,
+          })) ?? []),
+        ],
       };
     },
-    triggerCharacters: ["<"],
+    triggerCharacters: ["<", '"', "'"],
   };
 
   return monaco.languages.registerCompletionItemProvider("xml", provider);
