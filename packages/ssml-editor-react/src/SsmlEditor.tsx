@@ -1413,6 +1413,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     onPreviewSelectionRef.current?.(selectedSsml);
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The stable ref is read when each imperative method is invoked.
   useImperativeHandle(
     ref,
     () => ({
@@ -1426,7 +1427,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       },
       getFullSsml: () => buildSsml(getCurrentDocument(draftDocumentRef.current, editorRef.current)),
     }),
-    [editorRef],
+    [],
   );
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
