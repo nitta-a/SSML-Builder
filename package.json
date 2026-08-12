@@ -42,7 +42,7 @@
     "format": "biome format .",
     "format:write": "biome format --write .",
     "lint": "biome check .",
-    "release": "pnpm build && npm publish --access public",
+    "release": "npm run build && npm publish --access public",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "version-packages": "changeset version"
