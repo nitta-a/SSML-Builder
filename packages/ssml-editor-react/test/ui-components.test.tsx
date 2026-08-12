@@ -28,7 +28,11 @@ const monacoState = vi.hoisted(() => {
     getPositionAt: positionAt,
     getOffsetAt: (position: { lineNumber: number; column: number }) => {
       const lines = value.split(/\r\n|\r|\n/);
-      return lines.slice(0, position.lineNumber - 1).reduce((offset, line) => offset + line.length + 1, 0) + position.column - 1;
+      return (
+        lines.slice(0, position.lineNumber - 1).reduce((offset, line) => offset + line.length + 1, 0) +
+        position.column -
+        1
+      );
     },
     getEOL: () => "\n",
     getValueInRange: () => "",
