@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const monacoState = vi.hoisted(() => {
   let value = "Hello world";
   let modelEol = "\n";
+  let selectionStartOffset = 0;
+  let selectionEndOffset = 0;
   const contentChangeListeners = new Set<() => void>();
   let latestContentDispose: ReturnType<typeof vi.fn> | null = null;
   const positionAt = (offset: number) => {
@@ -22,8 +24,9 @@ const monacoState = vi.hoisted(() => {
     selectionStartColumn: 1,
     positionLineNumber: 1,
     positionColumn: 1,
-    getStartPosition: () => positionAt(0),
-    getEndPosition: () => positionAt(0),
+    getStartPosition: () => positionAt(selectionStartOffset),
+    getEndPosition: () => positionAt(selectionEndOffset),
+    isEmpty: () => selectionStartOffset === selectionEndOffset,
   };
   const model = {
     getValue: () => value,
@@ -37,7 +40,11 @@ const monacoState = vi.hoisted(() => {
       );
     },
     getEOL: () => modelEol,
-    getValueInRange: () => "",
+    getValueInRange: (range: typeof selection) => {
+      const startOffset = model.getOffsetAt(range.getStartPosition());
+      const endOffset = model.getOffsetAt(range.getEndPosition());
+      return value.slice(startOffset, endOffset);
+    },
     getLineContent: (lineNumber: number) => value.split(/\r\n|\r|\n/)[lineNumber - 1] ?? "",
     deltaDecorations: vi.fn(() => []),
   };
@@ -106,12 +113,19 @@ const monacoState = vi.hoisted(() => {
       }
       value = "Hello world";
       modelEol = "\n";
+      selectionStartOffset = 0;
+      selectionEndOffset = 0;
       contentChangeListeners.clear();
       latestContentDispose = null;
     },
     setValue: (nextValue: string) => {
       value = nextValue;
     },
+    setSelectionOffsets: (startOffset: number, endOffset: number) => {
+      selectionStartOffset = startOffset;
+      selectionEndOffset = endOffset;
+    },
+    getValue: () => value,
     setEOL: (nextEol: string) => {
       modelEol = nextEol;
     },
