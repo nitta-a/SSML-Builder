@@ -15,6 +15,7 @@ export default defineConfig({
       composite: false,
       ignoreDeprecations: "6.0",
       allowImportingTsExtensions: true,
+      emitDeclarationOnly: true,
       jsx: "react-jsx",
     },
   },
