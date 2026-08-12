@@ -43,7 +43,7 @@ export function updateSsmlDiagnostics(monaco: Monaco, model: MonacoModel): SsmlS
     return null;
   }
 
-  const startOffset = Math.max(0, Math.min(syntaxError.offset, value.length - 1));
+  const startOffset = value.length === 0 ? 0 : Math.min(syntaxError.offset, value.length - 1);
   const endOffset = Math.min(startOffset + 1, value.length);
   const start = model.getPositionAt(startOffset);
   const end = model.getPositionAt(endOffset);

@@ -1865,7 +1865,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
         decorationsVisible,
         inlineDecorationIdsRef.current,
       );
-      if (previousText !== null && previousText !== text && editorRef.current) {
+      if ((previousText === null || previousText !== text) && editorRef.current) {
         scheduleSsmlDiagnostics(editorRef.current, monaco);
       }
     }
