@@ -10,19 +10,21 @@ const SSML_COMPLETION_SNIPPETS = [
   },
   {
     label: "prosody",
-    insertText: '<prosody rate="medium" pitch="medium">${1:text}</prosody>',
+    insertText: `<prosody rate="medium" pitch="medium">\${1:text}</prosody>`,
   },
   {
     label: "mstts:express-as",
-    insertText: '<mstts:express-as style="cheerful">${1:text}</mstts:express-as>',
+    insertText: `<mstts:express-as style="cheerful">\${1:text}</mstts:express-as>`,
   },
   {
     label: "sub",
-    insertText: '<sub alias="${1:読み}">${2:漢字}</sub>',
+    insertText: `<sub alias="\${1:読み}">\${2:漢字}</sub>`,
   },
 ] as const;
 
-export function registerSsmlCompletionProvider(monaco: Monaco): ReturnType<MonacoLanguages["registerCompletionItemProvider"]> {
+export function registerSsmlCompletionProvider(
+  monaco: Monaco,
+): ReturnType<MonacoLanguages["registerCompletionItemProvider"]> {
   const provider: MonacoCompletionProvider = {
     provideCompletionItems() {
       return {
@@ -34,6 +36,7 @@ export function registerSsmlCompletionProvider(monaco: Monaco): ReturnType<Monac
         })),
       };
     },
+    triggerCharacters: ["<"],
   };
 
   return monaco.languages.registerCompletionItemProvider("xml", provider);
