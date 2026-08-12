@@ -35,7 +35,7 @@ function getSuggestions(source: string) {
   const provider = createCompletionProvider();
   const model = {
     getValue: () => source,
-    getOffsetAt: () => source.length,
+    getOffsetAt: (position: CompletionPosition) => position.column - 1,
   } as CompletionModel;
   const position = { lineNumber: 1, column: source.length + 1 } as CompletionPosition;
   const result = provider.provideCompletionItems?.(model, position);
