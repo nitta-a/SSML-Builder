@@ -1426,7 +1426,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       },
       getFullSsml: () => buildSsml(getCurrentDocument(draftDocumentRef.current, editorRef.current)),
     }),
-    [editorRef.current],
+    [editorRef],
   );
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
