@@ -35,13 +35,13 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "npm run build --workspaces --if-present && tsup",
+    "build": "tsup",
     "check": "biome check .",
     "changeset": "changeset",
     "format": "biome format .",
     "format:write": "biome format --write .",
     "lint": "biome check .",
-    "release": "npm run build && changeset publish",
+    "release": "pnpm build && npm publish --access public",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "version-packages": "changeset version"
