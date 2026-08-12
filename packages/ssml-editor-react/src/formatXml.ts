@@ -465,7 +465,11 @@ function getTrailingLineBreak(value: string): string {
 
 function preserveTrailingLineBreak(formatted: string, source: string): string {
   const trailingLineBreak = getTrailingLineBreak(source);
-  return trailingLineBreak === "" ? formatted : `${formatted}${trailingLineBreak}`;
+  if (trailingLineBreak === "") {
+    return formatted;
+  }
+
+  return `${formatted.replace(/(?:\r\n|\r|\n)+$/, "")}${trailingLineBreak}`;
 }
 
 function renderDocument(document: XmlDocument): string {
