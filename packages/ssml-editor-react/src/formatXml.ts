@@ -482,8 +482,7 @@ function stripTrailingLineBreaks(value: string): string {
   return value.slice(0, end);
 }
 
-function preserveTrailingLineBreak(formatted: string, source: string): string {
-  const trailingLineBreak = getTrailingLineBreak(source);
+function preserveTrailingLineBreak(formatted: string, trailingLineBreak: string): string {
   if (trailingLineBreak === "") {
     return formatted;
   }
@@ -509,13 +508,14 @@ function renderDocument(document: XmlDocument): string {
 }
 
 export function formatXml(xml: string): string {
+  const trailingLineBreak = getTrailingLineBreak(xml);
   const source = xml.trim();
   if (source === "") {
     return "";
   }
 
   try {
-    return preserveTrailingLineBreak(renderDocument(parseXml(source)), xml);
+    return preserveTrailingLineBreak(renderDocument(parseXml(source)), trailingLineBreak);
   } catch {
     return xml;
   }
@@ -547,6 +547,7 @@ function unwrapFormattedFragment(formatted: string): string | undefined {
 }
 
 export function formatXmlFragment(xml: string): string {
+  const trailingLineBreak = getTrailingLineBreak(xml);
   const source = xml.trim();
   if (source === "") {
     return "";
@@ -560,5 +561,5 @@ export function formatXmlFragment(xml: string): string {
     return xml;
   }
 
-  return preserveTrailingLineBreak(unwrapFormattedFragment(formatted) ?? xml, xml);
+  return preserveTrailingLineBreak(unwrapFormattedFragment(formatted) ?? xml, trailingLineBreak);
 }
