@@ -1,5 +1,6 @@
 {
   "name": "@ssml-builder-js/ssml-core",
+  "private": true,
   "version": "1.0.0",
   "description": "Core SSML building utilities",
   "main": "dist/index.js",

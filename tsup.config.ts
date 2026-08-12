@@ -1,0 +1,25 @@
+import { defineConfig } from "tsup";
+
+export default defineConfig({
+  entry: {
+    index: "src/index.ts",
+    core: "src/core.ts",
+    react: "src/react.tsx",
+    "azure-tts-client": "src/azure-tts-client.ts",
+  },
+  format: ["esm", "cjs"],
+  outDir: "dist",
+  dts: {
+    compilerOptions: {
+      composite: false,
+      ignoreDeprecations: "6.0",
+    },
+  },
+  sourcemap: true,
+  clean: true,
+  noExternal: [
+    "@ssml-builder-js/ssml-core",
+    "@ssml-builder-js/ssml-editor-react",
+    "@ssml-builder-js/azure-tts-client",
+  ],
+});
