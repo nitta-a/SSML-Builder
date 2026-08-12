@@ -155,10 +155,7 @@ function syncSsmlInlineDecorations(
   showDecorations: boolean,
   decorationIds: string[],
 ): string[] {
-  return model.deltaDecorations(
-    decorationIds,
-    showDecorations ? getSsmlInlineDecorations(model, value, language) : [],
-  );
+  return model.deltaDecorations(decorationIds, showDecorations ? getSsmlInlineDecorations(model, value, language) : []);
 }
 
 export function useSsmlMonaco({

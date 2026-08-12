@@ -42,10 +42,7 @@ import {
   type SsmlEditorLocalizedText,
 } from "./locales";
 import { createSsmlInsertionEdit } from "./ssmlInsertion";
-import {
-  type MonacoEditor,
-  type SsmlSyntaxError,
-} from "./ssmlDiagnostics";
+import type { MonacoEditor, SsmlSyntaxError } from "./ssmlDiagnostics";
 import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "./constants/ui";
 import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
 import { editorStyles as styles } from "./styles/editorStyles";
@@ -1429,7 +1426,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       },
       getFullSsml: () => buildSsml(getCurrentDocument(draftDocumentRef.current, editorRef.current)),
     }),
-    [],
+    [editorRef.current],
   );
 
   const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
