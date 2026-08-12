@@ -82,6 +82,26 @@ test("uses the model line ending for insertion edits", () => {
   );
 });
 
+test("uses the model line ending for wrapped insertion edits", () => {
+  assert.deepEqual(
+    createSsmlInsertionEdit(
+      "Hello world",
+      6,
+      11,
+      {
+        prefix: '<prosody rate="slow">',
+        suffix: "</prosody>",
+        mode: "wrap",
+      },
+      "\r\n",
+    ),
+    {
+      replacement: '<prosody rate="slow">world</prosody>\r\n',
+      selectionOffset: '<prosody rate="slow">'.length,
+    },
+  );
+});
+
 test("moves an empty insertion cursor past an existing line ending", () => {
   const tag = '<break time="500ms"/>';
   assert.deepEqual(
