@@ -148,7 +148,7 @@ test("buildSsml serializes all supported element attributes", () => {
   );
   assert.match(xml, new RegExp(`<${SSML_TAGS.MSTTS_VISEME} ${SSML_ATTRS.TYPE}="FacialExpression"/>`));
   assert.match(xml, /<custom-tag answer="42">custom<\/custom-tag>/);
-  assert.match(xml, new RegExp(`${SSML_ATTRS.MSTTS_XMLNS}="${MSTTS_NAMESPACE}"`));
+  assert.ok(xml.includes(`${SSML_ATTRS.MSTTS_XMLNS}="${MSTTS_NAMESPACE}"`));
 });
 
 test("buildSsml preserves document metadata and supports legacy content", () => {
