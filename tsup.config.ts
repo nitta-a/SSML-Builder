@@ -20,9 +20,5 @@ export default defineConfig({
   },
   sourcemap: true,
   clean: true,
-  noExternal: [
-    "@ssml-builder-js/ssml-core",
-    "@ssml-builder-js/ssml-editor-react",
-    "@ssml-builder-js/azure-tts-client",
-  ],
+  noExternal: ["@ssml-builder-js/ssml-core", "@ssml-builder-js/ssml-editor-react", "@ssml-builder-js/azure-tts-client"],
 });
