@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const monacoState = vi.hoisted(() => {
   let value = "Hello world";
+  const modelEol = "\n";
   const contentChangeListeners = new Set<() => void>();
   const positionAt = (offset: number) => {
     const lines = value.slice(0, offset).split(/\r\n|\r|\n/);
@@ -29,12 +30,12 @@ const monacoState = vi.hoisted(() => {
     getOffsetAt: (position: { lineNumber: number; column: number }) => {
       const lines = value.split(/\r\n|\r|\n/);
       return (
-        lines.slice(0, position.lineNumber - 1).reduce((offset, line) => offset + line.length + 1, 0) +
+        lines.slice(0, position.lineNumber - 1).reduce((offset, line) => offset + line.length + modelEol.length, 0) +
         position.column -
         1
       );
     },
-    getEOL: () => "\n",
+    getEOL: () => modelEol,
     getValueInRange: () => "",
     getLineContent: (lineNumber: number) => value.split(/\r\n|\r|\n/)[lineNumber - 1] ?? "",
     deltaDecorations: vi.fn(() => []),
