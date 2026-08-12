@@ -13,6 +13,7 @@ export default defineConfig({
     compilerOptions: {
       composite: false,
       ignoreDeprecations: "6.0",
+      jsx: "react-jsx",
     },
   },
   sourcemap: true,
