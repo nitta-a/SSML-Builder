@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const monacoState = vi.hoisted(() => {
   let value = "Hello world";
   const contentChangeListeners = new Set<() => void>();
+  let latestContentDispose: ReturnType<typeof vi.fn> | null = null;
   const positionAt = (offset: number) => ({ lineNumber: 1, column: offset + 1 });
   const selection = {
     selectionStartLineNumber: 1,
@@ -35,9 +36,8 @@ const monacoState = vi.hoisted(() => {
     onDidChangeCursorSelection: vi.fn(disposable),
     onDidChangeModelContent: vi.fn((listener: () => void) => {
       contentChangeListeners.add(listener);
-      return {
-        dispose: vi.fn(() => contentChangeListeners.delete(listener)),
-      };
+      latestContentDispose = vi.fn(() => contentChangeListeners.delete(listener));
+      return { dispose: latestContentDispose };
     }),
     onDidScrollChange: vi.fn(disposable),
     onDidLayoutChange: vi.fn(disposable),
@@ -83,6 +83,7 @@ const monacoState = vi.hoisted(() => {
       }
       value = "Hello world";
       contentChangeListeners.clear();
+      latestContentDispose = null;
     },
     setValue: (nextValue: string) => {
       value = nextValue;
@@ -92,6 +93,7 @@ const monacoState = vi.hoisted(() => {
         listener();
       }
     },
+    getLatestContentDispose: () => latestContentDispose,
   };
 });
 
@@ -263,6 +265,26 @@ describe("SsmlEditor props", () => {
       expect(monacoState.monaco.editor.setModelMarkers).toHaveBeenCalledTimes(initialMarkerCallCount + 1);
       expect(monacoState.monaco.editor.setModelMarkers.mock.lastCall?.[1]).toBe("ssml");
       expect(monacoState.monaco.editor.setModelMarkers.mock.lastCall?.[2]).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cleans up the diagnostics listener and pending timer on unmount", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = renderEditor();
+      const contentDispose = monacoState.getLatestContentDispose();
+
+      expect(contentDispose).not.toBeNull();
+      monacoState.setValue("<voice>");
+      monacoState.emitContentChange();
+      unmount();
+
+      expect(contentDispose).toHaveBeenCalledTimes(1);
+      const markerCallCountAfterUnmount = monacoState.monaco.editor.setModelMarkers.mock.calls.length;
+      vi.advanceTimersByTime(300);
+      expect(monacoState.monaco.editor.setModelMarkers).toHaveBeenCalledTimes(markerCallCountAfterUnmount);
     } finally {
       vi.useRealTimers();
     }

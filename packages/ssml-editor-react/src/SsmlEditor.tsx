@@ -1796,6 +1796,15 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     [runSsmlDiagnostics],
   );
 
+  const clearSsmlDiagnosticsResources = useCallback((): void => {
+    if (diagnosticsTimeoutRef.current !== null) {
+      clearTimeout(diagnosticsTimeoutRef.current);
+      diagnosticsTimeoutRef.current = null;
+    }
+    diagnosticsChangeRef.current?.dispose();
+    diagnosticsChangeRef.current = null;
+  }, []);
+
   useEffect(() => {
     injectEditorTheme();
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -1816,10 +1825,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
 
   useEffect(() => {
     return () => {
-      if (diagnosticsTimeoutRef.current !== null) {
-        clearTimeout(diagnosticsTimeoutRef.current);
-        diagnosticsTimeoutRef.current = null;
-      }
+      clearSsmlDiagnosticsResources();
       const model = editorRef.current?.getModel();
       if (model && monacoRef.current) {
         clearSsmlDiagnostics(monacoRef.current, model);
@@ -1827,8 +1833,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       }
       selectionChangeRef.current?.dispose();
       selectionChangeRef.current = null;
-      diagnosticsChangeRef.current?.dispose();
-      diagnosticsChangeRef.current = null;
       for (const disposable of selectionLayoutDisposablesRef.current) {
         disposable.dispose();
       }
@@ -1838,7 +1842,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       editorRef.current = null;
       monacoRef.current = null;
     };
-  }, []);
+  }, [clearSsmlDiagnosticsResources]);
 
   useEffect(() => {
     const monaco = monacoRef.current;
@@ -2189,7 +2193,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               selectionChangeRef.current = editor.onDidChangeCursorSelection(() => {
                 refreshSelectionOverlay(editor, true);
               });
-              diagnosticsChangeRef.current?.dispose();
+              clearSsmlDiagnosticsResources();
               diagnosticsChangeRef.current = editor.onDidChangeModelContent(() => {
                 scheduleSsmlDiagnostics(editor, monaco);
               });
