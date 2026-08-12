@@ -51,12 +51,14 @@ export function registerSsmlCompletionProvider(
 
       return {
         suggestions: [
-          ...SSML_COMPLETION_SNIPPETS.map(({ label, insertText }) => ({
-            label,
-            kind: monaco.languages.CompletionItemKind.Snippet,
-            insertText,
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-          })),
+          ...(attributeMatch
+            ? []
+            : SSML_COMPLETION_SNIPPETS.map(({ label, insertText }) => ({
+                label,
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText,
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              }))),
           ...(attributeValues?.map((value) => ({
             label: value,
             kind: monaco.languages.CompletionItemKind.Value,
