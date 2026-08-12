@@ -1825,7 +1825,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
 
   useEffect(() => {
     return () => {
-              clearSsmlDiagnosticsResources();
+      clearSsmlDiagnosticsResources();
       const model = editorRef.current?.getModel();
       if (model && monacoRef.current) {
         clearSsmlDiagnostics(monacoRef.current, model);
@@ -1842,7 +1842,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       editorRef.current = null;
       monacoRef.current = null;
     };
-  }, []);
+  }, [clearSsmlDiagnosticsResources]);
 
   useEffect(() => {
     const monaco = monacoRef.current;
@@ -2193,7 +2193,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               selectionChangeRef.current = editor.onDidChangeCursorSelection(() => {
                 refreshSelectionOverlay(editor, true);
               });
-                      clearSsmlDiagnosticsResources();
+              clearSsmlDiagnosticsResources();
               diagnosticsChangeRef.current = editor.onDidChangeModelContent(() => {
                 scheduleSsmlDiagnostics(editor, monaco);
               });
