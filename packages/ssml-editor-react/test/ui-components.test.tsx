@@ -74,6 +74,13 @@ const monacoState = vi.hoisted(() => {
   const monaco = {
     languages: {
       registerHoverProvider: vi.fn(disposable),
+      registerCompletionItemProvider: vi.fn(disposable),
+      CompletionItemKind: {
+        Snippet: 27,
+      },
+      CompletionItemInsertTextRule: {
+        InsertAsSnippet: 4,
+      },
     },
     editor: {
       setModelMarkers: vi.fn(),
@@ -100,6 +107,7 @@ const monacoState = vi.hoisted(() => {
         editor.trigger,
         model.deltaDecorations,
         monaco.languages.registerHoverProvider,
+        monaco.languages.registerCompletionItemProvider,
         monaco.editor.setModelMarkers,
       ]) {
         mock.mockClear();
