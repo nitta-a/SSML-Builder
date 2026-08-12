@@ -274,7 +274,6 @@ describe("SsmlEditor props", () => {
     vi.useFakeTimers();
     try {
       const { unmount } = renderEditor();
-      const initialMarkerCallCount = monacoState.monaco.editor.setModelMarkers.mock.calls.length;
       const contentDispose = monacoState.getLatestContentDispose();
 
       expect(contentDispose).not.toBeNull();
@@ -283,8 +282,9 @@ describe("SsmlEditor props", () => {
       unmount();
 
       expect(contentDispose).toHaveBeenCalledTimes(1);
+      const markerCallCountAfterUnmount = monacoState.monaco.editor.setModelMarkers.mock.calls.length;
       vi.advanceTimersByTime(300);
-      expect(monacoState.monaco.editor.setModelMarkers).toHaveBeenCalledTimes(initialMarkerCallCount + 1);
+      expect(monacoState.monaco.editor.setModelMarkers).toHaveBeenCalledTimes(markerCallCountAfterUnmount);
     } finally {
       vi.useRealTimers();
     }
