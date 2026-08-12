@@ -458,6 +458,16 @@ function stripTrailingWhitespace(value: string): string {
   return value.replace(/[ \t]+$/gm, "");
 }
 
+function getTrailingLineBreak(value: string): string {
+  const match = value.match(/(?:\r\n|\r|\n)$/);
+  return match?.[0] ?? "";
+}
+
+function preserveTrailingLineBreak(formatted: string, source: string): string {
+  const trailingLineBreak = getTrailingLineBreak(source);
+  return trailingLineBreak === "" ? formatted : `${formatted}${trailingLineBreak}`;
+}
+
 function renderDocument(document: XmlDocument): string {
   const lines: string[] = [];
 
@@ -482,7 +492,7 @@ export function formatXml(xml: string): string {
   }
 
   try {
-    return renderDocument(parseXml(source));
+    return preserveTrailingLineBreak(renderDocument(parseXml(source)), xml);
   } catch {
     return xml;
   }
@@ -527,5 +537,5 @@ export function formatXmlFragment(xml: string): string {
     return xml;
   }
 
-  return unwrapFormattedFragment(formatted) ?? xml;
+  return preserveTrailingLineBreak(unwrapFormattedFragment(formatted) ?? xml, xml);
 }
