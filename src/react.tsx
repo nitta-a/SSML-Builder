@@ -1,3 +1,3 @@
 "use client";
 
-export * from "../packages/ssml-editor-react/src/index";
+export * from "../packages/ssml-editor-react/src/index.tsx";
