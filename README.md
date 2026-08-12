@@ -5,39 +5,37 @@
 
 ## 日本語
 
-Azure Speech Service で利用できる SSML を、TypeScript のデータ構造から生成・解析し、React の GUI で編集するための npm ワークスペースモノレポです。
+Azure Speech Service で利用できる SSML を、TypeScript のデータ構造から生成・解析し、React の GUI で編集するための npm ワークスペースモノレポです。公開成果物は `ssml-builder-js` という単一の npm パッケージです。
 
-SSML の XML エスケープや Azure Speech 拡張要素に対応したコアライブラリ、Monaco Editor を利用した React コンポーネント、Azure Text-to-Speech API クライアントを個別のパッケージとして提供します。
+SSML の XML エスケープや Azure Speech 拡張要素に対応したコアライブラリ、Monaco Editor を利用した React コンポーネント、Azure Text-to-Speech API クライアントをサブパスから提供します。
 
 ## パッケージ構成
 
-| パッケージ | 内容 |
+| サブパス | 内容 |
 | --- | --- |
-| `@ssml-builder-js/ssml-core` | SSML の型定義、ドキュメントの生成（`buildSsml`）、XML からの解析（`parseSsml`）、構文検証（`validateSsml`） |
-| `@ssml-builder-js/ssml-editor-react` | ツールバーと本文の表示エリアを備えた `SsmlEditor` コンポーネント |
-| `@ssml-builder-js/azure-tts-client` | Microsoft Speech SDK で SSML を Azure Text-to-Speech に送信し、音声データを `ArrayBuffer` で取得するクライアント |
+| `ssml-builder-js` | コア機能と Azure Text-to-Speech クライアント |
+| `ssml-builder-js/core` | SSML の型定義、ドキュメントの生成（`buildSsml`）、XML からの解析（`parseSsml`）、構文検証（`validateSsml`） |
+| `ssml-builder-js/react` | ツールバーと本文の表示エリアを備えた `SsmlEditor` コンポーネント |
+
+`ssml-builder-js` と `ssml-builder-js/core` は同じコア機能を提供します。React エディタは `ssml-builder-js/react` から読み込み、Azure TTS クライアントは `ssml-builder-js` から読み込みます。
 
 ## セットアップ
 
 ### npm パッケージとして利用する場合
 
-公開済みのパッケージを利用するアプリケーションでは、必要なパッケージをインストールします。
+公開済みのパッケージを利用するアプリケーションでは、パッケージをインストールします。
 
 ```sh
-npm install @ssml-builder-js/ssml-core
+npm install ssml-builder-js
 ```
 
 React エディタを使用する場合は、React と Monaco Editor のアダプターもインストールします。
 
 ```sh
-npm install @ssml-builder-js/ssml-editor-react @monaco-editor/react react react-dom
+npm install ssml-builder-js @monaco-editor/react react react-dom
 ```
 
-Azure TTS クライアントを使用する場合は、次のパッケージを追加します。
-
-```sh
-npm install @ssml-builder-js/azure-tts-client
-```
+Azure TTS クライアントも `ssml-builder-js` から利用できます。
 
 ### リポジトリを開発する場合
 
@@ -50,7 +48,7 @@ npm ci
 ### Playground で音声を生成する
 
 `apps/playground` の「音声を生成」ボタンは、現在の SSML をサーバー側の
-Next.js Route Handler に送信し、`@ssml-builder-js/azure-tts-client` で Azure
+Next.js Route Handler に送信し、`ssml-builder-js` で Azure
 Speech の音声を生成します。Azure のサブスクリプションキーをブラウザへ公開しないため、
 `apps/playground/.env.local` に次の値を設定してください。
 
@@ -75,8 +73,8 @@ npm run dev --workspace playground
 `lang` は読み上げ言語を表す BCP-47 タグで、パッケージ外部から `SsmlDocument` に設定します。`SsmlEditor` の `locale` は画面表示言語の設定であり、読み上げ言語とは別です。
 
 ```ts
-import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
-import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
+import { buildSsml, parseSsml } from "ssml-builder-js/core";
+import type { SsmlDocument } from "ssml-builder-js/core";
 
 const document: SsmlDocument = {
   version: "1.0",
@@ -128,8 +126,8 @@ const parsed = parseSsml(ssml);
 
 ```tsx
 import { useState } from "react";
-import { SsmlEditor } from "@ssml-builder-js/ssml-editor-react";
-import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
+import { SsmlEditor } from "ssml-builder-js/react";
+import type { SsmlDocument } from "ssml-builder-js/core";
 
 const initialDocument: SsmlDocument = {
   version: "1.0",
@@ -192,7 +190,7 @@ export function App() {
 `AzureTtsClient` に Azure Speech のサブスクリプションキーとリージョンを渡し、`synthesize` に SSML を渡します。戻り値は音声データの `ArrayBuffer` です。
 
 ```ts
-import { AzureTtsClient } from "@ssml-builder-js/azure-tts-client";
+import { AzureTtsClient } from "ssml-builder-js";
 
 const client = new AzureTtsClient({
   subscriptionKey: process.env.AZURE_SPEECH_KEY!,
@@ -207,7 +205,7 @@ const audio = await client.synthesize(ssml);
 `endpoint`、`subscriptionKey`、`region` を指定します。
 
 ```ts
-import { synthesizeSpeech } from "@ssml-builder-js/azure-tts-client";
+import { synthesizeSpeech } from "ssml-builder-js";
 
 const audio = await synthesizeSpeech(ssml, {
   endpoint: "https://japaneast.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1",
@@ -256,43 +254,41 @@ npm run build
 npm test
 ```
 
-`packages/*/dist` はビルド時に生成されるファイルのため、直接編集したりコミットしたりしないでください。
+`dist/` と `packages/*/dist` はビルド時に生成されるファイルのため、直接編集したりコミットしたりしないでください。
 
 ## English
 
-SSML-Builder is an npm workspace monorepo for generating and parsing SSML supported by Azure Speech Service from TypeScript data structures and editing it in a React GUI.
+SSML-Builder is an npm workspace monorepo for generating and parsing SSML supported by Azure Speech Service from TypeScript data structures and editing it in a React GUI. Its published output is a single npm package, `ssml-builder-js`.
 
-It provides separate packages for a core library with XML escaping and Azure Speech extension support, a React component based on Monaco Editor, and an Azure Text-to-Speech API client.
+It provides a core library with XML escaping and Azure Speech extension support, a React component based on Monaco Editor, and an Azure Text-to-Speech API client through package subpaths.
 
 ## Package structure
 
-| Package | Description |
+| Subpath | Description |
 | --- | --- |
-| `@ssml-builder-js/ssml-core` | SSML type definitions, document generation (`buildSsml`), XML parsing (`parseSsml`), and syntax validation (`validateSsml`) |
-| `@ssml-builder-js/ssml-editor-react` | The `SsmlEditor` component with a toolbar and text display area |
-| `@ssml-builder-js/azure-tts-client` | A client that uses the Microsoft Speech SDK to send SSML to Azure Text-to-Speech and return audio data as an `ArrayBuffer` |
+| `ssml-builder-js` | Core functionality and the Azure Text-to-Speech client |
+| `ssml-builder-js/core` | SSML type definitions, document generation (`buildSsml`), XML parsing (`parseSsml`), and syntax validation (`validateSsml`) |
+| `ssml-builder-js/react` | The `SsmlEditor` component with a toolbar and text display area |
+
+`ssml-builder-js` and `ssml-builder-js/core` provide the same core functionality. Import the React editor from `ssml-builder-js/react`; the Azure TTS client is available from `ssml-builder-js`.
 
 ## Setup
 
 ### Using the npm packages
 
-Install the packages required by your application:
+Install the package required by your application:
 
 ```sh
-npm install @ssml-builder-js/ssml-core
+npm install ssml-builder-js
 ```
 
 To use the React editor, also install React and the Monaco Editor adapter:
 
 ```sh
-npm install @ssml-builder-js/ssml-editor-react @monaco-editor/react react react-dom
+npm install ssml-builder-js @monaco-editor/react react react-dom
 ```
 
-To use the Azure TTS client, add the following package:
-
-```sh
-npm install @ssml-builder-js/azure-tts-client
-```
+The Azure TTS client is also available from `ssml-builder-js`.
 
 ### Developing this repository
 
@@ -305,7 +301,7 @@ npm ci
 ### Generating audio in the playground
 
 The **Generate audio** button in `apps/playground` sends the current SSML to a
-server-side Next.js Route Handler, which uses `@ssml-builder-js/azure-tts-client` to
+server-side Next.js Route Handler, which uses `ssml-builder-js` to
 generate speech with Azure Speech. To keep the Azure subscription key out of the
 browser, set the following values in `apps/playground/.env.local`:
 
@@ -329,8 +325,8 @@ npm run dev --workspace playground
 `lang` is the BCP-47 tag for speech synthesis and is set on `SsmlDocument` by the package consumer. `SsmlEditor`'s `locale` prop controls the UI language and is separate from the speech language.
 
 ```ts
-import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
-import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
+import { buildSsml, parseSsml } from "ssml-builder-js/core";
+import type { SsmlDocument } from "ssml-builder-js/core";
 
 const document: SsmlDocument = {
   version: "1.0",
@@ -382,8 +378,8 @@ Typed representations are available for elements such as `voice`, `prosody`, `br
 
 ```tsx
 import { useState } from "react";
-import { SsmlEditor } from "@ssml-builder-js/ssml-editor-react";
-import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
+import { SsmlEditor } from "ssml-builder-js/react";
+import type { SsmlDocument } from "ssml-builder-js/core";
 
 const initialDocument: SsmlDocument = {
   version: "1.0",
@@ -446,7 +442,7 @@ Click the **Description** button to see descriptions of each control, button, an
 Pass an Azure Speech subscription key and region to `AzureTtsClient`, then pass SSML to `synthesize`. The return value is an `ArrayBuffer` containing audio data.
 
 ```ts
-import { AzureTtsClient } from "@ssml-builder-js/azure-tts-client";
+import { AzureTtsClient } from "ssml-builder-js";
 
 const client = new AzureTtsClient({
   subscriptionKey: process.env.AZURE_SPEECH_KEY!,
@@ -461,7 +457,7 @@ The lower-level `synthesizeSpeech` function is also available. It requires
 `endpoint`, `subscriptionKey`, and `region` in its `TtsConfig` argument.
 
 ```ts
-import { synthesizeSpeech } from "@ssml-builder-js/azure-tts-client";
+import { synthesizeSpeech } from "ssml-builder-js";
 
 const audio = await synthesizeSpeech(ssml, {
   endpoint: "https://japaneast.tts.speech.microsoft.com/tts/cognitiveservices/websocket/v1",
@@ -510,4 +506,4 @@ npm run build
 npm test
 ```
 
-`packages/*/dist` contains generated build files; do not edit or commit them directly.
+`dist/` and `packages/*/dist` contain generated build files; do not edit or commit them directly.

@@ -1,5 +1,6 @@
 {
   "name": "@ssml-builder-js/azure-tts-client",
+  "private": true,
   "version": "1.0.0",
   "description": "Azure Text-to-Speech client using the Microsoft Speech SDK",
   "main": "dist/index.js",

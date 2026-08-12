@@ -1,15 +1,41 @@
 {
   "name": "ssml-builder-js",
-  "private": true,
+  "version": "1.0.0",
+  "description": "SSML building utilities, a React editor, and an Azure Text-to-Speech client",
   "workspaces": [
     "packages/*",
     "apps/*"
+  ],
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.mjs",
+      "require": "./dist/core.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present && tsup",
     "check": "biome check .",
     "changeset": "changeset",
     "format": "biome format .",
@@ -26,6 +52,25 @@
     "@types/node": "^24.0.0",
     "tsup": "8.5.1",
     "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "peerDependenciesMeta": {
+    "@monaco-editor/react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "microsoft-cognitiveservices-speech-sdk": "1.51.0"
   },
   "overrides": {
     "dompurify": "3.4.13",
