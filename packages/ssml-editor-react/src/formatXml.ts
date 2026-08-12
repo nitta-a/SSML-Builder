@@ -463,13 +463,32 @@ function getTrailingLineBreak(value: string): string {
   return match?.[0] ?? "";
 }
 
+function stripTrailingLineBreaks(value: string): string {
+  let end = value.length;
+  while (end > 0) {
+    if (value[end - 1] === "\n") {
+      end -= 1;
+      if (end > 0 && value[end - 1] === "\r") {
+        end -= 1;
+      }
+      continue;
+    }
+    if (value[end - 1] === "\r") {
+      end -= 1;
+      continue;
+    }
+    break;
+  }
+  return value.slice(0, end);
+}
+
 function preserveTrailingLineBreak(formatted: string, source: string): string {
   const trailingLineBreak = getTrailingLineBreak(source);
   if (trailingLineBreak === "") {
     return formatted;
   }
 
-  return `${formatted.replace(/(?:\r\n|\r|\n)+$/, "")}${trailingLineBreak}`;
+  return `${stripTrailingLineBreaks(formatted)}${trailingLineBreak}`;
 }
 
 function renderDocument(document: XmlDocument): string {
