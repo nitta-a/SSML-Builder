@@ -36,6 +36,8 @@ function getSuggestions(source: string) {
   const model = {
     getValue: () => source,
     getOffsetAt: (position: CompletionPosition) => position.column - 1,
+    getValueInRange: (range: { startColumn: number; endColumn: number }) =>
+      source.slice(range.startColumn - 1, range.endColumn - 1),
   } as CompletionModel;
   const position = { lineNumber: 1, column: source.length + 1 } as CompletionPosition;
   const result = provider.provideCompletionItems?.(model, position);
@@ -80,6 +82,18 @@ test("supports single-quoted and case-insensitive attribute contexts", () => {
     suggestions.some((suggestion) => suggestion.label === "characters" && suggestion.kind === 2),
     true,
   );
+});
+
+test("replaces a typed opening bracket when selecting a tag completion", () => {
+  const suggestions = getSuggestions("<");
+  const subSuggestion = suggestions.find((suggestion) => suggestion.label === "sub");
+
+  assert.deepEqual(subSuggestion?.range, {
+    startLineNumber: 1,
+    startColumn: 1,
+    endLineNumber: 1,
+    endColumn: 2,
+  });
 });
 
 test("keeps wrapped insertion tags inline and terminates them with a line break", () => {

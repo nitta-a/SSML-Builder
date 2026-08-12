@@ -49,6 +49,19 @@ export function registerSsmlCompletionProvider(
       const attributeValues = attributeMatch
         ? findSsmlAttributePresets(attributeMatch[1], attributeMatch[2])
         : undefined;
+      const isAfterBracket =
+        model.getValueInRange({
+          startLineNumber: position.lineNumber,
+          startColumn: position.column - 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column,
+        }) === "<";
+      const range = {
+        startLineNumber: position.lineNumber,
+        startColumn: isAfterBracket ? position.column - 1 : position.column,
+        endLineNumber: position.lineNumber,
+        endColumn: position.column,
+      };
 
       return {
         suggestions: [
@@ -59,6 +72,7 @@ export function registerSsmlCompletionProvider(
                 kind: monaco.languages.CompletionItemKind.Snippet,
                 insertText,
                 insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                range,
               }))),
           ...(attributeValues?.map((value) => ({
             label: value,
