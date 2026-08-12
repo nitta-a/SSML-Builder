@@ -18,6 +18,8 @@ SSML の XML エスケープや Azure Speech 拡張要素に対応したコア�
 | `ssml-builder-js/react` | ツールバーと本文の表示エリアを備えた `SsmlEditor` コンポーネント |
 | `ssml-builder-js/azure-tts-client` | Microsoft Speech SDK で SSML を Azure Text-to-Speech に送信し、音声データを `ArrayBuffer` で取得するクライアント |
 
+`ssml-builder-js` と `ssml-builder-js/core` は同じコア機能を提供します。React エディタと Azure TTS は、それぞれ対応するサブパスから読み込みます。
+
 ## セットアップ
 
 ### npm パッケージとして利用する場合
@@ -269,6 +271,8 @@ It provides a core library with XML escaping and Azure Speech extension support,
 | `ssml-builder-js/core` | SSML type definitions, document generation (`buildSsml`), XML parsing (`parseSsml`), and syntax validation (`validateSsml`) |
 | `ssml-builder-js/react` | The `SsmlEditor` component with a toolbar and text display area |
 | `ssml-builder-js/azure-tts-client` | A client that uses the Microsoft Speech SDK to send SSML to Azure Text-to-Speech and return audio data as an `ArrayBuffer` |
+
+`ssml-builder-js` and `ssml-builder-js/core` provide the same core functionality. Import the React editor and Azure TTS client from their respective subpaths.
 
 ## Setup
 
