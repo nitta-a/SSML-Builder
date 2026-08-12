@@ -1,5 +1,11 @@
 import { buildSsml } from "./builder.ts";
-import { DEFAULT_SSML_LANGUAGE, DEFAULT_SSML_VERSION, SYNTHESIS_NAMESPACE } from "./constants/ssml.ts";
+import {
+  DEFAULT_SSML_LANGUAGE,
+  DEFAULT_SSML_VERSION,
+  SSML_ATTRS,
+  SSML_TAGS,
+  SYNTHESIS_NAMESPACE,
+} from "./constants/ssml.ts";
 import { parseSsml } from "./parser.ts";
 import type { ProsodyElement, SsmlAttributes, SsmlDocument, SsmlNode, VoiceElement } from "./types.ts";
 
@@ -43,8 +49,8 @@ function getPartialTextNodes(text: string, version: string, lang: string): SsmlN
   }
 
   try {
-    const openingTag = `<speak version="${escapeAttribute(version)}" xmlns="${SYNTHESIS_NAMESPACE}" xml:lang="${escapeAttribute(lang)}">`;
-    return parseSsml(`${openingTag}${text}</speak>`).children ?? [];
+    const openingTag = `<${SSML_TAGS.SPEAK} ${SSML_ATTRS.VERSION}="${escapeAttribute(version)}" ${SSML_ATTRS.XMLNS}="${SYNTHESIS_NAMESPACE}" ${SSML_ATTRS.XML_LANG}="${escapeAttribute(lang)}">`;
+    return parseSsml(`${openingTag}${text}</${SSML_TAGS.SPEAK}>`).children ?? [];
   } catch {
     return [{ type: "text", value: text }];
   }
@@ -74,7 +80,7 @@ function serializePartialSsml(text: string, context: SsmlPartialContext): string
   if (context.prosody) {
     children = [
       {
-        type: "prosody",
+        type: SSML_TAGS.PROSODY,
         ...context.prosody,
         children,
       },
@@ -85,7 +91,7 @@ function serializePartialSsml(text: string, context: SsmlPartialContext): string
   if (voice) {
     children = [
       {
-        type: "voice",
+        type: SSML_TAGS.VOICE,
         ...voice,
         children,
       },
@@ -93,7 +99,7 @@ function serializePartialSsml(text: string, context: SsmlPartialContext): string
   }
 
   const document: SsmlDocument = {
-    type: "speak",
+    type: SSML_TAGS.SPEAK,
     version,
     lang,
     attributes: context.attributes,
