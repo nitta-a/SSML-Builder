@@ -10,6 +10,7 @@ export default defineConfig({
   format: ["esm", "cjs"],
   outDir: "dist",
   dts: {
+    resolve: ["@ssml-builder-js/ssml-core"],
     compilerOptions: {
       composite: false,
       ignoreDeprecations: "6.0",
