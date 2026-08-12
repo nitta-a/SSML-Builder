@@ -102,6 +102,19 @@ test("uses the model line ending for wrapped insertion edits", () => {
   );
 });
 
+test("does not duplicate an existing line ending after wrapped insertion", () => {
+  const template = {
+    prefix: '<prosody rate="slow">',
+    suffix: "</prosody>",
+    mode: "wrap" as const,
+  };
+
+  assert.deepEqual(createSsmlInsertionEdit("Hello\nworld\n", 6, 11, template), {
+    replacement: '<prosody rate="slow">world</prosody>',
+    selectionOffset: template.prefix.length,
+  });
+});
+
 test("moves an empty insertion cursor past an existing line ending", () => {
   const tag = '<break time="500ms"/>';
   assert.deepEqual(

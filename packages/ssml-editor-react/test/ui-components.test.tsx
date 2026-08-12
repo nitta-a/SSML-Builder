@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const monacoState = vi.hoisted(() => {
   let value = "Hello world";
-  const modelEol = "\n";
+  let modelEol = "\n";
   const contentChangeListeners = new Set<() => void>();
   const positionAt = (offset: number) => {
     const lines = value.slice(0, offset).split(/\r\n|\r|\n/);
@@ -105,10 +105,14 @@ const monacoState = vi.hoisted(() => {
         mock.mockClear();
       }
       value = "Hello world";
+      modelEol = "\n";
       contentChangeListeners.clear();
     },
     setValue: (nextValue: string) => {
       value = nextValue;
+    },
+    setEOL: (nextEol: string) => {
+      modelEol = nextEol;
     },
     emitContentChange: () => {
       for (const listener of contentChangeListeners) {
