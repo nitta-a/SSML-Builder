@@ -20,7 +20,7 @@ test("shows editor buttons by default and hides configured buttons", () => {
   assert.equal(isSsmlEditorButtonVisible({ customTag: false }, "customTag"), false);
 });
 
-test("keeps wrapped insertion tags inline and preserves the selection offset", () => {
+test("keeps wrapped insertion tags inline and terminates them with a line break", () => {
   assert.deepEqual(
     createSsmlInsertionEdit("Hello world", 6, 11, {
       prefix: '<prosody rate="slow">',
@@ -28,7 +28,7 @@ test("keeps wrapped insertion tags inline and preserves the selection offset", (
       mode: "wrap",
     }),
     {
-      replacement: '<prosody rate="slow">world</prosody>',
+      replacement: '<prosody rate="slow">world</prosody>\n',
       selectionOffset: '<prosody rate="slow">'.length,
     },
   );
@@ -57,7 +57,90 @@ test("does not add duplicate line breaks at existing boundaries", () => {
     }),
     {
       replacement: '<break time="500ms"/>\n',
-      selectionOffset: '<break time="500ms"/>'.length,
+      selectionOffset: '<break time="500ms"/>\n'.length,
+    },
+  );
+});
+
+test("uses the model line ending for insertion edits", () => {
+  assert.deepEqual(
+    createSsmlInsertionEdit(
+      "Hello world",
+      6,
+      11,
+      {
+        prefix: '<break time="500ms"/>',
+        suffix: "",
+        mode: "insert",
+      },
+      "\r\n",
+    ),
+    {
+      replacement: '\r\n<break time="500ms"/>\r\nworld',
+      selectionOffset: '\r\n<break time="500ms"/>\r\n'.length,
+    },
+  );
+});
+
+test("uses the model line ending for wrapped insertion edits", () => {
+  assert.deepEqual(
+    createSsmlInsertionEdit(
+      "Hello world",
+      6,
+      11,
+      {
+        prefix: '<prosody rate="slow">',
+        suffix: "</prosody>",
+        mode: "wrap",
+      },
+      "\r\n",
+    ),
+    {
+      replacement: '<prosody rate="slow">world</prosody>\r\n',
+      selectionOffset: '<prosody rate="slow">'.length,
+    },
+  );
+});
+
+test("does not duplicate an existing line ending after wrapped insertion", () => {
+  const template = {
+    prefix: '<prosody rate="slow">',
+    suffix: "</prosody>",
+    mode: "wrap" as const,
+  };
+
+  assert.deepEqual(createSsmlInsertionEdit("Hello\nworld\n", 6, 11, template), {
+    replacement: '<prosody rate="slow">world</prosody>',
+    selectionOffset: template.prefix.length,
+  });
+});
+
+test("moves an empty insertion cursor past an existing line ending", () => {
+  const tag = '<break time="500ms"/>';
+  assert.deepEqual(
+    createSsmlInsertionEdit("Hello\nworld", 5, 5, {
+      prefix: tag,
+      suffix: "",
+      mode: "insert",
+    }),
+    {
+      replacement: `\n${tag}`,
+      selectionOffset: `\n${tag}\n`.length,
+    },
+  );
+});
+
+test("terminates an insertion at the end of the document with a line ending", () => {
+  const tag = '<break time="500ms"/>';
+  assert.deepEqual(
+    createSsmlInsertionEdit("Hello", 5, 5, {
+      prefix: tag,
+      suffix: "",
+      mode: "insert",
+    }),
+    {
+      replacement: `\n${tag}\n`,
+      selectionOffset: `\n${tag}\n`.length,
     },
   );
 });

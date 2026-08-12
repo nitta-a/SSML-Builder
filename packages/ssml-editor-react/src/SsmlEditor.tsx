@@ -1578,7 +1578,13 @@ function applySsmlTemplate(editor: MonacoEditor, template: SsmlEditorInsertionTe
 
   const startOffset = model.getOffsetAt(selection.getStartPosition());
   const endOffset = model.getOffsetAt(selection.getEndPosition());
-  const { replacement, selectionOffset } = createSsmlInsertionEdit(model.getValue(), startOffset, endOffset, template);
+  const { replacement, selectionOffset } = createSsmlInsertionEdit(
+    model.getValue(),
+    startOffset,
+    endOffset,
+    template,
+    model.getEOL(),
+  );
 
   editor.pushUndoStop();
   const applied = editor.executeEdits("ssml-toolbar", [

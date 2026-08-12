@@ -7,9 +7,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const monacoState = vi.hoisted(() => {
   let value = "Hello world";
+  let modelEol = "\n";
   const contentChangeListeners = new Set<() => void>();
   let latestContentDispose: ReturnType<typeof vi.fn> | null = null;
-  const positionAt = (offset: number) => ({ lineNumber: 1, column: offset + 1 });
+  const positionAt = (offset: number) => {
+    const lines = value.slice(0, offset).split(/\r\n|\r|\n/);
+    return {
+      lineNumber: lines.length,
+      column: (lines.at(-1)?.length ?? 0) + 1,
+    };
+  };
   const selection = {
     selectionStartLineNumber: 1,
     selectionStartColumn: 1,
@@ -21,9 +28,17 @@ const monacoState = vi.hoisted(() => {
   const model = {
     getValue: () => value,
     getPositionAt: positionAt,
-    getOffsetAt: (position: { column: number }) => position.column - 1,
+    getOffsetAt: (position: { lineNumber: number; column: number }) => {
+      const lines = value.split(/\r\n|\r|\n/);
+      return (
+        lines.slice(0, position.lineNumber - 1).reduce((offset, line) => offset + line.length + modelEol.length, 0) +
+        position.column -
+        1
+      );
+    },
+    getEOL: () => modelEol,
     getValueInRange: () => "",
-    getLineContent: () => value,
+    getLineContent: (lineNumber: number) => value.split(/\r\n|\r|\n/)[lineNumber - 1] ?? "",
     deltaDecorations: vi.fn(() => []),
   };
   const disposable = () => ({ dispose: vi.fn() });
@@ -43,7 +58,15 @@ const monacoState = vi.hoisted(() => {
     onDidLayoutChange: vi.fn(disposable),
     onDidContentSizeChange: vi.fn(disposable),
     pushUndoStop: vi.fn(),
-    executeEdits: vi.fn(() => true),
+    executeEdits: vi.fn((_source: string, edits: Array<{ range: typeof selection; text: string }>) => {
+      const edit = edits[0];
+      if (edit) {
+        const startOffset = model.getOffsetAt(edit.range.getStartPosition());
+        const endOffset = model.getOffsetAt(edit.range.getEndPosition());
+        value = `${value.slice(0, startOffset)}${edit.text}${value.slice(endOffset)}`;
+      }
+      return true;
+    }),
     setSelection: vi.fn(),
     focus: vi.fn(),
     trigger: vi.fn(),
@@ -82,11 +105,15 @@ const monacoState = vi.hoisted(() => {
         mock.mockClear();
       }
       value = "Hello world";
+      modelEol = "\n";
       contentChangeListeners.clear();
       latestContentDispose = null;
     },
     setValue: (nextValue: string) => {
       value = nextValue;
+    },
+    setEOL: (nextEol: string) => {
+      modelEol = nextEol;
     },
     emitContentChange: () => {
       for (const listener of contentChangeListeners) {
@@ -175,6 +202,14 @@ describe("SsmlEditor toolbar menus", () => {
 
     expect(monacoState.editor.executeEdits).toHaveBeenCalledTimes(1);
     expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toContain('<break time="500ms"/>');
+    expect(monacoState.editor.setSelection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectionStartLineNumber: 2,
+        positionLineNumber: 2,
+        selectionStartColumn: 1,
+        positionColumn: 1,
+      }),
+    );
     expect(screen.queryByRole("menu", { name: "Break" })).toBeNull();
   });
 

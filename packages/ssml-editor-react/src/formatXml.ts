@@ -458,6 +458,52 @@ function stripTrailingWhitespace(value: string): string {
   return value.replace(/[ \t]+$/gm, "");
 }
 
+function getTrailingLineBreaks(value: string): string {
+  let start = value.length;
+  while (start > 0) {
+    if (value[start - 1] === "\n") {
+      start -= 1;
+      if (start > 0 && value[start - 1] === "\r") {
+        start -= 1;
+      }
+      continue;
+    }
+    if (value[start - 1] === "\r") {
+      start -= 1;
+      continue;
+    }
+    break;
+  }
+  return value.slice(start);
+}
+
+function stripTrailingLineBreaks(value: string): string {
+  let end = value.length;
+  while (end > 0) {
+    if (value[end - 1] === "\n") {
+      end -= 1;
+      if (end > 0 && value[end - 1] === "\r") {
+        end -= 1;
+      }
+      continue;
+    }
+    if (value[end - 1] === "\r") {
+      end -= 1;
+      continue;
+    }
+    break;
+  }
+  return value.slice(0, end);
+}
+
+function preserveTrailingLineBreak(formatted: string, trailingLineBreaks: string): string {
+  if (trailingLineBreaks === "") {
+    return formatted;
+  }
+
+  return `${stripTrailingLineBreaks(formatted)}${trailingLineBreaks}`;
+}
+
 function renderDocument(document: XmlDocument): string {
   const lines: string[] = [];
 
@@ -476,13 +522,14 @@ function renderDocument(document: XmlDocument): string {
 }
 
 export function formatXml(xml: string): string {
+  const trailingLineBreaks = getTrailingLineBreaks(xml);
   const source = xml.trim();
   if (source === "") {
     return "";
   }
 
   try {
-    return renderDocument(parseXml(source));
+    return preserveTrailingLineBreak(renderDocument(parseXml(source)), trailingLineBreaks);
   } catch {
     return xml;
   }
@@ -514,6 +561,7 @@ function unwrapFormattedFragment(formatted: string): string | undefined {
 }
 
 export function formatXmlFragment(xml: string): string {
+  const trailingLineBreaks = getTrailingLineBreaks(xml);
   const source = xml.trim();
   if (source === "") {
     return "";
@@ -527,5 +575,5 @@ export function formatXmlFragment(xml: string): string {
     return xml;
   }
 
-  return unwrapFormattedFragment(formatted) ?? xml;
+  return preserveTrailingLineBreak(unwrapFormattedFragment(formatted) ?? xml, trailingLineBreaks);
 }
