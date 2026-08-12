@@ -3,6 +3,9 @@ import { SSML_ATTRIBUTE_PRESETS } from "./constants/ssmlPresets";
 
 type MonacoLanguages = Monaco["languages"];
 type MonacoCompletionProvider = Parameters<MonacoLanguages["registerCompletionItemProvider"]>[1];
+type MonacoCompletionMethod = NonNullable<MonacoCompletionProvider["provideCompletionItems"]>;
+type MonacoCompletionModel = Parameters<MonacoCompletionMethod>[0];
+type MonacoCompletionPosition = Parameters<MonacoCompletionMethod>[1];
 
 const SSML_ATTRIBUTE_VALUE_PATTERN = /<([\w:-]+)\s+[^>]*?\b([\w:-]+)=["']([^"']*)$/i;
 
@@ -39,10 +42,12 @@ export function registerSsmlCompletionProvider(
   monaco: Monaco,
 ): ReturnType<MonacoLanguages["registerCompletionItemProvider"]> {
   const provider: MonacoCompletionProvider = {
-    provideCompletionItems(model, position) {
+    provideCompletionItems(model: MonacoCompletionModel, position: MonacoCompletionPosition) {
       const textBeforeCursor = model.getValue().slice(0, model.getOffsetAt(position));
       const attributeMatch = SSML_ATTRIBUTE_VALUE_PATTERN.exec(textBeforeCursor);
-      const attributeValues = attributeMatch ? findSsmlAttributePresets(attributeMatch[1], attributeMatch[2]) : undefined;
+      const attributeValues = attributeMatch
+        ? findSsmlAttributePresets(attributeMatch[1], attributeMatch[2])
+        : undefined;
 
       return {
         suggestions: [
