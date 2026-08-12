@@ -10,6 +10,9 @@ import {
   DEFAULT_SSML_LANGUAGE,
   DEFAULT_SSML_VERSION,
   MSTTS_NAMESPACE,
+  MSTTS_TAG_PREFIX,
+  SSML_ATTRS,
+  SSML_TAGS,
   SYNTHESIS_NAMESPACE,
   XML_NAME_PATTERN,
 } from "./constants/ssml.ts";
@@ -34,78 +37,78 @@ function getAttributes(element: SsmlElement): SsmlAttributes {
   };
 
   switch (element.type) {
-    case "voice":
-      addAttribute(attributes, "name", element.name);
-      addAttribute(attributes, "effect", element.effect);
+    case SSML_TAGS.VOICE:
+      addAttribute(attributes, SSML_ATTRS.NAME, element.name);
+      addAttribute(attributes, SSML_ATTRS.EFFECT, element.effect);
       break;
-    case "prosody":
-      addAttribute(attributes, "rate", element.rate);
-      addAttribute(attributes, "pitch", element.pitch);
-      addAttribute(attributes, "volume", element.volume);
-      addAttribute(attributes, "contour", element.contour);
-      addAttribute(attributes, "range", element.range);
+    case SSML_TAGS.PROSODY:
+      addAttribute(attributes, SSML_ATTRS.RATE, element.rate);
+      addAttribute(attributes, SSML_ATTRS.PITCH, element.pitch);
+      addAttribute(attributes, SSML_ATTRS.VOLUME, element.volume);
+      addAttribute(attributes, SSML_ATTRS.CONTOUR, element.contour);
+      addAttribute(attributes, SSML_ATTRS.RANGE, element.range);
       break;
-    case "break":
-      addAttribute(attributes, "time", element.time);
-      addAttribute(attributes, "strength", element.strength);
+    case SSML_TAGS.BREAK:
+      addAttribute(attributes, SSML_ATTRS.TIME, element.time);
+      addAttribute(attributes, SSML_ATTRS.STRENGTH, element.strength);
       break;
-    case "express-as":
-    case "expressAs":
-    case "mstts:express-as":
-      addAttribute(attributes, "style", element.style);
-      addAttribute(attributes, "styledegree", element.styleDegree);
-      addAttribute(attributes, "role", element.role);
+    case SSML_TAGS.EXPRESS_AS:
+    case SSML_TAGS.EXPRESS_AS_CAMEL:
+    case SSML_TAGS.MSTTS_EXPRESS_AS:
+      addAttribute(attributes, SSML_ATTRS.STYLE, element.style);
+      addAttribute(attributes, SSML_ATTRS.STYLE_DEGREE, element.styleDegree);
+      addAttribute(attributes, SSML_ATTRS.ROLE, element.role);
       break;
-    case "say-as":
-    case "sayAs":
-      addAttribute(attributes, "interpret-as", element.interpretAs);
-      addAttribute(attributes, "format", element.format);
-      addAttribute(attributes, "detail", element.detail);
+    case SSML_TAGS.SAY_AS:
+    case SSML_TAGS.SAY_AS_CAMEL:
+      addAttribute(attributes, SSML_ATTRS.INTERPRET_AS, element.interpretAs);
+      addAttribute(attributes, SSML_ATTRS.FORMAT, element.format);
+      addAttribute(attributes, SSML_ATTRS.DETAIL, element.detail);
       break;
-    case "phoneme":
-      addAttribute(attributes, "alphabet", element.alphabet);
-      addAttribute(attributes, "ph", element.ph);
+    case SSML_TAGS.PHONEME:
+      addAttribute(attributes, SSML_ATTRS.ALPHABET, element.alphabet);
+      addAttribute(attributes, SSML_ATTRS.PH, element.ph);
       break;
-    case "emphasis":
-      addAttribute(attributes, "level", element.level);
+    case SSML_TAGS.EMPHASIS:
+      addAttribute(attributes, SSML_ATTRS.LEVEL, element.level);
       break;
-    case "audio":
-      addAttribute(attributes, "src", element.src);
-      addAttribute(attributes, "desc", element.desc);
-      addAttribute(attributes, "clipBegin", element.clipBegin);
-      addAttribute(attributes, "clipEnd", element.clipEnd);
-      addAttribute(attributes, "speed", element.speed);
-      addAttribute(attributes, "repeatCount", element.repeatCount);
-      addAttribute(attributes, "repeatDuration", element.repeatDuration);
-      addAttribute(attributes, "soundLevel", element.soundLevel);
+    case SSML_TAGS.AUDIO:
+      addAttribute(attributes, SSML_ATTRS.SRC, element.src);
+      addAttribute(attributes, SSML_ATTRS.DESC, element.desc);
+      addAttribute(attributes, SSML_ATTRS.CLIP_BEGIN, element.clipBegin);
+      addAttribute(attributes, SSML_ATTRS.CLIP_END, element.clipEnd);
+      addAttribute(attributes, SSML_ATTRS.SPEED, element.speed);
+      addAttribute(attributes, SSML_ATTRS.REPEAT_COUNT, element.repeatCount);
+      addAttribute(attributes, SSML_ATTRS.REPEAT_DURATION, element.repeatDuration);
+      addAttribute(attributes, SSML_ATTRS.SOUND_LEVEL, element.soundLevel);
       break;
-    case "sub":
-      addAttribute(attributes, "alias", element.alias);
+    case SSML_TAGS.SUB:
+      addAttribute(attributes, SSML_ATTRS.ALIAS, element.alias);
       break;
-    case "lang":
-      addAttribute(attributes, "xml:lang", element.lang);
+    case SSML_TAGS.LANG:
+      addAttribute(attributes, SSML_ATTRS.XML_LANG, element.lang);
       break;
-    case "mark":
-      addAttribute(attributes, "name", element.name);
+    case SSML_TAGS.MARK:
+      addAttribute(attributes, SSML_ATTRS.NAME, element.name);
       break;
-    case "bookmark":
-      addAttribute(attributes, "mark", element.mark);
+    case SSML_TAGS.BOOKMARK:
+      addAttribute(attributes, SSML_ATTRS.MARK, element.mark);
       break;
-    case "lexicon":
-      addAttribute(attributes, "uri", element.uri);
+    case SSML_TAGS.LEXICON:
+      addAttribute(attributes, SSML_ATTRS.URI, element.uri);
       break;
-    case "mstts:silence":
-    case "silence":
-      addAttribute(attributes, "type", element.typeValue ?? element.silenceType);
-      addAttribute(attributes, "value", element.value);
+    case SSML_TAGS.MSTTS_SILENCE:
+    case SSML_TAGS.SILENCE:
+      addAttribute(attributes, SSML_ATTRS.TYPE, element.typeValue ?? element.silenceType);
+      addAttribute(attributes, SSML_ATTRS.VALUE, element.value);
       break;
-    case "mstts:viseme":
-    case "viseme":
-      addAttribute(attributes, "type", element.typeValue ?? element.visemeType);
+    case SSML_TAGS.MSTTS_VISEME:
+    case SSML_TAGS.VISEME:
+      addAttribute(attributes, SSML_ATTRS.TYPE, element.typeValue ?? element.visemeType);
       break;
-    case "p":
-    case "s":
-    case "w":
+    case SSML_TAGS.PARAGRAPH:
+    case SSML_TAGS.SENTENCE:
+    case SSML_TAGS.WORD:
     case "element":
     case "custom":
       break;
@@ -116,19 +119,19 @@ function getAttributes(element: SsmlElement): SsmlAttributes {
 
 function getTagName(element: SsmlElement): string {
   switch (element.type) {
-    case "express-as":
-    case "expressAs":
-    case "mstts:express-as":
-      return "mstts:express-as";
-    case "say-as":
-    case "sayAs":
-      return "say-as";
-    case "silence":
-    case "mstts:silence":
-      return "mstts:silence";
-    case "viseme":
-    case "mstts:viseme":
-      return "mstts:viseme";
+    case SSML_TAGS.EXPRESS_AS:
+    case SSML_TAGS.EXPRESS_AS_CAMEL:
+    case SSML_TAGS.MSTTS_EXPRESS_AS:
+      return SSML_TAGS.MSTTS_EXPRESS_AS;
+    case SSML_TAGS.SAY_AS:
+    case SSML_TAGS.SAY_AS_CAMEL:
+      return SSML_TAGS.SAY_AS;
+    case SSML_TAGS.SILENCE:
+    case SSML_TAGS.MSTTS_SILENCE:
+      return SSML_TAGS.MSTTS_SILENCE;
+    case SSML_TAGS.VISEME:
+    case SSML_TAGS.MSTTS_VISEME:
+      return SSML_TAGS.MSTTS_VISEME;
     case "element":
     case "custom":
       return element.name;
@@ -184,7 +187,7 @@ function usesMsttsNamespace(nodes: SsmlNode[]): boolean {
     }
 
     const tagName = getTagName(node);
-    return tagName.startsWith("mstts:") || usesMsttsNamespace(getChildren(node));
+    return tagName.startsWith(MSTTS_TAG_PREFIX) || usesMsttsNamespace(getChildren(node));
   });
 }
 
@@ -192,16 +195,16 @@ function serializeDocument(document: SsmlDocument): string {
   const children = document.children ?? (document.content === undefined ? [] : [document.content]);
   const attributes: SsmlAttributes = {
     ...(document.attributes ?? {}),
-    version: document.version,
-    xmlns: SYNTHESIS_NAMESPACE,
-    "xml:lang": document.lang,
+    [SSML_ATTRS.VERSION]: document.version,
+    [SSML_ATTRS.XMLNS]: SYNTHESIS_NAMESPACE,
+    [SSML_ATTRS.XML_LANG]: document.lang,
   };
 
-  if (usesMsttsNamespace(children) && attributes["xmlns:mstts"] === undefined) {
-    attributes["xmlns:mstts"] = MSTTS_NAMESPACE;
+  if (usesMsttsNamespace(children) && attributes[SSML_ATTRS.MSTTS_XMLNS] === undefined) {
+    attributes[SSML_ATTRS.MSTTS_XMLNS] = MSTTS_NAMESPACE;
   }
 
-  return `<speak${serializeAttributes(attributes)}>${children.map(serializeNode).join("")}</speak>`;
+  return `<${SSML_TAGS.SPEAK}${serializeAttributes(attributes)}>${children.map(serializeNode).join("")}</${SSML_TAGS.SPEAK}>`;
 }
 
 export function buildSsml(document: SsmlDocument): string;

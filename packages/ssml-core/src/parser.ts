@@ -23,7 +23,7 @@ import type {
   VoiceElement,
   WordElement,
 } from "./types.ts";
-import { MAX_NESTING_DEPTH, MSTTS_NAMESPACE, SYNTHESIS_NAMESPACE } from "./constants/ssml.ts";
+import { MAX_NESTING_DEPTH, MSTTS_NAMESPACE, SSML_ATTRS, SSML_TAGS, SYNTHESIS_NAMESPACE } from "./constants/ssml.ts";
 
 interface XmlElementNode {
   name: string;
@@ -116,11 +116,11 @@ function isXmlWhitespace(value: string | undefined): boolean {
 }
 
 function removeStandardNamespaceAttributes(attributes: SsmlAttributes): void {
-  if (attributes.xmlns === SYNTHESIS_NAMESPACE) {
-    delete attributes.xmlns;
+  if (attributes[SSML_ATTRS.XMLNS] === SYNTHESIS_NAMESPACE) {
+    delete attributes[SSML_ATTRS.XMLNS];
   }
-  if (attributes["xmlns:mstts"] === MSTTS_NAMESPACE) {
-    delete attributes["xmlns:mstts"];
+  if (attributes[SSML_ATTRS.MSTTS_XMLNS] === MSTTS_NAMESPACE) {
+    delete attributes[SSML_ATTRS.MSTTS_XMLNS];
   }
 }
 
@@ -410,21 +410,21 @@ function convertElement(node: XmlElementNode): SsmlElement {
   const attributes = getElementAttributes(node);
 
   switch (node.name) {
-    case "voice": {
-      const element: VoiceElement = { type: "voice" };
-      const name = readAttribute(attributes, "name");
-      const effect = readAttribute(attributes, "effect");
+    case SSML_TAGS.VOICE: {
+      const element: VoiceElement = { type: SSML_TAGS.VOICE };
+      const name = readAttribute(attributes, SSML_ATTRS.NAME);
+      const effect = readAttribute(attributes, SSML_ATTRS.EFFECT);
       if (name !== undefined) element.name = name;
       if (effect !== undefined) element.effect = effect;
       return finishElement(element, node, attributes);
     }
-    case "prosody": {
-      const element: ProsodyElement = { type: "prosody" };
-      const rate = readAttribute(attributes, "rate");
-      const pitch = readAttribute(attributes, "pitch");
-      const volume = readAttribute(attributes, "volume");
-      const contour = readAttribute(attributes, "contour");
-      const range = readAttribute(attributes, "range");
+    case SSML_TAGS.PROSODY: {
+      const element: ProsodyElement = { type: SSML_TAGS.PROSODY };
+      const rate = readAttribute(attributes, SSML_ATTRS.RATE);
+      const pitch = readAttribute(attributes, SSML_ATTRS.PITCH);
+      const volume = readAttribute(attributes, SSML_ATTRS.VOLUME);
+      const contour = readAttribute(attributes, SSML_ATTRS.CONTOUR);
+      const range = readAttribute(attributes, SSML_ATTRS.RANGE);
       if (rate !== undefined) element.rate = rate;
       if (pitch !== undefined) element.pitch = pitch;
       if (volume !== undefined) element.volume = volume;
@@ -432,61 +432,61 @@ function convertElement(node: XmlElementNode): SsmlElement {
       if (range !== undefined) element.range = range;
       return finishElement(element, node, attributes);
     }
-    case "break": {
-      const element: BreakElement = { type: "break" };
-      const time = readAttribute(attributes, "time");
-      const strength = readAttribute(attributes, "strength");
+    case SSML_TAGS.BREAK: {
+      const element: BreakElement = { type: SSML_TAGS.BREAK };
+      const time = readAttribute(attributes, SSML_ATTRS.TIME);
+      const strength = readAttribute(attributes, SSML_ATTRS.STRENGTH);
       if (time !== undefined) element.time = time;
       if (strength !== undefined) element.strength = strength;
       return finishElement(element, node, attributes);
     }
-    case "express-as":
-    case "expressAs":
-    case "mstts:express-as": {
+    case SSML_TAGS.EXPRESS_AS:
+    case SSML_TAGS.EXPRESS_AS_CAMEL:
+    case SSML_TAGS.MSTTS_EXPRESS_AS: {
       const element: ExpressAsElement = { type: node.name };
-      const style = readAttribute(attributes, "style");
-      const styleDegree = readAttribute(attributes, "styledegree", "styleDegree");
-      const role = readAttribute(attributes, "role");
+      const style = readAttribute(attributes, SSML_ATTRS.STYLE);
+      const styleDegree = readAttribute(attributes, SSML_ATTRS.STYLE_DEGREE, SSML_ATTRS.STYLE_DEGREE_CAMEL);
+      const role = readAttribute(attributes, SSML_ATTRS.ROLE);
       if (style !== undefined) element.style = style;
       if (styleDegree !== undefined) element.styleDegree = styleDegree;
       if (role !== undefined) element.role = role;
       return finishElement(element, node, attributes);
     }
-    case "say-as":
-    case "sayAs": {
+    case SSML_TAGS.SAY_AS:
+    case SSML_TAGS.SAY_AS_CAMEL: {
       const element: SayAsElement = { type: node.name };
-      const interpretAs = readAttribute(attributes, "interpret-as");
-      const format = readAttribute(attributes, "format");
-      const detail = readAttribute(attributes, "detail");
+      const interpretAs = readAttribute(attributes, SSML_ATTRS.INTERPRET_AS);
+      const format = readAttribute(attributes, SSML_ATTRS.FORMAT);
+      const detail = readAttribute(attributes, SSML_ATTRS.DETAIL);
       if (interpretAs !== undefined) element.interpretAs = interpretAs;
       if (format !== undefined) element.format = format;
       if (detail !== undefined) element.detail = detail;
       return finishElement(element, node, attributes);
     }
-    case "phoneme": {
-      const element: PhonemeElement = { type: "phoneme" };
-      const alphabet = readAttribute(attributes, "alphabet");
-      const ph = readAttribute(attributes, "ph");
+    case SSML_TAGS.PHONEME: {
+      const element: PhonemeElement = { type: SSML_TAGS.PHONEME };
+      const alphabet = readAttribute(attributes, SSML_ATTRS.ALPHABET);
+      const ph = readAttribute(attributes, SSML_ATTRS.PH);
       if (alphabet !== undefined) element.alphabet = alphabet;
       if (ph !== undefined) element.ph = ph;
       return finishElement(element, node, attributes);
     }
-    case "emphasis": {
-      const element: EmphasisElement = { type: "emphasis" };
-      const level = readAttribute(attributes, "level");
+    case SSML_TAGS.EMPHASIS: {
+      const element: EmphasisElement = { type: SSML_TAGS.EMPHASIS };
+      const level = readAttribute(attributes, SSML_ATTRS.LEVEL);
       if (level !== undefined) element.level = level;
       return finishElement(element, node, attributes);
     }
-    case "audio": {
-      const element: AudioElement = { type: "audio" };
-      const src = readAttribute(attributes, "src");
-      const desc = readAttribute(attributes, "desc");
-      const clipBegin = readAttribute(attributes, "clipBegin");
-      const clipEnd = readAttribute(attributes, "clipEnd");
-      const speed = readAttribute(attributes, "speed");
-      const repeatCount = readAttribute(attributes, "repeatCount");
-      const repeatDuration = readAttribute(attributes, "repeatDuration");
-      const soundLevel = readAttribute(attributes, "soundLevel");
+    case SSML_TAGS.AUDIO: {
+      const element: AudioElement = { type: SSML_TAGS.AUDIO };
+      const src = readAttribute(attributes, SSML_ATTRS.SRC);
+      const desc = readAttribute(attributes, SSML_ATTRS.DESC);
+      const clipBegin = readAttribute(attributes, SSML_ATTRS.CLIP_BEGIN);
+      const clipEnd = readAttribute(attributes, SSML_ATTRS.CLIP_END);
+      const speed = readAttribute(attributes, SSML_ATTRS.SPEED);
+      const repeatCount = readAttribute(attributes, SSML_ATTRS.REPEAT_COUNT);
+      const repeatDuration = readAttribute(attributes, SSML_ATTRS.REPEAT_DURATION);
+      const soundLevel = readAttribute(attributes, SSML_ATTRS.SOUND_LEVEL);
       if (src !== undefined) element.src = src;
       if (desc !== undefined) element.desc = desc;
       if (clipBegin !== undefined) element.clipBegin = clipBegin;
@@ -497,65 +497,65 @@ function convertElement(node: XmlElementNode): SsmlElement {
       if (soundLevel !== undefined) element.soundLevel = soundLevel;
       return finishElement(element, node, attributes);
     }
-    case "sub": {
-      const element: SubElement = { type: "sub" };
-      const alias = readAttribute(attributes, "alias");
+    case SSML_TAGS.SUB: {
+      const element: SubElement = { type: SSML_TAGS.SUB };
+      const alias = readAttribute(attributes, SSML_ATTRS.ALIAS);
       if (alias !== undefined) element.alias = alias;
       return finishElement(element, node, attributes);
     }
-    case "lang": {
-      const element: LangElement = { type: "lang" };
-      const lang = readAttribute(attributes, "xml:lang", "lang");
+    case SSML_TAGS.LANG: {
+      const element: LangElement = { type: SSML_TAGS.LANG };
+      const lang = readAttribute(attributes, SSML_ATTRS.XML_LANG, SSML_ATTRS.LANG);
       if (lang !== undefined) element.lang = lang;
       return finishElement(element, node, attributes);
     }
-    case "mark": {
-      const element: MarkElement = { type: "mark" };
-      const name = readAttribute(attributes, "name");
+    case SSML_TAGS.MARK: {
+      const element: MarkElement = { type: SSML_TAGS.MARK };
+      const name = readAttribute(attributes, SSML_ATTRS.NAME);
       if (name !== undefined) element.name = name;
       return finishElement(element, node, attributes);
     }
-    case "bookmark": {
-      const element: BookmarkElement = { type: "bookmark" };
-      const mark = readAttribute(attributes, "mark");
+    case SSML_TAGS.BOOKMARK: {
+      const element: BookmarkElement = { type: SSML_TAGS.BOOKMARK };
+      const mark = readAttribute(attributes, SSML_ATTRS.MARK);
       if (mark !== undefined) element.mark = mark;
       return finishElement(element, node, attributes);
     }
-    case "lexicon": {
-      const element: LexiconElement = { type: "lexicon" };
-      const uri = readAttribute(attributes, "uri");
+    case SSML_TAGS.LEXICON: {
+      const element: LexiconElement = { type: SSML_TAGS.LEXICON };
+      const uri = readAttribute(attributes, SSML_ATTRS.URI);
       if (uri !== undefined) element.uri = uri;
       return finishElement(element, node, attributes);
     }
-    case "p": {
-      const element: ParagraphElement = { type: "p" };
+    case SSML_TAGS.PARAGRAPH: {
+      const element: ParagraphElement = { type: SSML_TAGS.PARAGRAPH };
       return finishElement(element, node, attributes);
     }
-    case "s": {
-      const element: SentenceElement = { type: "s" };
+    case SSML_TAGS.SENTENCE: {
+      const element: SentenceElement = { type: SSML_TAGS.SENTENCE };
       return finishElement(element, node, attributes);
     }
-    case "w": {
-      const element: WordElement = { type: "w" };
+    case SSML_TAGS.WORD: {
+      const element: WordElement = { type: SSML_TAGS.WORD };
       return finishElement(element, node, attributes);
     }
-    case "mstts:silence":
-    case "silence": {
+    case SSML_TAGS.MSTTS_SILENCE:
+    case SSML_TAGS.SILENCE: {
       const element: MsttsSilenceElement = {
-        type: node.name === "mstts:silence" ? "mstts:silence" : "silence",
+        type: node.name === SSML_TAGS.MSTTS_SILENCE ? SSML_TAGS.MSTTS_SILENCE : SSML_TAGS.SILENCE,
       };
-      const typeValue = readAttribute(attributes, "type");
-      const value = readAttribute(attributes, "value");
+      const typeValue = readAttribute(attributes, SSML_ATTRS.TYPE);
+      const value = readAttribute(attributes, SSML_ATTRS.VALUE);
       if (typeValue !== undefined) element.typeValue = typeValue;
       if (value !== undefined) element.value = value;
       return finishElement(element, node, attributes);
     }
-    case "mstts:viseme":
-    case "viseme": {
+    case SSML_TAGS.MSTTS_VISEME:
+    case SSML_TAGS.VISEME: {
       const element: MsttsVisemeElement = {
-        type: node.name === "mstts:viseme" ? "mstts:viseme" : "viseme",
+        type: node.name === SSML_TAGS.MSTTS_VISEME ? SSML_TAGS.MSTTS_VISEME : SSML_TAGS.VISEME,
       };
-      const typeValue = readAttribute(attributes, "type");
+      const typeValue = readAttribute(attributes, SSML_ATTRS.TYPE);
       if (typeValue !== undefined) element.typeValue = typeValue;
       return finishElement(element, node, attributes);
     }
@@ -579,25 +579,25 @@ export function parseSsml(xmlString: string): SsmlDocument {
   }
 
   const root = new XmlParser(xmlString).parse();
-  if (root.name !== "speak") {
-    throw new Error(`SSML root element must be <speak>, found <${root.name}>`);
+  if (root.name !== SSML_TAGS.SPEAK) {
+    throw new Error(`SSML root element must be <${SSML_TAGS.SPEAK}>, found <${root.name}>`);
   }
 
   const attributes: SsmlAttributes = { ...root.attributes };
-  const version = readAttribute(attributes, "version");
-  const lang = readAttribute(attributes, "xml:lang", "lang");
+  const version = readAttribute(attributes, SSML_ATTRS.VERSION);
+  const lang = readAttribute(attributes, SSML_ATTRS.XML_LANG, SSML_ATTRS.LANG);
   if (version === undefined) {
-    throw new Error('SSML <speak> element is missing the "version" attribute');
+    throw new Error(`SSML <${SSML_TAGS.SPEAK}> element is missing the "${SSML_ATTRS.VERSION}" attribute`);
   }
   if (lang === undefined) {
-    throw new Error('SSML <speak> element is missing the "xml:lang" attribute');
+    throw new Error(`SSML <${SSML_TAGS.SPEAK}> element is missing the "${SSML_ATTRS.XML_LANG}" attribute`);
   }
 
   removeStandardNamespaceAttributes(attributes);
   const document: SsmlDocument = {
     children: root.children.map(convertNode),
     lang,
-    type: "speak",
+    type: SSML_TAGS.SPEAK,
     version,
   };
   if (Object.keys(attributes).length > 0) {

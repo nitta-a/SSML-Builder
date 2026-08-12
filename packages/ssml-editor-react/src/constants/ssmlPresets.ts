@@ -1,5 +1,33 @@
 type SsmlPresetDescription = Readonly<Record<"ja" | "en", string>>;
 
+export interface SsmlPreset {
+  id: string;
+  label: string;
+  ssml: string;
+  description?: string;
+}
+
+export const SSML_PRESETS: readonly SsmlPreset[] = [
+  {
+    id: "basic",
+    label: "Basic speech",
+    ssml: '<speak version="1.0" xml:lang="en-US">Hello, world!</speak>',
+    description: "A minimal SSML document.",
+  },
+  {
+    id: "voice",
+    label: "Voice selection",
+    ssml: '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural">Hello, world!</voice></speak>',
+    description: "Speaks text with a selected voice.",
+  },
+  {
+    id: "prosody",
+    label: "Prosody",
+    ssml: '<speak version="1.0" xml:lang="en-US"><prosody rate="fast" pitch="+2st">Hello, world!</prosody></speak>',
+    description: "Adjusts the speech rate and pitch.",
+  },
+] as const;
+
 export const BREAK_TIME_PRESETS = ["500ms", "1s", "2s", "3s"] as const;
 export const BREAK_STRENGTH_PRESETS = ["none", "x-weak", "weak", "medium", "strong", "x-strong"] as const;
 
