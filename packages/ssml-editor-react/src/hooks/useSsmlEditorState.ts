@@ -12,7 +12,6 @@ import type {
   SsmlEditorInsertionDefinition,
   SsmlEditorInsertionOption,
   SsmlEditorInsertionTemplate,
-  SsmlEditorLanguage,
   SsmlEditorTheme,
   SelectionInfo,
 } from "../SsmlEditor";
@@ -37,7 +36,6 @@ export interface MonacoEditorRef {
 
 export interface UseSsmlEditorStateOptions {
   document: SsmlDocument;
-  language: SsmlEditorLanguage;
   resolvedTheme: SsmlEditorTheme;
   showDecorations: boolean;
   onChange?: (document: SsmlDocument) => void;
@@ -459,7 +457,6 @@ function applySsmlInsertion(
 
 export function useSsmlEditorState({
   document,
-  language,
   resolvedTheme,
   showDecorations,
   onChange,
@@ -549,7 +546,11 @@ export function useSsmlEditorState({
     };
     const handlePointerDown = (event: PointerEvent): void => {
       const target = event.target;
-      if (target instanceof Node && !activePopoverTriggerRef.current?.contains(target) && !activePopoverMenuRef.current?.contains(target)) {
+      if (
+        target instanceof Node &&
+        !activePopoverTriggerRef.current?.contains(target) &&
+        !activePopoverMenuRef.current?.contains(target)
+      ) {
         closePopover();
       }
     };
@@ -562,14 +563,14 @@ export function useSsmlEditorState({
     updatePopoverPosition();
     window.addEventListener("resize", updatePopoverPosition);
     window.addEventListener("scroll", updatePopoverPosition, true);
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
+    globalThis.document.addEventListener("pointerdown", handlePointerDown);
+    globalThis.document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener("resize", updatePopoverPosition);
       window.removeEventListener("scroll", updatePopoverPosition, true);
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
+      globalThis.document.removeEventListener("pointerdown", handlePointerDown);
+      globalThis.document.removeEventListener("keydown", handleKeyDown);
     };
   }, [closePopover, openPopoverId]);
 
@@ -605,11 +606,14 @@ export function useSsmlEditorState({
     [commit, refreshSelectionOverlay],
   );
 
-  const handleInsert = useCallback((insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption): void => {
-    if (editorRef.current) {
-      applySsmlInsertion(editorRef.current, insertion, option);
-    }
-  }, []);
+  const handleInsert = useCallback(
+    (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption): void => {
+      if (editorRef.current) {
+        applySsmlInsertion(editorRef.current, insertion, option);
+      }
+    },
+    [],
+  );
   const handleInsertBreak = handleInsert;
   const handleInsertProsody = handleInsert;
   const handleInsertText = handleInsert;
@@ -654,7 +658,12 @@ export function useSsmlEditorState({
     [],
   );
   const getFullSsml = useCallback(
-    () => buildSsml(editorRef.current ? updateText(draftDocumentRef.current, editorRef.current.getValue()) : draftDocumentRef.current),
+    () =>
+      buildSsml(
+        editorRef.current
+          ? updateText(draftDocumentRef.current, editorRef.current.getValue())
+          : draftDocumentRef.current,
+      ),
     [],
   );
 

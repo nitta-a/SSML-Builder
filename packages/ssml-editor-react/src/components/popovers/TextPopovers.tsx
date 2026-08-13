@@ -18,12 +18,7 @@ export interface TextPopoversProps {
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
 }
 
-export function TextPopovers({
-  insertions,
-  openPopoverId,
-  onToggle,
-  ...props
-}: TextPopoversProps): ReactElement {
+export function TextPopovers({ insertions, openPopoverId, onToggle, ...props }: TextPopoversProps): ReactElement {
   return (
     <>
       {insertions.map((insertion) => (

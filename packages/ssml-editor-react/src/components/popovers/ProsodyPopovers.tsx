@@ -18,12 +18,7 @@ export interface ProsodyPopoversProps {
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
 }
 
-export function ProsodyPopovers({
-  insertions,
-  openPopoverId,
-  onToggle,
-  ...props
-}: ProsodyPopoversProps): ReactElement {
+export function ProsodyPopovers({ insertions, openPopoverId, onToggle, ...props }: ProsodyPopoversProps): ReactElement {
   return (
     <>
       {insertions.map((insertion) => (

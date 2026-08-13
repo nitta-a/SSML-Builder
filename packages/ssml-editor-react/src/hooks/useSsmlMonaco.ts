@@ -242,7 +242,7 @@ export function useSsmlMonaco({
     releaseHoverProviderRef.current = null;
     editorRef.current = null;
     monacoRef.current = null;
-  }, [clearSsmlDiagnosticsResources]);
+  }, [clearSsmlDiagnosticsResources, editorRef]);
 
   const onMount = useCallback<OnMount>(
     (editor, monaco) => {
@@ -285,7 +285,7 @@ export function useSsmlMonaco({
       }
       onSelectionOverlayChangeRef.current(editor, true);
     },
-    [disposeMonacoResources, runSsmlDiagnostics, scheduleSsmlDiagnostics],
+    [disposeMonacoResources, editorRef, runSsmlDiagnostics, scheduleSsmlDiagnostics],
   );
 
   useEffect(() => {
@@ -317,7 +317,7 @@ export function useSsmlMonaco({
         scheduleSsmlDiagnostics(editor, monaco);
       }
     }
-  }, [decorationsVisible, language, scheduleSsmlDiagnostics, text]);
+  }, [decorationsVisible, editorRef, language, scheduleSsmlDiagnostics, text]);
 
   useEffect(() => disposeMonacoResources, [disposeMonacoResources]);
 

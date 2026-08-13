@@ -18,12 +18,7 @@ export interface TimingPopoversProps {
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
 }
 
-export function TimingPopovers({
-  insertions,
-  openPopoverId,
-  onToggle,
-  ...props
-}: TimingPopoversProps): ReactElement {
+export function TimingPopovers({ insertions, openPopoverId, onToggle, ...props }: TimingPopoversProps): ReactElement {
   return (
     <>
       {insertions.map((insertion) => (

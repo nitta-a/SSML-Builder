@@ -512,15 +512,6 @@ function orderToolbarButtons(
   return ordered;
 }
 
-function getInsertionTitle(insertion: SsmlInsertionDefinition, language: SsmlEditorLanguage): string {
-  if (insertion.titles) {
-    return insertion.titles[language];
-  }
-
-  const tag = insertion.tagName ? ` <${insertion.tagName}${insertion.selfClosing ? "/>" : ">"}` : "";
-  return `${insertion.labels[language]}${tag} — ${insertion.descriptions[language]}`;
-}
-
 const STYLE_ID = "ssml-editor-theme";
 const STYLE_CSS = `
 [data-ssml-editor] {
@@ -891,7 +882,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     syntaxError,
     setSyntaxError,
     helpPanelId,
-    commit,
     handleTextChange,
     handleInsert,
     handleClear,
@@ -912,7 +902,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     setPopoverMenuRef,
   } = useSsmlEditorState({
     document,
-    language,
     resolvedTheme,
     showDecorations,
     onChange,
@@ -966,7 +955,14 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     if (["sub", "say-as", "phoneme", "w", "lang"].includes(insertion.id)) {
       return <TextPopovers {...props} />;
     }
-    return <InsertionPopover {...props} insertion={insertion} isOpen={isPopoverOpen(insertion.id)} onToggle={(trigger) => togglePopover(insertion.id, trigger)} />;
+    return (
+      <InsertionPopover
+        {...props}
+        insertion={insertion}
+        isOpen={isPopoverOpen(insertion.id)}
+        onToggle={(trigger) => togglePopover(insertion.id, trigger)}
+      />
+    );
   };
 
   const toolbarItemRenderers = new Map<string, () => ReactElement>([

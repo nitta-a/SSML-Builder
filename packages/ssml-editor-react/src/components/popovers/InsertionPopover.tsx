@@ -47,6 +47,7 @@ export function InsertionPopover({
     isOpen && menuPosition && typeof document !== "undefined" ? (
       <div
         ref={menuRef}
+        id={`ssml-editor-popover-${insertion.id}`}
         data-ssml-editor=""
         data-theme={isDarkTheme ? "dark" : "light"}
         style={{ ...styles.toolbarMenu, top: menuPosition.top, left: menuPosition.left }}
