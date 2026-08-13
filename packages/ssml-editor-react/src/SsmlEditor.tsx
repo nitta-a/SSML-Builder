@@ -39,6 +39,9 @@ import { useSsmlEditorState } from "./hooks/useSsmlEditorState";
 import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
 import { editorStyles as styles } from "./styles/editorStyles";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
+const TIMING_POPOVER_TAGS = new Set(["break", "mstts:silence"]);
+const PROSODY_POPOVER_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
+const TEXT_POPOVER_TAGS = new Set(["sub", "say-as", "phoneme", "w", "lang"]);
 
 export type { SsmlEditorLanguage, SsmlEditorLocalizedText } from "./locales";
 
@@ -946,13 +949,13 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       onApply: handleInsert,
     };
 
-    if (insertion.id === "break" || insertion.id === "mstts:silence") {
+    if (insertion.tagName && TIMING_POPOVER_TAGS.has(insertion.tagName)) {
       return <TimingPopovers {...props} />;
     }
-    if (["rate", "pitch", "volume", "emotion", "voice", "emphasis"].includes(insertion.id)) {
+    if (insertion.tagName && PROSODY_POPOVER_TAGS.has(insertion.tagName)) {
       return <ProsodyPopovers {...props} />;
     }
-    if (["sub", "say-as", "phoneme", "w", "lang"].includes(insertion.id)) {
+    if (insertion.tagName && TEXT_POPOVER_TAGS.has(insertion.tagName)) {
       return <TextPopovers {...props} />;
     }
     return (
