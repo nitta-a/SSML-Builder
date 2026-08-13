@@ -1,6 +1,16 @@
 const INDENT = "  ";
 const FRAGMENT_ROOT = "ssml-builder-fragment";
 const XML_ENTITY_NAMES = new Set(["amp", "apos", "gt", "lt", "quot"]);
+const INTRINSICALLY_EMPTY_ELEMENTS = new Set([
+  "break",
+  "bookmark",
+  "lexicon",
+  "mark",
+  "mstts:silence",
+  "mstts:viseme",
+  "silence",
+  "viseme",
+]);
 
 type XmlNode = XmlElementNode | XmlTextNode | XmlMarkupNode;
 
@@ -409,6 +419,14 @@ function hasSignificantText(node: XmlElementNode): boolean {
   return node.children.some((child) => child.kind === "text" && child.value.trim() !== "");
 }
 
+function hasOnlyWhitespaceText(node: XmlElementNode): boolean {
+  return node.children.every((child) => child.kind === "text" && child.value.trim() === "");
+}
+
+function toSelfClosingTag(open: string): string {
+  return `${open.slice(0, -1).trimEnd()}/>`;
+}
+
 function formatElement(node: XmlElementNode, depth: number, isRoot: boolean): string[] {
   const prefix = indentation(depth);
 
@@ -417,6 +435,9 @@ function formatElement(node: XmlElementNode, depth: number, isRoot: boolean): st
   }
   if (node.close === undefined) {
     fail(`Unclosed XML element: <${node.name}>`);
+  }
+  if (INTRINSICALLY_EMPTY_ELEMENTS.has(node.name) && hasOnlyWhitespaceText(node)) {
+    return [`${prefix}${toSelfClosingTag(node.open)}`];
   }
 
   if (isRoot && hasOnlyTextChildren(node)) {

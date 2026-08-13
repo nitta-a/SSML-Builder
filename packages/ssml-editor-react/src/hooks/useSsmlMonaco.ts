@@ -249,6 +249,16 @@ export function useSsmlMonaco({
         onSelectionOverlayChangeRef.current(editor, true);
       });
       diagnosticsChangeRef.current = editor.onDidChangeModelContent(() => {
+        const model = editor.getModel();
+        if (model) {
+          inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
+            model,
+            model.getValue(),
+            languageRef.current,
+            decorationsVisibleRef.current,
+            inlineDecorationIdsRef.current,
+          );
+        }
         scheduleSsmlDiagnostics(editor, monaco);
       });
       selectionLayoutDisposablesRef.current = [

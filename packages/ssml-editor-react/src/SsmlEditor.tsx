@@ -925,6 +925,40 @@ function isProsody(element: SsmlElement): element is ProsodyElement {
   return element.type === "prosody";
 }
 
+const INTRINSICALLY_EMPTY_ELEMENTS = new Set([
+  "break",
+  "bookmark",
+  "lexicon",
+  "mark",
+  "mstts:silence",
+  "mstts:viseme",
+  "silence",
+  "viseme",
+]);
+
+function getSsmlElementName(element: SsmlElement): string {
+  return element.type === "custom" || element.type === "element" ? element.name : element.type;
+}
+
+function preserveEmptyPairElements(nodes: SsmlNode[]): SsmlNode[] {
+  return nodes.map((node) => {
+    if (!isSsmlElement(node)) {
+      return node;
+    }
+
+    const elementName = getSsmlElementName(node);
+    if (node.children === undefined || node.children.length === 0) {
+      return INTRINSICALLY_EMPTY_ELEMENTS.has(elementName) ? node : { ...node, children: [""] };
+    }
+
+    const children = preserveEmptyPairElements(node.children);
+    if (children.every((child, index) => child === node.children?.[index])) {
+      return node;
+    }
+    return { ...node, children };
+  });
+}
+
 function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
   return document.children ?? (document.content === undefined ? [] : [document.content]);
 }
@@ -1029,7 +1063,7 @@ function parseEditableText(value: string, lang: string): SsmlNode[] {
     });
     const openingTagEnd = wrapper.indexOf(">") + 1;
     const children = parseSsml(`${wrapper.slice(0, openingTagEnd)}${value}</speak>`).children ?? [];
-    return children.some(isSsmlElement) ? children : [value];
+    return children.some(isSsmlElement) ? preserveEmptyPairElements(children) : [value];
   } catch {
     return [value];
   }
