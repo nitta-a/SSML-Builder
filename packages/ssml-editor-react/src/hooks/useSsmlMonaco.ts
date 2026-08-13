@@ -10,6 +10,7 @@ import {
 } from "../ssmlDiagnostics";
 import { registerSsmlCompletionProvider } from "../ssmlCompletion";
 import { findSsmlHoverTarget, formatSsmlHover } from "../ssmlHover";
+import type { MonacoEditorRef } from "./useSsmlEditorState";
 
 type MonacoLanguages = Monaco["languages"];
 type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
@@ -30,6 +31,7 @@ interface HoverProviderRegistration {
 const hoverProviderRegistrations = new WeakMap<MonacoLanguages, Map<SsmlEditorLocale, HoverProviderRegistration>>();
 
 export interface UseSsmlMonacoOptions {
+  editorRef?: MonacoEditorRef;
   language: SsmlEditorLanguage;
   text: string;
   decorationsVisible: boolean;
@@ -161,13 +163,15 @@ function syncSsmlInlineDecorations(
 }
 
 export function useSsmlMonaco({
+  editorRef: externalEditorRef,
   language,
   text,
   decorationsVisible,
   onSelectionOverlayChange,
   onSyntaxErrorChange,
 }: UseSsmlMonacoOptions): UseSsmlMonacoResult {
-  const editorRef = useRef<MonacoEditor | null>(null);
+  const internalEditorRef = useRef<MonacoEditor | null>(null);
+  const editorRef = useRef(externalEditorRef ?? internalEditorRef).current;
   const monacoRef = useRef<Monaco | null>(null);
   const completionProviderRef = useRef<MonacoCompletionDisposable | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
@@ -238,7 +242,7 @@ export function useSsmlMonaco({
     releaseHoverProviderRef.current = null;
     editorRef.current = null;
     monacoRef.current = null;
-  }, [clearSsmlDiagnosticsResources]);
+  }, [clearSsmlDiagnosticsResources, editorRef]);
 
   const onMount = useCallback<OnMount>(
     (editor, monaco) => {
@@ -281,7 +285,7 @@ export function useSsmlMonaco({
       }
       onSelectionOverlayChangeRef.current(editor, true);
     },
-    [disposeMonacoResources, runSsmlDiagnostics, scheduleSsmlDiagnostics],
+    [disposeMonacoResources, editorRef, runSsmlDiagnostics, scheduleSsmlDiagnostics],
   );
 
   useEffect(() => {
@@ -313,7 +317,7 @@ export function useSsmlMonaco({
         scheduleSsmlDiagnostics(editor, monaco);
       }
     }
-  }, [decorationsVisible, language, scheduleSsmlDiagnostics, text]);
+  }, [decorationsVisible, editorRef, language, scheduleSsmlDiagnostics, text]);
 
   useEffect(() => disposeMonacoResources, [disposeMonacoResources]);
 
