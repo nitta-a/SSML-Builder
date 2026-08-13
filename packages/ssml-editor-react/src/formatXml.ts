@@ -1,7 +1,7 @@
 const INDENT = "  ";
 const FRAGMENT_ROOT = "ssml-builder-fragment";
 const XML_ENTITY_NAMES = new Set(["amp", "apos", "gt", "lt", "quot"]);
-const INTRINSICALLY_EMPTY_ELEMENTS = new Set([
+export const INTRINSICALLY_EMPTY_ELEMENTS = new Set([
   "break",
   "bookmark",
   "lexicon",

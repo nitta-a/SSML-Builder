@@ -33,7 +33,7 @@ import {
   SILENCE_VALUE_DESCRIPTIONS,
   SILENCE_VALUE_PRESETS,
 } from "./constants/ssmlPresets";
-import { formatXmlFragment } from "./formatXml";
+import { formatXmlFragment, INTRINSICALLY_EMPTY_ELEMENTS } from "./formatXml";
 import {
   EDITOR_COPY,
   type EditorCopy,
@@ -924,17 +924,6 @@ function isVoice(element: SsmlElement): element is VoiceElement {
 function isProsody(element: SsmlElement): element is ProsodyElement {
   return element.type === "prosody";
 }
-
-const INTRINSICALLY_EMPTY_ELEMENTS = new Set([
-  "break",
-  "bookmark",
-  "lexicon",
-  "mark",
-  "mstts:silence",
-  "mstts:viseme",
-  "silence",
-  "viseme",
-]);
 
 function getSsmlElementName(element: SsmlElement): string {
   return element.type === "custom" || element.type === "element" ? element.name : element.type;
