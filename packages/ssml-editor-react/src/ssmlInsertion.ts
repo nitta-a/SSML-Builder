@@ -46,7 +46,7 @@ export function createSsmlInsertionEdit(
   endOffset: number,
   template: SsmlInsertionTemplate,
   eol = "\n",
-  selectedText = source.slice(startOffset, endOffset),
+  selectedText = startOffset === endOffset ? "" : source.slice(startOffset, endOffset),
 ): SsmlInsertionEdit {
   if (template.mode === SSML_INSERTION_MODES.wrap) {
     const trailingLineBreak = getLineBreakAt(source, endOffset) === "" ? eol : "";
