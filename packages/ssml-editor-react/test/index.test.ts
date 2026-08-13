@@ -96,6 +96,24 @@ test("replaces a typed opening bracket when selecting a tag completion", () => {
   });
 });
 
+test("replaces a partially typed tag prefix when selecting a tag completion", () => {
+  for (const [source, startColumn] of [
+    ["<s", 1],
+    ["<br", 1],
+    ["text <s", 6],
+  ] as const) {
+    const suggestions = getSuggestions(source);
+    const subSuggestion = suggestions.find((suggestion) => suggestion.label === "sub");
+
+    assert.deepEqual(subSuggestion?.range, {
+      startLineNumber: 1,
+      startColumn,
+      endLineNumber: 1,
+      endColumn: source.length + 1,
+    });
+  }
+});
+
 test("replaces an automatically inserted closing bracket after an opening bracket", () => {
   const suggestions = getSuggestions("<>", 2);
   const subSuggestion = suggestions.find((suggestion) => suggestion.label === "sub");

@@ -44,11 +44,13 @@ export function registerSsmlCompletionProvider(
 ): ReturnType<MonacoLanguages["registerCompletionItemProvider"]> {
   const provider: MonacoCompletionProvider = {
     provideCompletionItems(model: MonacoCompletionModel, position: MonacoCompletionPosition) {
-      const textBeforeCursor = model.getValue().slice(0, model.getOffsetAt(position));
-      const attributeMatch = SSML_ATTRIBUTE_VALUE_PATTERN.exec(textBeforeCursor);
+      const textUntilPosition = model.getValue().slice(0, model.getOffsetAt(position));
+      const attributeMatch = SSML_ATTRIBUTE_VALUE_PATTERN.exec(textUntilPosition);
       const attributeValues = attributeMatch
         ? findSsmlAttributePresets(attributeMatch[1], attributeMatch[2])
         : undefined;
+      const unfinishedTagMatch = textUntilPosition.match(/<[a-zA-Z0-9:-]*$/);
+      const unfinishedTagLength = unfinishedTagMatch?.[0].length ?? 0;
       const isAfterBracket =
         model.getValueInRange({
           startLineNumber: position.lineNumber,
@@ -66,7 +68,7 @@ export function registerSsmlCompletionProvider(
         }) === ">";
       const range = {
         startLineNumber: position.lineNumber,
-        startColumn: isAfterBracket ? position.column - 1 : position.column,
+        startColumn: unfinishedTagLength > 0 ? position.column - unfinishedTagLength : position.column,
         endLineNumber: position.lineNumber,
         endColumn: hasClosingBracket ? position.column + 1 : position.column,
       };
