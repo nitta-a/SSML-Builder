@@ -114,6 +114,14 @@ test("replaces a partially typed tag prefix when selecting a tag completion", ()
   }
 });
 
+test("does not provide opening-tag completions while typing a closing tag", () => {
+  for (const source of ["</", "</p", "text </prosody"]) {
+    const suggestions = getSuggestions(source);
+
+    assert.deepEqual(suggestions, []);
+  }
+});
+
 test("replaces an automatically inserted closing bracket after an opening bracket", () => {
   const suggestions = getSuggestions("<>", 2);
   const subSuggestion = suggestions.find((suggestion) => suggestion.label === "sub");
