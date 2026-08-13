@@ -9,6 +9,8 @@ const monacoState = vi.hoisted(() => {
   let value = "Hello world";
   let modelEol = "\n";
   let changeHandler: ((value: string) => void) | null = null;
+  let selectionStartOffset = 0;
+  let selectionEndOffset = 0;
   const contentChangeListeners = new Set<() => void>();
   let latestContentDispose: ReturnType<typeof vi.fn> | null = null;
   const positionAt = (offset: number) => {
@@ -23,8 +25,9 @@ const monacoState = vi.hoisted(() => {
     selectionStartColumn: 1,
     positionLineNumber: 1,
     positionColumn: 1,
-    getStartPosition: () => positionAt(0),
-    getEndPosition: () => positionAt(0),
+    getStartPosition: () => positionAt(selectionStartOffset),
+    getEndPosition: () => positionAt(selectionEndOffset),
+    isEmpty: () => selectionStartOffset === selectionEndOffset,
   };
   const model = {
     getValue: () => value,
@@ -38,7 +41,11 @@ const monacoState = vi.hoisted(() => {
       );
     },
     getEOL: () => modelEol,
-    getValueInRange: () => "",
+    getValueInRange: (range: typeof selection) => {
+      const startOffset = model.getOffsetAt(range.getStartPosition());
+      const endOffset = model.getOffsetAt(range.getEndPosition());
+      return value.slice(startOffset, endOffset);
+    },
     getLineContent: (lineNumber: number) => value.split(/\r\n|\r|\n/)[lineNumber - 1] ?? "",
     deltaDecorations: vi.fn(() => []),
   };
@@ -117,12 +124,19 @@ const monacoState = vi.hoisted(() => {
       value = "Hello world";
       modelEol = "\n";
       changeHandler = null;
+      selectionStartOffset = 0;
+      selectionEndOffset = 0;
       contentChangeListeners.clear();
       latestContentDispose = null;
     },
     setValue: (nextValue: string) => {
       value = nextValue;
     },
+    setSelectionOffsets: (startOffset: number, endOffset: number) => {
+      selectionStartOffset = startOffset;
+      selectionEndOffset = endOffset;
+    },
+    getValue: () => value,
     setEOL: (nextEol: string) => {
       modelEol = nextEol;
     },
@@ -241,6 +255,19 @@ describe("SsmlEditor toolbar menus", () => {
       }),
     );
     expect(screen.queryByRole("menu", { name: "Break" })).toBeNull();
+  });
+
+  it("wraps selected text when a wrapping tag option is clicked", async () => {
+    const user = userEvent.setup();
+    monacoState.setSelectionOffsets(6, 11);
+    renderEditor({ locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Rate" }));
+    const menu = screen.getByRole("menu", { name: "Rate" });
+    await user.click(within(menu).getByRole("menuitem", { name: "slow" }));
+
+    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toBe('<prosody rate="slow">world</prosody>\n');
+    expect(monacoState.getValue()).toBe('Hello <prosody rate="slow">world</prosody>\n');
   });
 
   it("inserts a tag and closes the popover when Enter is pressed", async () => {
