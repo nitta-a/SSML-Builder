@@ -21,6 +21,10 @@ import { createSsmlInsertionEdit } from "../ssmlInsertion";
 import type { MonacoEditor, SsmlSyntaxError } from "../ssmlDiagnostics";
 import { SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "../constants/ui";
 
+const TIMING_INSERTION_TAGS = new Set(["break", "mstts:silence"]);
+const PROSODY_INSERTION_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
+const TEXT_INSERTION_TAGS = new Set(["sub", "say-as", "phoneme", "w", "lang"]);
+
 export interface SelectionOverlayState extends SelectionInfo {
   position: {
     top: number;
@@ -614,9 +618,30 @@ export function useSsmlEditorState({
     },
     [],
   );
-  const handleInsertBreak = handleInsert;
-  const handleInsertProsody = handleInsert;
-  const handleInsertText = handleInsert;
+  const handleInsertBreak = useCallback(
+    (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption): void => {
+      if (insertion.tagName && TIMING_INSERTION_TAGS.has(insertion.tagName)) {
+        handleInsert(insertion, option);
+      }
+    },
+    [handleInsert],
+  );
+  const handleInsertProsody = useCallback(
+    (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption): void => {
+      if (insertion.tagName && PROSODY_INSERTION_TAGS.has(insertion.tagName)) {
+        handleInsert(insertion, option);
+      }
+    },
+    [handleInsert],
+  );
+  const handleInsertText = useCallback(
+    (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption): void => {
+      if (insertion.tagName && TEXT_INSERTION_TAGS.has(insertion.tagName)) {
+        handleInsert(insertion, option);
+      }
+    },
+    [handleInsert],
+  );
 
   const handleClear = useCallback((): void => {
     commit(clearSsmlDocument(draftDocumentRef.current));

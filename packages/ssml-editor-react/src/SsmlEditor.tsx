@@ -887,6 +887,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     helpPanelId,
     handleTextChange,
     handleInsert,
+    handleInsertBreak,
+    handleInsertProsody,
+    handleInsertText,
     handleClear,
     handleFormat,
     handleUndo,
@@ -933,8 +936,10 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   );
 
   const renderInsertion = (insertion: SsmlEditorInsertionDefinition): ReactElement => {
+    const isTimingPopover = insertion.tagName !== undefined && TIMING_POPOVER_TAGS.has(insertion.tagName);
+    const isProsodyPopover = insertion.tagName !== undefined && PROSODY_POPOVER_TAGS.has(insertion.tagName);
+    const isTextPopover = insertion.tagName !== undefined && TEXT_POPOVER_TAGS.has(insertion.tagName);
     const props = {
-      insertions: [insertion],
       language,
       isDarkTheme,
       showToolbarIcons,
@@ -946,17 +951,23 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       menuRef: setPopoverMenuRef,
       onToggle: togglePopover,
       onClose: closePopover,
-      onApply: handleInsert,
+      onApply: isTimingPopover
+        ? handleInsertBreak
+        : isProsodyPopover
+          ? handleInsertProsody
+          : isTextPopover
+            ? handleInsertText
+            : handleInsert,
     };
 
-    if (insertion.tagName && TIMING_POPOVER_TAGS.has(insertion.tagName)) {
-      return <TimingPopovers {...props} />;
+    if (isTimingPopover) {
+      return <TimingPopovers {...props} insertions={[insertion]} />;
     }
-    if (insertion.tagName && PROSODY_POPOVER_TAGS.has(insertion.tagName)) {
-      return <ProsodyPopovers {...props} />;
+    if (isProsodyPopover) {
+      return <ProsodyPopovers {...props} insertions={[insertion]} />;
     }
-    if (insertion.tagName && TEXT_POPOVER_TAGS.has(insertion.tagName)) {
-      return <TextPopovers {...props} />;
+    if (isTextPopover) {
+      return <TextPopovers {...props} insertions={[insertion]} />;
     }
     return (
       <InsertionPopover

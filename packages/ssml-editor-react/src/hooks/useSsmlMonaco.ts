@@ -171,7 +171,7 @@ export function useSsmlMonaco({
   onSyntaxErrorChange,
 }: UseSsmlMonacoOptions): UseSsmlMonacoResult {
   const internalEditorRef = useRef<MonacoEditor | null>(null);
-  const editorRef = externalEditorRef ?? internalEditorRef;
+  const editorRef = useRef(externalEditorRef ?? internalEditorRef).current;
   const monacoRef = useRef<Monaco | null>(null);
   const completionProviderRef = useRef<MonacoCompletionDisposable | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
