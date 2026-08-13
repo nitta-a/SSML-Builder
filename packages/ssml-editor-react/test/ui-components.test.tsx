@@ -41,13 +41,30 @@ const monacoState = vi.hoisted(() => {
       );
     },
     getEOL: () => modelEol,
-    getValueInRange: (range: typeof selection) => {
-      const startOffset = model.getOffsetAt(range.getStartPosition());
-      const endOffset = model.getOffsetAt(range.getEndPosition());
+    getValueInRange: (
+      range:
+        | typeof selection
+        | {
+            startLineNumber: number;
+            startColumn: number;
+            endLineNumber: number;
+            endColumn: number;
+          },
+    ) => {
+      const startOffset =
+        "getStartPosition" in range
+          ? model.getOffsetAt(range.getStartPosition())
+          : model.getOffsetAt({ lineNumber: range.startLineNumber, column: range.startColumn });
+      const endOffset =
+        "getEndPosition" in range
+          ? model.getOffsetAt(range.getEndPosition())
+          : model.getOffsetAt({ lineNumber: range.endLineNumber, column: range.endColumn });
       return value.slice(startOffset, endOffset);
     },
     getLineContent: (lineNumber: number) => value.split(/\r\n|\r|\n/)[lineNumber - 1] ?? "",
     deltaDecorations: vi.fn(() => []),
+    uri: {},
+    getVersionId: () => 1,
   };
   const disposable = () => ({ dispose: vi.fn() });
   const editor = {
@@ -66,15 +83,36 @@ const monacoState = vi.hoisted(() => {
     onDidLayoutChange: vi.fn(disposable),
     onDidContentSizeChange: vi.fn(disposable),
     pushUndoStop: vi.fn(),
-    executeEdits: vi.fn((_source: string, edits: Array<{ range: typeof selection; text: string }>) => {
-      const edit = edits[0];
-      if (edit) {
-        const startOffset = model.getOffsetAt(edit.range.getStartPosition());
-        const endOffset = model.getOffsetAt(edit.range.getEndPosition());
-        value = `${value.slice(0, startOffset)}${edit.text}${value.slice(endOffset)}`;
-      }
-      return true;
-    }),
+    executeEdits: vi.fn(
+      (
+        _source: string,
+        edits: Array<{
+          range:
+            | typeof selection
+            | {
+                startLineNumber: number;
+                startColumn: number;
+                endLineNumber: number;
+                endColumn: number;
+              };
+          text: string;
+        }>,
+      ) => {
+        const edit = edits[0];
+        if (edit) {
+          const startOffset =
+            "getStartPosition" in edit.range
+              ? model.getOffsetAt(edit.range.getStartPosition())
+              : model.getOffsetAt({ lineNumber: edit.range.startLineNumber, column: edit.range.startColumn });
+          const endOffset =
+            "getEndPosition" in edit.range
+              ? model.getOffsetAt(edit.range.getEndPosition())
+              : model.getOffsetAt({ lineNumber: edit.range.endLineNumber, column: edit.range.endColumn });
+          value = `${value.slice(0, startOffset)}${edit.text}${value.slice(endOffset)}`;
+        }
+        return true;
+      },
+    ),
     setSelection: vi.fn(),
     focus: vi.fn(),
     trigger: vi.fn(),
@@ -83,6 +121,7 @@ const monacoState = vi.hoisted(() => {
     languages: {
       registerHoverProvider: vi.fn(disposable),
       registerCompletionItemProvider: vi.fn(disposable),
+      registerCodeActionProvider: vi.fn(disposable),
       CompletionItemKind: {
         Snippet: 27,
         Value: 18,
@@ -117,6 +156,7 @@ const monacoState = vi.hoisted(() => {
         model.deltaDecorations,
         monaco.languages.registerHoverProvider,
         monaco.languages.registerCompletionItemProvider,
+        monaco.languages.registerCodeActionProvider,
         monaco.editor.setModelMarkers,
       ]) {
         mock.mockClear();
@@ -395,18 +435,68 @@ describe("SsmlEditor props", () => {
     }
   });
 
+  it("offers a preferred quick fix for a missing time unit", () => {
+    monacoState.setValue('<break time="500"/>');
+    renderEditor();
+
+    const marker = monacoState.monaco.editor.setModelMarkers.mock.lastCall?.[2]?.[0];
+    const provider = monacoState.monaco.languages.registerCodeActionProvider.mock.lastCall?.[1];
+    const result = provider?.provideCodeActions?.(
+      monacoState.editor.getModel(),
+      marker ?? {
+        startLineNumber: 1,
+        startColumn: 1,
+        endLineNumber: 1,
+        endColumn: 1,
+      },
+      { markers: marker ? [marker] : [], trigger: 1 },
+      {} as never,
+    );
+    const actions = result && !(result instanceof Promise) ? result.actions : [];
+
+    expect(marker?.code).toBe("MISSING_TIME_UNIT");
+    expect(actions).toEqual([
+      expect.objectContaining({
+        title: '単位 "ms" を付与して修復',
+        kind: "quickfix",
+        isPreferred: true,
+        edit: expect.objectContaining({
+          edits: [
+            expect.objectContaining({
+              textEdit: expect.objectContaining({ text: "500ms" }),
+            }),
+          ],
+        }),
+      }),
+    ]);
+
+    const edit = actions[0]?.edit?.edits[0];
+    if (edit && "textEdit" in edit) {
+      monacoState.editor.executeEdits("ssml-code-action", [
+        {
+          range: edit.textEdit.range,
+          text: edit.textEdit.text,
+        },
+      ]);
+    }
+    expect(monacoState.getValue()).toBe('<break time="500ms"/>');
+  });
+
   it("cleans up the diagnostics listener and pending timer on unmount", () => {
     vi.useFakeTimers();
     try {
       const { unmount } = renderEditor();
       const contentDispose = monacoState.getLatestContentDispose();
+      const codeActionDispose = monacoState.monaco.languages.registerCodeActionProvider.mock.results[0]?.value.dispose;
 
       expect(contentDispose).not.toBeNull();
+      expect(codeActionDispose).toBeDefined();
       monacoState.setValue("<voice>");
       monacoState.emitContentChange();
       unmount();
 
       expect(contentDispose).toHaveBeenCalledTimes(1);
+      expect(codeActionDispose).toHaveBeenCalledTimes(1);
       const markerCallCountAfterUnmount = monacoState.monaco.editor.setModelMarkers.mock.calls.length;
       vi.advanceTimersByTime(300);
       expect(monacoState.monaco.editor.setModelMarkers).toHaveBeenCalledTimes(markerCallCountAfterUnmount);

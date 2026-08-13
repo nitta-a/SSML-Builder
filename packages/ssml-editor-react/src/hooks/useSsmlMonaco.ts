@@ -9,6 +9,7 @@ import {
   updateSsmlDiagnostics,
 } from "../ssmlDiagnostics";
 import { registerSsmlCompletionProvider } from "../ssmlCompletion";
+import { registerSsmlCodeActions } from "../ssmlCodeAction";
 import { findSsmlHoverTarget, formatSsmlHover } from "../ssmlHover";
 import type { MonacoEditorRef } from "./useSsmlEditorState";
 
@@ -16,6 +17,7 @@ type MonacoLanguages = Monaco["languages"];
 type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
 type MonacoContentDisposable = ReturnType<MonacoEditor["onDidChangeModelContent"]>;
 type MonacoCompletionDisposable = ReturnType<MonacoLanguages["registerCompletionItemProvider"]>;
+type MonacoCodeActionDisposable = ReturnType<MonacoLanguages["registerCodeActionProvider"]>;
 type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
 type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
 type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
@@ -174,6 +176,7 @@ export function useSsmlMonaco({
   const editorRef = useRef(externalEditorRef ?? internalEditorRef).current;
   const monacoRef = useRef<Monaco | null>(null);
   const completionProviderRef = useRef<MonacoCompletionDisposable | null>(null);
+  const codeActionProviderRef = useRef<MonacoCodeActionDisposable | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const selectionChangeRef = useRef<MonacoDisposable | null>(null);
   const diagnosticsChangeRef = useRef<MonacoContentDisposable | null>(null);
@@ -234,6 +237,8 @@ export function useSsmlMonaco({
     selectionChangeRef.current = null;
     completionProviderRef.current?.dispose();
     completionProviderRef.current = null;
+    codeActionProviderRef.current?.dispose();
+    codeActionProviderRef.current = null;
     for (const disposable of selectionLayoutDisposablesRef.current) {
       disposable.dispose();
     }
@@ -271,6 +276,7 @@ export function useSsmlMonaco({
         editor.onDidContentSizeChange(() => onSelectionOverlayChangeRef.current(editor, false)),
       ];
       completionProviderRef.current = registerSsmlCompletionProvider(monaco);
+      codeActionProviderRef.current = registerSsmlCodeActions(monaco);
       releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, languageRef.current);
       runSsmlDiagnostics(editor, monaco);
       const model = editor.getModel();
