@@ -5,11 +5,13 @@ type MonacoLanguages = Monaco["languages"];
 type MonacoCodeActionProvider = Parameters<MonacoLanguages["registerCodeActionProvider"]>[1];
 type MonacoCodeActionMethod = NonNullable<MonacoCodeActionProvider["provideCodeActions"]>;
 type MonacoCodeActionModel = Parameters<MonacoCodeActionMethod>[0];
+type MonacoCodeActionRange = Parameters<MonacoCodeActionMethod>[1];
 type MonacoCodeActionContext = Parameters<MonacoCodeActionMethod>[2];
+type MonacoCodeActionMarker = MonacoCodeActionContext["markers"][number];
 
 const MISSING_TIME_UNIT_ACTION_TITLE = '単位 "ms" を付与して修復';
 
-function createMissingTimeUnitAction(model: MonacoCodeActionModel, marker: MonacoCodeActionContext["markers"][number]) {
+function createMissingTimeUnitAction(model: MonacoCodeActionModel, marker: MonacoCodeActionMarker) {
   return {
     title: MISSING_TIME_UNIT_ACTION_TITLE,
     kind: "quickfix",
@@ -35,14 +37,16 @@ function createMissingTimeUnitAction(model: MonacoCodeActionModel, marker: Monac
   };
 }
 
-export function registerSsmlCodeActions(
-  monaco: Monaco,
-): ReturnType<MonacoLanguages["registerCodeActionProvider"]> {
+export function registerSsmlCodeActions(monaco: Monaco): ReturnType<MonacoLanguages["registerCodeActionProvider"]> {
   const provider: MonacoCodeActionProvider = {
-    provideCodeActions(model, _range, context) {
+    provideCodeActions(
+      model: MonacoCodeActionModel,
+      _range: MonacoCodeActionRange,
+      context: MonacoCodeActionContext,
+    ): ReturnType<MonacoCodeActionMethod> {
       const actions = context.markers
-        .filter((marker) => marker.code === SSML_DIAGNOSTIC_CODES.MISSING_TIME_UNIT)
-        .map((marker) => createMissingTimeUnitAction(model, marker));
+        .filter((marker: MonacoCodeActionMarker) => marker.code === SSML_DIAGNOSTIC_CODES.MISSING_TIME_UNIT)
+        .map((marker: MonacoCodeActionMarker) => createMissingTimeUnitAction(model, marker));
 
       return {
         actions,
