@@ -83,15 +83,36 @@ const monacoState = vi.hoisted(() => {
     onDidLayoutChange: vi.fn(disposable),
     onDidContentSizeChange: vi.fn(disposable),
     pushUndoStop: vi.fn(),
-    executeEdits: vi.fn((_source: string, edits: Array<{ range: typeof selection; text: string }>) => {
-      const edit = edits[0];
-      if (edit) {
-        const startOffset = model.getOffsetAt(edit.range.getStartPosition());
-        const endOffset = model.getOffsetAt(edit.range.getEndPosition());
-        value = `${value.slice(0, startOffset)}${edit.text}${value.slice(endOffset)}`;
-      }
-      return true;
-    }),
+    executeEdits: vi.fn(
+      (
+        _source: string,
+        edits: Array<{
+          range:
+            | typeof selection
+            | {
+                startLineNumber: number;
+                startColumn: number;
+                endLineNumber: number;
+                endColumn: number;
+              };
+          text: string;
+        }>,
+      ) => {
+        const edit = edits[0];
+        if (edit) {
+          const startOffset =
+            "getStartPosition" in edit.range
+              ? model.getOffsetAt(edit.range.getStartPosition())
+              : model.getOffsetAt({ lineNumber: edit.range.startLineNumber, column: edit.range.startColumn });
+          const endOffset =
+            "getEndPosition" in edit.range
+              ? model.getOffsetAt(edit.range.getEndPosition())
+              : model.getOffsetAt({ lineNumber: edit.range.endLineNumber, column: edit.range.endColumn });
+          value = `${value.slice(0, startOffset)}${edit.text}${value.slice(endOffset)}`;
+        }
+        return true;
+      },
+    ),
     setSelection: vi.fn(),
     focus: vi.fn(),
     trigger: vi.fn(),
@@ -431,9 +452,10 @@ describe("SsmlEditor props", () => {
       { markers: marker ? [marker] : [], trigger: 1 },
       {} as never,
     );
+    const actions = result && !(result instanceof Promise) ? result.actions : [];
 
     expect(marker?.code).toBe("MISSING_TIME_UNIT");
-    expect(result && !(result instanceof Promise) ? result.actions : []).toEqual([
+    expect(actions).toEqual([
       expect.objectContaining({
         title: '単位 "ms" を付与して修復',
         kind: "quickfix",
@@ -447,6 +469,17 @@ describe("SsmlEditor props", () => {
         }),
       }),
     ]);
+
+    const edit = actions[0]?.edit?.edits[0];
+    if (edit && "textEdit" in edit) {
+      monacoState.editor.executeEdits("ssml-code-action", [
+        {
+          range: edit.textEdit.range,
+          text: edit.textEdit.text,
+        },
+      ]);
+    }
+    expect(monacoState.getValue()).toBe('<break time="500ms"/>');
   });
 
   it("cleans up the diagnostics listener and pending timer on unmount", () => {
