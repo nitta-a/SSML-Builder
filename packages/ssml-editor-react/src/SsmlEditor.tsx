@@ -1,18 +1,8 @@
-import { Fragment, forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { Fragment, forwardRef, useImperativeHandle } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor from "@monaco-editor/react";
-import { createPortal } from "react-dom";
-import { buildPartialSsml, buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
-import type {
-  ProsodyElement,
-  SsmlDocument,
-  SsmlElement,
-  SsmlNode,
-  SsmlPartialContext,
-  VoiceElement,
-} from "@ssml-builder-js/ssml-core";
+import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
-import { clearSsmlDocument } from "./clearSsmlDocument";
 import {
   BREAK_TIME_DESCRIPTIONS,
   BREAK_TIME_PRESETS,
@@ -33,7 +23,6 @@ import {
   SILENCE_VALUE_DESCRIPTIONS,
   SILENCE_VALUE_PRESETS,
 } from "./constants/ssmlPresets";
-import { formatXmlFragment, INTRINSICALLY_EMPTY_ELEMENTS } from "./formatXml";
 import {
   EDITOR_COPY,
   type EditorCopy,
@@ -41,9 +30,12 @@ import {
   type SsmlEditorLocale,
   type SsmlEditorLocalizedText,
 } from "./locales";
-import { createSsmlInsertionEdit } from "./ssmlInsertion";
-import type { MonacoEditor, SsmlSyntaxError } from "./ssmlDiagnostics";
-import { DEFAULT_LOCALE, SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "./constants/ui";
+import { DEFAULT_LOCALE } from "./constants/ui";
+import { ProsodyPopovers } from "./components/popovers/ProsodyPopovers";
+import { TextPopovers } from "./components/popovers/TextPopovers";
+import { TimingPopovers } from "./components/popovers/TimingPopovers";
+import { InsertionPopover } from "./components/popovers/InsertionPopover";
+import { useSsmlEditorState } from "./hooks/useSsmlEditorState";
 import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
 import { editorStyles as styles } from "./styles/editorStyles";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
@@ -720,152 +712,6 @@ export interface SsmlEditorRef {
   getFullSsml(): string;
 }
 
-type SsmlInsertion = SsmlInsertionDefinition;
-
-interface SelectionOverlayState extends SelectionInfo {
-  position: {
-    top: number;
-    left: number;
-    height: number;
-  } | null;
-  placement: "above" | "below";
-}
-
-interface ToolbarInsertionMenuProps {
-  insertion: SsmlInsertion;
-  language: SsmlEditorLanguage;
-  isDarkTheme: boolean;
-  showToolbarIcons: boolean;
-  showToolbarText: boolean;
-  toolbarButtonStyle: CSSProperties;
-  isReadOnly: boolean;
-  onApply: (insertion: SsmlInsertion, option: SsmlInsertionOption) => void;
-}
-
-function ToolbarInsertionMenu({
-  insertion,
-  language,
-  isDarkTheme,
-  showToolbarIcons,
-  showToolbarText,
-  toolbarButtonStyle,
-  isReadOnly,
-  onApply,
-}: ToolbarInsertionMenuProps): ReactElement {
-  const menuId = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setMenuPosition(null);
-      return;
-    }
-
-    const updateMenuPosition = (): void => {
-      const trigger = triggerRef.current;
-      if (!trigger) {
-        return;
-      }
-
-      const triggerBounds = trigger.getBoundingClientRect();
-      setMenuPosition({
-        top: triggerBounds.bottom + 4,
-        left: triggerBounds.left,
-      });
-    };
-
-    const handlePointerDown = (event: PointerEvent): void => {
-      const target = event.target;
-      if (target instanceof Node && !triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setIsOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-        triggerRef.current?.focus();
-      }
-    };
-
-    updateMenuPosition();
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen]);
-
-  const menu = isOpen && menuPosition && typeof document !== "undefined" && (
-    <div
-      ref={menuRef}
-      id={menuId}
-      data-ssml-editor=""
-      data-theme={isDarkTheme ? "dark" : "light"}
-      style={{ ...styles.toolbarMenu, top: menuPosition.top, left: menuPosition.left }}
-      role="menu"
-      aria-label={insertion.labels[language]}
-    >
-      {insertion.options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="menuitem"
-          style={styles.toolbarOption}
-          title={option.descriptions?.[language] ?? insertion.descriptions[language]}
-          disabled={isReadOnly}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            if (!isReadOnly) {
-              onApply(insertion, option);
-            }
-            setIsOpen(false);
-          }}
-        >
-          {option.labels[language]}
-        </button>
-      ))}
-    </div>
-  );
-
-  return (
-    <>
-      <div style={styles.toolbarDropdown}>
-        <button
-          ref={triggerRef}
-          type="button"
-          style={toolbarButtonStyle}
-          title={getInsertionTitle(insertion, language)}
-          aria-label={insertion.labels[language]}
-          aria-haspopup="menu"
-          aria-expanded={isOpen}
-          aria-controls={isOpen ? menuId : undefined}
-          onClick={() => setIsOpen((open) => !open)}
-        >
-          {showToolbarIcons && (
-            <span style={styles.toolbarIcon} aria-hidden="true">
-              {insertion.icon}
-            </span>
-          )}
-          {showToolbarText && <span>{insertion.labels[language]}</span>}
-          <span style={styles.toolbarChevron} aria-hidden="true">
-            ▾
-          </span>
-        </button>
-      </div>
-      {menu && createPortal(menu, document.body)}
-    </>
-  );
-}
-
 interface ToolbarDecorationsSwitchProps {
   copy: EditorCopy;
   showToolbarIcons: boolean;
@@ -903,417 +749,6 @@ function ToolbarDecorationsSwitch({
       </button>
     </div>
   );
-}
-
-const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
-  selectedText: "",
-  characterCount: 0,
-  hasSelection: false,
-  position: null,
-  placement: "above",
-};
-
-function isSsmlElement(node: SsmlNode): node is SsmlElement {
-  return typeof node !== "string" && node.type !== "text";
-}
-
-function isVoice(element: SsmlElement): element is VoiceElement {
-  return element.type === "voice";
-}
-
-function isProsody(element: SsmlElement): element is ProsodyElement {
-  return element.type === "prosody";
-}
-
-function getSsmlElementName(element: SsmlElement): string {
-  return element.type === "custom" || element.type === "element" ? element.name : element.type;
-}
-
-interface EditableStartTag {
-  name: string;
-  selfClosing: boolean;
-}
-
-function findEditableTagEnd(source: string, start: number): number {
-  let quote: string | undefined;
-  for (let index = start + 1; index < source.length; index += 1) {
-    const character = source[index];
-    if (quote !== undefined) {
-      if (character === quote) {
-        quote = undefined;
-      }
-      continue;
-    }
-    if (character === '"' || character === "'") {
-      quote = character;
-      continue;
-    }
-    if (character === ">") {
-      return index;
-    }
-  }
-  return source.length;
-}
-
-function collectEditableStartTags(source: string): EditableStartTag[] {
-  const tags: EditableStartTag[] = [];
-  let index = 0;
-
-  while (index < source.length) {
-    if (source[index] !== "<") {
-      index += 1;
-      continue;
-    }
-    if (source.startsWith("<!--", index)) {
-      const end = source.indexOf("-->", index + 4);
-      index = end === -1 ? source.length : end + 3;
-      continue;
-    }
-    if (source.startsWith("<![CDATA[", index)) {
-      const end = source.indexOf("]]>", index + 9);
-      index = end === -1 ? source.length : end + 3;
-      continue;
-    }
-    if (source.startsWith("<?", index)) {
-      const end = source.indexOf("?>", index + 2);
-      index = end === -1 ? source.length : end + 2;
-      continue;
-    }
-    if (source.startsWith("</", index) || source.startsWith("<!", index)) {
-      const end = findEditableTagEnd(source, index);
-      index = end === source.length ? source.length : end + 1;
-      continue;
-    }
-
-    const end = findEditableTagEnd(source, index);
-    if (end === source.length) {
-      break;
-    }
-    const raw = source.slice(index, end + 1);
-    const match = raw.match(/^<([A-Za-z_][A-Za-z0-9_.:-]*)/);
-    if (match) {
-      tags.push({ name: match[1], selfClosing: /\/\s*>$/.test(raw) });
-    }
-    index = end + 1;
-  }
-
-  return tags;
-}
-
-function preserveEmptyPairElements(
-  nodes: SsmlNode[],
-  startTags: readonly EditableStartTag[],
-  startTagIndex: { value: number },
-): SsmlNode[] {
-  return nodes.map((node) => {
-    if (!isSsmlElement(node)) {
-      return node;
-    }
-
-    const elementName = getSsmlElementName(node);
-    const startTag = startTags[startTagIndex.value];
-    startTagIndex.value += 1;
-    if (node.children === undefined || node.children.length === 0) {
-      return startTag?.name === elementName && !startTag.selfClosing && !INTRINSICALLY_EMPTY_ELEMENTS.has(elementName)
-        ? { ...node, children: [""] }
-        : node;
-    }
-
-    const children = preserveEmptyPairElements(node.children, startTags, startTagIndex);
-    if (children.every((child, index) => child === node.children?.[index])) {
-      return node;
-    }
-    return { ...node, children };
-  });
-}
-
-function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
-  return document.children ?? (document.content === undefined ? [] : [document.content]);
-}
-
-function getPartialContext(document: SsmlDocument): SsmlPartialContext {
-  const children = getDocumentChildren(document);
-  const voice = findFirstElement(children, isVoice);
-  const prosody = findFirstElement(children, isProsody);
-  const context: SsmlPartialContext = {
-    version: document.version,
-    lang: document.lang,
-  };
-
-  if (voice) {
-    context.voice = {
-      name: voice.name,
-      effect: voice.effect,
-      attributes: voice.attributes,
-    };
-  }
-
-  if (prosody) {
-    context.prosody = {
-      rate: prosody.rate,
-      pitch: prosody.pitch,
-      volume: prosody.volume,
-      contour: prosody.contour,
-      range: prosody.range,
-      attributes: prosody.attributes,
-    };
-  }
-
-  return context;
-}
-
-function findFirstElement<T extends SsmlElement>(
-  nodes: SsmlNode[],
-  predicate: (element: SsmlElement) => element is T,
-): T | undefined {
-  for (const node of nodes) {
-    if (!isSsmlElement(node)) {
-      continue;
-    }
-
-    if (predicate(node)) {
-      return node;
-    }
-
-    const child = findFirstElement(node.children ?? [], predicate);
-    if (child) {
-      return child;
-    }
-  }
-
-  return undefined;
-}
-
-function updateFirstElement<T extends SsmlElement>(
-  nodes: SsmlNode[],
-  predicate: (element: SsmlElement) => element is T,
-  update: (element: T) => SsmlElement,
-): { nodes: SsmlNode[]; updated: boolean } {
-  let updated = false;
-  const nextNodes = nodes.map((node) => {
-    if (updated || !isSsmlElement(node)) {
-      return node;
-    }
-
-    if (predicate(node)) {
-      updated = true;
-      return update(node);
-    }
-
-    if (node.children) {
-      const result = updateFirstElement(node.children, predicate, update);
-      if (result.updated) {
-        updated = true;
-        return { ...node, children: result.nodes };
-      }
-    }
-
-    return node;
-  });
-
-  return { nodes: nextNodes, updated };
-}
-
-function withChildren(document: SsmlDocument, children: SsmlNode[]): SsmlDocument {
-  const nextDocument: SsmlDocument = { ...document, children };
-  if (nextDocument.content !== undefined) {
-    delete nextDocument.content;
-  }
-  return nextDocument;
-}
-
-function parseEditableText(value: string, lang: string): SsmlNode[] {
-  try {
-    const wrapper = buildSsml({
-      version: "1.0",
-      lang,
-      children: [],
-    });
-    const openingTagEnd = wrapper.indexOf(">") + 1;
-    const children = parseSsml(`${wrapper.slice(0, openingTagEnd)}${value}</speak>`).children ?? [];
-    return children.some(isSsmlElement)
-      ? preserveEmptyPairElements(children, collectEditableStartTags(value), { value: 0 })
-      : [value];
-  } catch {
-    return [value];
-  }
-}
-
-function serializeEditableText(nodes: SsmlNode[], lang: string): string {
-  if (nodes.length === 1 && typeof nodes[0] === "string") {
-    return nodes[0];
-  }
-
-  const xml = buildSsml({
-    version: "1.0",
-    lang,
-    children: nodes,
-  });
-  const contentStart = xml.indexOf(">") + 1;
-  return xml.slice(contentStart, -"</speak>".length);
-}
-
-function getEditableChildren(document: SsmlDocument): SsmlNode[] {
-  const children = getDocumentChildren(document);
-  const element = findFirstElement(children, isProsody) ?? findFirstElement(children, isVoice);
-  return element?.children ?? children;
-}
-
-function getEditableText(document: SsmlDocument): string {
-  return serializeEditableText(getEditableChildren(document), document.lang);
-}
-
-function updateText(document: SsmlDocument, value: string): SsmlDocument {
-  const nextChildren = parseEditableText(value, document.lang);
-  const editableChildren = nextChildren.length > 0 ? nextChildren : [value];
-  const children = getDocumentChildren(document);
-  const prosodyResult = updateFirstElement(children, isProsody, (prosody) => ({
-    ...prosody,
-    children: editableChildren,
-  }));
-  if (prosodyResult.updated) {
-    return withChildren(document, prosodyResult.nodes);
-  }
-
-  const voiceResult = updateFirstElement(children, isVoice, (voice) => ({
-    ...voice,
-    children: editableChildren,
-  }));
-  if (voiceResult.updated) {
-    return withChildren(document, voiceResult.nodes);
-  }
-
-  return withChildren(document, editableChildren);
-}
-
-function getSelectionInfo(editor: MonacoEditor): SelectionInfo {
-  const model = editor.getModel();
-  const selection = editor.getSelection();
-  if (!model || !selection) {
-    return {
-      selectedText: "",
-      characterCount: 0,
-      hasSelection: false,
-    };
-  }
-
-  const selectedText = model.getValueInRange(selection);
-  return {
-    selectedText,
-    characterCount: selectedText.length,
-    hasSelection: selectedText.length > 0,
-  };
-}
-
-function getSelectionOverlayState(editor: MonacoEditor): SelectionOverlayState {
-  const info = getSelectionInfo(editor);
-  if (!info.hasSelection) {
-    return { ...info, position: null, placement: "above" };
-  }
-
-  const selection = editor.getSelection();
-  if (!selection) {
-    return { ...info, position: null, placement: "above" };
-  }
-
-  const position = editor.getScrolledVisiblePosition(selection.getStartPosition());
-  if (!position) {
-    return { ...info, position: null, placement: "above" };
-  }
-
-  const editorHeight = editor.getLayoutInfo().height;
-  if (position.top + position.height < 0 || position.top > editorHeight) {
-    return { ...info, position: null, placement: "above" };
-  }
-
-  return {
-    ...info,
-    position,
-    placement: position.top >= SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES * position.height ? "above" : "below",
-  };
-}
-
-function getCurrentDocument(document: SsmlDocument, editor: MonacoEditor | null): SsmlDocument {
-  const value = editor?.getValue();
-  return value === undefined ? document : updateText(document, value);
-}
-
-function getCurrentLineText(editor: MonacoEditor): string | null {
-  const model = editor.getModel();
-  const selection = editor.getSelection();
-  if (!model || !selection) {
-    return null;
-  }
-
-  const text = model.getLineContent(selection.positionLineNumber);
-  return text.trim().length > 0 ? text : null;
-}
-
-function getSelectedText(editor: MonacoEditor): string | null {
-  const model = editor.getModel();
-  const selection = editor.getSelection();
-  if (!model || !selection) {
-    return null;
-  }
-
-  const selectedText = model.getValueInRange(selection);
-  return selectedText.length > 0 ? selectedText : getCurrentLineText(editor);
-}
-
-function getSelectedSsml(editor: MonacoEditor, document: SsmlDocument): string | null {
-  const selectedText = getSelectedText(editor);
-  return selectedText === null ? null : buildPartialSsml(selectedText, getPartialContext(document));
-}
-
-function getCurrentLineSsml(editor: MonacoEditor, document: SsmlDocument): string | null {
-  const currentLineText = getCurrentLineText(editor);
-  return currentLineText === null ? null : buildPartialSsml(currentLineText, getPartialContext(document));
-}
-
-function applySsmlTemplate(editor: MonacoEditor, template: SsmlEditorInsertionTemplate): void {
-  const model = editor.getModel();
-  const selection = editor.getSelection();
-  if (!model || !selection) {
-    return;
-  }
-
-  const startOffset = model.getOffsetAt(selection.getStartPosition());
-  const endOffset = model.getOffsetAt(selection.getEndPosition());
-  const selectedText = selection.isEmpty() ? "" : model.getValueInRange(selection);
-  const { replacement, selectionOffset } = createSsmlInsertionEdit(
-    model.getValue(),
-    startOffset,
-    endOffset,
-    template,
-    model.getEOL(),
-    selectedText,
-  );
-
-  editor.pushUndoStop();
-  const applied = editor.executeEdits("ssml-toolbar", [
-    {
-      range: selection,
-      text: replacement,
-    },
-  ]);
-  editor.pushUndoStop();
-  if (!applied) {
-    return;
-  }
-
-  const nextSelectionStart = model.getPositionAt(startOffset + selectionOffset);
-  const nextSelectionEnd = model.getPositionAt(endOffset + selectionOffset);
-  editor.setSelection({
-    selectionStartLineNumber: nextSelectionStart.lineNumber,
-    selectionStartColumn: nextSelectionStart.column,
-    positionLineNumber: nextSelectionEnd.lineNumber,
-    positionColumn: nextSelectionEnd.column,
-  });
-  editor.focus();
-}
-
-function applySsmlInsertion(editor: MonacoEditor, insertion: SsmlInsertion, option: SsmlInsertionOption): void {
-  applySsmlTemplate(editor, insertion.createTemplate(option.value));
 }
 
 export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function SsmlEditor(
@@ -1371,24 +806,10 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     ...(minimap === undefined ? {} : { minimap }),
     ...(automaticLayout === undefined ? {} : { automaticLayout }),
   };
-  const helpPanelId = useId();
-  const [draftDocument, setDraftDocument] = useState(document);
-  const draftDocumentRef = useRef(document);
-  const onSelectionChangeRef = useRef(onSelectionChange);
-  const onPreviewSelectionRef = useRef(onPreviewSelection);
-  const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayState>(EMPTY_SELECTION_OVERLAY);
-  const [isDark, setIsDark] = useState(false);
-  const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   const language = localeProp ?? languageProp ?? DEFAULT_LOCALE;
-  draftDocumentRef.current = draftDocument;
-  onSelectionChangeRef.current = onSelectionChange;
-  onPreviewSelectionRef.current = onPreviewSelection;
   const copy = EDITOR_COPY[language];
   const showToolbarText = showToolbarLabels || !showToolbarIcons;
   const resolvedTheme = resolvedEditorOptions.theme ?? "system";
-  const isDarkTheme = resolvedTheme === "dark" || (resolvedTheme === "system" && isDark);
   const editorMinHeight = resolvedEditorOptions.minHeight ?? "8rem";
   const editorHeight = resolvedEditorOptions.height ?? editorMinHeight;
   const isReadOnly = resolvedEditorOptions.readOnly ?? false;
@@ -1458,38 +879,50 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     (insertion, index, insertions) => insertions.findIndex((candidate) => candidate.id === insertion.id) === index,
   );
 
-  const refreshSelectionOverlay = (editor: MonacoEditor, notify: boolean): void => {
-    const nextSelection = getSelectionOverlayState(editor);
-    setSelectionOverlay(nextSelection);
-    if (notify) {
-      onSelectionChangeRef.current?.({
-        selectedText: nextSelection.selectedText,
-        characterCount: nextSelection.characterCount,
-        hasSelection: nextSelection.hasSelection,
-      });
-    }
-  };
-
-  useEffect(() => {
-    injectEditorTheme();
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    setIsDark(mq.matches);
-    const handler = (e: MediaQueryListEvent): void => setIsDark(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  useEffect(() => {
-    draftDocumentRef.current = document;
-    setDraftDocument(document);
-  }, [document]);
-
-  useEffect(() => {
-    setDecorationsVisible(showDecorations);
-  }, [showDecorations]);
-
-  const text = getEditableText(draftDocument);
-  const { editorRef, onMount } = useSsmlMonaco({
+  const {
+    editorRef,
+    text,
+    selectionOverlay,
+    isDarkTheme,
+    decorationsVisible,
+    setDecorationsVisible,
+    isHelpOpen,
+    setIsHelpOpen,
+    syntaxError,
+    setSyntaxError,
+    helpPanelId,
+    commit,
+    handleTextChange,
+    handleInsert,
+    handleClear,
+    handleFormat,
+    handleUndo,
+    handleRedo,
+    previewSelection,
+    canPreviewSelection,
+    refreshSelectionOverlay,
+    getSelectedSsml,
+    getCurrentLineSsml,
+    getFullSsml,
+    openPopoverId,
+    popoverPosition,
+    isPopoverOpen,
+    togglePopover,
+    closePopover,
+    setPopoverMenuRef,
+  } = useSsmlEditorState({
+    document,
+    language,
+    resolvedTheme,
+    showDecorations,
+    onChange,
+    onSsmlChange,
+    onSelectionChange,
+    onPreviewSelection,
+    injectTheme: injectEditorTheme,
+  });
+  const { onMount } = useSsmlMonaco({
+    editorRef,
     language,
     text,
     decorationsVisible,
@@ -1497,62 +930,44 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     onSyntaxErrorChange: setSyntaxError,
   });
 
-  const commit = (nextDocument: SsmlDocument): void => {
-    draftDocumentRef.current = nextDocument;
-    setDraftDocument(nextDocument);
-    onChange?.(nextDocument);
-    onSsmlChange?.(buildSsml(nextDocument));
-  };
-
-  const canPreviewSelection = onPreviewSelection !== undefined;
-  const previewSelection = (): void => {
-    const editor = editorRef.current;
-    if (!editor) {
-      return;
-    }
-
-    const selectedSsml = getSelectedSsml(editor, draftDocumentRef.current);
-    if (selectedSsml === null) {
-      return;
-    }
-
-    onPreviewSelectionRef.current?.(selectedSsml);
-  };
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: The stable ref is read when each imperative method is invoked.
   useImperativeHandle(
     ref,
     () => ({
-      getSelectedSsml: () => {
-        const editor = editorRef.current;
-        return editor ? getSelectedSsml(editor, draftDocumentRef.current) : null;
-      },
-      getCurrentLineSsml: () => {
-        const editor = editorRef.current;
-        return editor ? getCurrentLineSsml(editor, draftDocumentRef.current) : null;
-      },
-      getFullSsml: () => buildSsml(getCurrentDocument(draftDocumentRef.current, editorRef.current)),
+      getSelectedSsml,
+      getCurrentLineSsml,
+      getFullSsml,
     }),
-    [],
+    [getCurrentLineSsml, getFullSsml, getSelectedSsml],
   );
 
-  const renderInsertion = (insertion: SsmlInsertion): ReactElement => (
-    <ToolbarInsertionMenu
-      key={insertion.id}
-      insertion={insertion}
-      language={language}
-      isDarkTheme={isDarkTheme}
-      showToolbarIcons={showToolbarIcons}
-      showToolbarText={showToolbarText}
-      toolbarButtonStyle={toolbarButtonStyle}
-      isReadOnly={isReadOnly}
-      onApply={(selectedInsertion, option) => {
-        if (editorRef.current) {
-          applySsmlInsertion(editorRef.current, selectedInsertion, option);
-        }
-      }}
-    />
-  );
+  const renderInsertion = (insertion: SsmlEditorInsertionDefinition): ReactElement => {
+    const props = {
+      insertions: [insertion],
+      language,
+      isDarkTheme,
+      showToolbarIcons,
+      showToolbarText,
+      toolbarButtonStyle,
+      isReadOnly,
+      openPopoverId,
+      menuPosition: popoverPosition,
+      menuRef: setPopoverMenuRef,
+      onToggle: togglePopover,
+      onClose: closePopover,
+      onApply: handleInsert,
+    };
+
+    if (insertion.id === "break" || insertion.id === "mstts:silence") {
+      return <TimingPopovers {...props} />;
+    }
+    if (["rate", "pitch", "volume", "emotion", "voice", "emphasis"].includes(insertion.id)) {
+      return <ProsodyPopovers {...props} />;
+    }
+    if (["sub", "say-as", "phoneme", "w", "lang"].includes(insertion.id)) {
+      return <TextPopovers {...props} />;
+    }
+    return <InsertionPopover {...props} insertion={insertion} isOpen={isPopoverOpen(insertion.id)} onToggle={(trigger) => togglePopover(insertion.id, trigger)} />;
+  };
 
   const toolbarItemRenderers = new Map<string, () => ReactElement>([
     [
@@ -1567,8 +982,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           disabled={isReadOnly}
           onClick={() => {
             if (!isReadOnly) {
-              editorRef.current?.trigger("toolbar", "undo", null);
-              editorRef.current?.focus();
+              handleUndo();
             }
           }}
         >
@@ -1593,8 +1007,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           disabled={isReadOnly}
           onClick={() => {
             if (!isReadOnly) {
-              editorRef.current?.trigger("toolbar", "redo", null);
-              editorRef.current?.focus();
+              handleRedo();
             }
           }}
         >
@@ -1619,7 +1032,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           disabled={isReadOnly}
           onClick={() => {
             if (!isReadOnly) {
-              commit(clearSsmlDocument(draftDocument));
+              handleClear();
             }
           }}
         >
@@ -1644,8 +1057,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           disabled={isReadOnly}
           onClick={() => {
             if (!isReadOnly) {
-              const value = editorRef.current?.getValue() ?? getEditableText(draftDocument);
-              commit(updateText(draftDocument, formatXmlFragment(value)));
+              handleFormat();
             }
           }}
         >
@@ -1810,12 +1222,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             value={text}
             loading={loadingFallback}
             onMount={onMount}
-            onChange={(value) => {
-              commit(updateText(draftDocument, value ?? ""));
-              if (editorRef.current) {
-                refreshSelectionOverlay(editorRef.current, false);
-              }
-            }}
+            onChange={(value) => handleTextChange(value ?? "")}
           />
           {selectionOverlay.hasSelection && selectionOverlay.position && (
             <div
