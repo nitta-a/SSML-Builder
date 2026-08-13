@@ -41,13 +41,30 @@ const monacoState = vi.hoisted(() => {
       );
     },
     getEOL: () => modelEol,
-    getValueInRange: (range: typeof selection) => {
-      const startOffset = model.getOffsetAt(range.getStartPosition());
-      const endOffset = model.getOffsetAt(range.getEndPosition());
+    getValueInRange: (
+      range:
+        | typeof selection
+        | {
+            startLineNumber: number;
+            startColumn: number;
+            endLineNumber: number;
+            endColumn: number;
+          },
+    ) => {
+      const startOffset =
+        "getStartPosition" in range
+          ? model.getOffsetAt(range.getStartPosition())
+          : model.getOffsetAt({ lineNumber: range.startLineNumber, column: range.startColumn });
+      const endOffset =
+        "getEndPosition" in range
+          ? model.getOffsetAt(range.getEndPosition())
+          : model.getOffsetAt({ lineNumber: range.endLineNumber, column: range.endColumn });
       return value.slice(startOffset, endOffset);
     },
     getLineContent: (lineNumber: number) => value.split(/\r\n|\r|\n/)[lineNumber - 1] ?? "",
     deltaDecorations: vi.fn(() => []),
+    uri: {},
+    getVersionId: () => 1,
   };
   const disposable = () => ({ dispose: vi.fn() });
   const editor = {
@@ -83,6 +100,7 @@ const monacoState = vi.hoisted(() => {
     languages: {
       registerHoverProvider: vi.fn(disposable),
       registerCompletionItemProvider: vi.fn(disposable),
+      registerCodeActionProvider: vi.fn(disposable),
       CompletionItemKind: {
         Snippet: 27,
         Value: 18,
@@ -117,6 +135,7 @@ const monacoState = vi.hoisted(() => {
         model.deltaDecorations,
         monaco.languages.registerHoverProvider,
         monaco.languages.registerCompletionItemProvider,
+        monaco.languages.registerCodeActionProvider,
         monaco.editor.setModelMarkers,
       ]) {
         mock.mockClear();
@@ -395,18 +414,56 @@ describe("SsmlEditor props", () => {
     }
   });
 
+  it("offers a preferred quick fix for a missing time unit", () => {
+    monacoState.setValue('<break time="500"/>');
+    renderEditor();
+
+    const marker = monacoState.monaco.editor.setModelMarkers.mock.lastCall?.[2]?.[0];
+    const provider = monacoState.monaco.languages.registerCodeActionProvider.mock.lastCall?.[1];
+    const result = provider?.provideCodeActions?.(
+      monacoState.editor.getModel(),
+      marker ?? {
+        startLineNumber: 1,
+        startColumn: 1,
+        endLineNumber: 1,
+        endColumn: 1,
+      },
+      { markers: marker ? [marker] : [], trigger: 1 },
+      {} as never,
+    );
+
+    expect(marker?.code).toBe("MISSING_TIME_UNIT");
+    expect(result && !(result instanceof Promise) ? result.actions : []).toEqual([
+      expect.objectContaining({
+        title: '単位 "ms" を付与して修復',
+        kind: "quickfix",
+        isPreferred: true,
+        edit: expect.objectContaining({
+          edits: [
+            expect.objectContaining({
+              textEdit: expect.objectContaining({ text: "500ms" }),
+            }),
+          ],
+        }),
+      }),
+    ]);
+  });
+
   it("cleans up the diagnostics listener and pending timer on unmount", () => {
     vi.useFakeTimers();
     try {
       const { unmount } = renderEditor();
       const contentDispose = monacoState.getLatestContentDispose();
+      const codeActionDispose = monacoState.monaco.languages.registerCodeActionProvider.mock.results[0]?.value.dispose;
 
       expect(contentDispose).not.toBeNull();
+      expect(codeActionDispose).toBeDefined();
       monacoState.setValue("<voice>");
       monacoState.emitContentChange();
       unmount();
 
       expect(contentDispose).toHaveBeenCalledTimes(1);
+      expect(codeActionDispose).toHaveBeenCalledTimes(1);
       const markerCallCountAfterUnmount = monacoState.monaco.editor.setModelMarkers.mock.calls.length;
       vi.advanceTimersByTime(300);
       expect(monacoState.monaco.editor.setModelMarkers).toHaveBeenCalledTimes(markerCallCountAfterUnmount);
