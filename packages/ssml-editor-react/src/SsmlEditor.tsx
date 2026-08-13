@@ -33,7 +33,7 @@ import {
   SILENCE_VALUE_DESCRIPTIONS,
   SILENCE_VALUE_PRESETS,
 } from "./constants/ssmlPresets";
-import { formatXmlFragment } from "./formatXml";
+import { formatXmlFragment, INTRINSICALLY_EMPTY_ELEMENTS } from "./formatXml";
 import {
   EDITOR_COPY,
   type EditorCopy,
@@ -925,6 +925,108 @@ function isProsody(element: SsmlElement): element is ProsodyElement {
   return element.type === "prosody";
 }
 
+function getSsmlElementName(element: SsmlElement): string {
+  return element.type === "custom" || element.type === "element" ? element.name : element.type;
+}
+
+interface EditableStartTag {
+  name: string;
+  selfClosing: boolean;
+}
+
+function findEditableTagEnd(source: string, start: number): number {
+  let quote: string | undefined;
+  for (let index = start + 1; index < source.length; index += 1) {
+    const character = source[index];
+    if (quote !== undefined) {
+      if (character === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === ">") {
+      return index;
+    }
+  }
+  return source.length;
+}
+
+function collectEditableStartTags(source: string): EditableStartTag[] {
+  const tags: EditableStartTag[] = [];
+  let index = 0;
+
+  while (index < source.length) {
+    if (source[index] !== "<") {
+      index += 1;
+      continue;
+    }
+    if (source.startsWith("<!--", index)) {
+      const end = source.indexOf("-->", index + 4);
+      index = end === -1 ? source.length : end + 3;
+      continue;
+    }
+    if (source.startsWith("<![CDATA[", index)) {
+      const end = source.indexOf("]]>", index + 9);
+      index = end === -1 ? source.length : end + 3;
+      continue;
+    }
+    if (source.startsWith("<?", index)) {
+      const end = source.indexOf("?>", index + 2);
+      index = end === -1 ? source.length : end + 2;
+      continue;
+    }
+    if (source.startsWith("</", index) || source.startsWith("<!", index)) {
+      const end = findEditableTagEnd(source, index);
+      index = end === source.length ? source.length : end + 1;
+      continue;
+    }
+
+    const end = findEditableTagEnd(source, index);
+    if (end === source.length) {
+      break;
+    }
+    const raw = source.slice(index, end + 1);
+    const match = raw.match(/^<([A-Za-z_][A-Za-z0-9_.:-]*)/);
+    if (match) {
+      tags.push({ name: match[1], selfClosing: /\/\s*>$/.test(raw) });
+    }
+    index = end + 1;
+  }
+
+  return tags;
+}
+
+function preserveEmptyPairElements(
+  nodes: SsmlNode[],
+  startTags: readonly EditableStartTag[],
+  startTagIndex: { value: number },
+): SsmlNode[] {
+  return nodes.map((node) => {
+    if (!isSsmlElement(node)) {
+      return node;
+    }
+
+    const elementName = getSsmlElementName(node);
+    const startTag = startTags[startTagIndex.value];
+    startTagIndex.value += 1;
+    if (node.children === undefined || node.children.length === 0) {
+      return startTag?.name === elementName && !startTag.selfClosing && !INTRINSICALLY_EMPTY_ELEMENTS.has(elementName)
+        ? { ...node, children: [""] }
+        : node;
+    }
+
+    const children = preserveEmptyPairElements(node.children, startTags, startTagIndex);
+    if (children.every((child, index) => child === node.children?.[index])) {
+      return node;
+    }
+    return { ...node, children };
+  });
+}
+
 function getDocumentChildren(document: SsmlDocument): SsmlNode[] {
   return document.children ?? (document.content === undefined ? [] : [document.content]);
 }
@@ -1029,7 +1131,9 @@ function parseEditableText(value: string, lang: string): SsmlNode[] {
     });
     const openingTagEnd = wrapper.indexOf(">") + 1;
     const children = parseSsml(`${wrapper.slice(0, openingTagEnd)}${value}</speak>`).children ?? [];
-    return children.some(isSsmlElement) ? children : [value];
+    return children.some(isSsmlElement)
+      ? preserveEmptyPairElements(children, collectEditableStartTags(value), { value: 0 })
+      : [value];
   } catch {
     return [value];
   }
@@ -1692,6 +1796,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             theme={isDarkTheme ? "vs-dark" : "light"}
             options={{
               automaticLayout: resolvedEditorOptions.automaticLayout ?? true,
+              autoClosingBrackets: "never",
               fontSize: resolvedEditorOptions.fontSize,
               hover: { enabled: "on" },
               inlayHints: { enabled: decorationsVisible ? "on" : "off" },

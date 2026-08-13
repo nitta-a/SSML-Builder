@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 
 import { useEffect, useRef, type ComponentProps } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const monacoState = vi.hoisted(() => {
   let value = "Hello world";
   let modelEol = "\n";
+  let changeHandler: ((value: string) => void) | null = null;
   let selectionStartOffset = 0;
   let selectionEndOffset = 0;
   const contentChangeListeners = new Set<() => void>();
@@ -81,6 +82,14 @@ const monacoState = vi.hoisted(() => {
   const monaco = {
     languages: {
       registerHoverProvider: vi.fn(disposable),
+      registerCompletionItemProvider: vi.fn(disposable),
+      CompletionItemKind: {
+        Snippet: 27,
+        Value: 18,
+      },
+      CompletionItemInsertTextRule: {
+        InsertAsSnippet: 4,
+      },
     },
     editor: {
       setModelMarkers: vi.fn(),
@@ -107,12 +116,14 @@ const monacoState = vi.hoisted(() => {
         editor.trigger,
         model.deltaDecorations,
         monaco.languages.registerHoverProvider,
+        monaco.languages.registerCompletionItemProvider,
         monaco.editor.setModelMarkers,
       ]) {
         mock.mockClear();
       }
       value = "Hello world";
       modelEol = "\n";
+      changeHandler = null;
       selectionStartOffset = 0;
       selectionEndOffset = 0;
       contentChangeListeners.clear();
@@ -129,7 +140,14 @@ const monacoState = vi.hoisted(() => {
     setEOL: (nextEol: string) => {
       modelEol = nextEol;
     },
-    emitContentChange: () => {
+    setChangeHandler: (handler: ((value: string) => void) | undefined) => {
+      changeHandler = handler ?? null;
+    },
+    emitContentChange: (nextValue?: string) => {
+      if (nextValue !== undefined) {
+        value = nextValue;
+      }
+      changeHandler?.(value);
       for (const listener of contentChangeListeners) {
         listener();
       }
@@ -144,11 +162,17 @@ vi.mock("@monaco-editor/react", () => ({
   default: function MockEditor({
     options,
     onMount,
+    onChange,
   }: {
-    options?: { inlayHints?: { enabled?: string } };
+    options?: {
+      autoClosingBrackets?: string;
+      inlayHints?: { enabled?: string };
+    };
     onMount?: (editor: typeof monacoState.editor, monaco: typeof monacoState.monaco) => void;
+    onChange?: (value: string) => void;
   }) {
     const mounted = useRef(false);
+    monacoState.setChangeHandler(onChange);
     useEffect(() => {
       if (!mounted.current) {
         mounted.current = true;
@@ -156,7 +180,13 @@ vi.mock("@monaco-editor/react", () => ({
       }
     }, [onMount]);
 
-    return <div data-testid="monaco-editor" data-inlay-hints={options?.inlayHints?.enabled} />;
+    return (
+      <div
+        data-testid="monaco-editor"
+        data-auto-closing-brackets={options?.autoClosingBrackets}
+        data-inlay-hints={options?.inlayHints?.enabled}
+      />
+    );
   },
 }));
 
@@ -293,6 +323,33 @@ describe("SsmlEditor props", () => {
     );
   });
 
+  it("keeps empty pair tags editable after a model content change", () => {
+    const onSsmlChange = vi.fn();
+    renderEditor({
+      document: {
+        type: "speak",
+        version: "1.0",
+        lang: "ja-JP",
+        children: ["<emphasis></emphasis>"],
+      },
+      onSsmlChange,
+    });
+
+    act(() => {
+      monacoState.emitContentChange("<emphasis></emphasis>");
+    });
+
+    expect(monacoState.editor.getValue()).toBe("<emphasis></emphasis>");
+    expect(onSsmlChange).toHaveBeenLastCalledWith(expect.stringContaining("<emphasis></emphasis>"));
+
+    act(() => {
+      monacoState.emitContentChange("<emphasis>テキスト</emphasis>");
+    });
+
+    expect(monacoState.editor.getValue()).toBe("<emphasis>テキスト</emphasis>");
+    expect(onSsmlChange).toHaveBeenLastCalledWith(expect.stringContaining("<emphasis>テキスト</emphasis>"));
+  });
+
   it("reflects showDecorations in the Monaco editor settings", async () => {
     const { rerender } = renderEditor({ showDecorations: false });
     expect(screen.getByTestId("monaco-editor").getAttribute("data-inlay-hints")).toBe("off");
@@ -302,6 +359,12 @@ describe("SsmlEditor props", () => {
 
     expect(screen.getByTestId("monaco-editor").getAttribute("data-inlay-hints")).toBe("on");
     expect(screen.getByRole("switch", { name: "装飾" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("disables automatic bracket closing for SSML completion", () => {
+    renderEditor();
+
+    expect(screen.getByTestId("monaco-editor").getAttribute("data-auto-closing-brackets")).toBe("never");
   });
 
   it("does not render the toolbar when showToolbar is false", () => {

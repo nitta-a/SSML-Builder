@@ -62,6 +62,20 @@ test("formatXml formats empty elements as a stable block", () => {
   assert.equal(formatXml(formatted), formatted);
 });
 
+test("formatXml keeps empty pair elements that may contain text", () => {
+  assert.equal(
+    formatXmlFragment("<emphasis></emphasis><prosody></prosody><voice></voice>"),
+    "<emphasis>\n</emphasis>\n<prosody>\n</prosody>\n<voice>\n</voice>",
+  );
+});
+
+test("formatXml self-closes intrinsically empty elements only", () => {
+  assert.equal(
+    formatXmlFragment("<break></break><bookmark></bookmark><mark></mark><mstts:silence></mstts:silence>"),
+    "<break/>\n<bookmark/>\n<mark/>\n<mstts:silence/>",
+  );
+});
+
 test("formatXmlFragment formats sibling elements from the editor body", () => {
   assert.equal(
     formatXmlFragment('<break time="500ms"/><emphasis level="strong">Important</emphasis>'),

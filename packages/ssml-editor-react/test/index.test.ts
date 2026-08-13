@@ -1,10 +1,50 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { Monaco } from "@monaco-editor/react";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "../src/buttonVisibility.ts";
 import { clearSsmlDocument } from "../src/clearSsmlDocument.ts";
 import { formatXml } from "../src/formatXml.ts";
+import { registerSsmlCompletionProvider } from "../src/ssmlCompletion.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
+
+type CompletionProvider = Parameters<Monaco["languages"]["registerCompletionItemProvider"]>[1];
+type CompletionMethod = NonNullable<CompletionProvider["provideCompletionItems"]>;
+type CompletionModel = Parameters<CompletionMethod>[0];
+type CompletionPosition = Parameters<CompletionMethod>[1];
+
+function createCompletionProvider(): CompletionProvider {
+  let provider: CompletionProvider | undefined;
+  const monaco = {
+    languages: {
+      CompletionItemKind: { Snippet: 1, Value: 2 },
+      CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
+      registerCompletionItemProvider: (_language: string, nextProvider: CompletionProvider) => {
+        provider = nextProvider;
+        return { dispose() {} };
+      },
+    },
+  } as unknown as Monaco;
+
+  registerSsmlCompletionProvider(monaco);
+  assert.ok(provider);
+  return provider;
+}
+
+function getSuggestions(source: string, column = source.length + 1) {
+  const provider = createCompletionProvider();
+  const model = {
+    getValue: () => source,
+    getOffsetAt: (position: CompletionPosition) => position.column - 1,
+    getValueInRange: (range: { startColumn: number; endColumn: number }) =>
+      source.slice(range.startColumn - 1, range.endColumn - 1),
+  } as CompletionModel;
+  const position = { lineNumber: 1, column } as CompletionPosition;
+  const result = provider.provideCompletionItems?.(model, position);
+
+  assert.ok(result && !(result instanceof Promise));
+  return result.suggestions;
+}
 
 test("shows editor buttons by default and hides configured buttons", () => {
   const visibility: SsmlEditorButtonVisibility = {
@@ -18,6 +58,80 @@ test("shows editor buttons by default and hides configured buttons", () => {
   assert.equal(isSsmlEditorButtonVisible(visibility, "format"), true);
   assert.equal(isSsmlEditorButtonVisible({ "mstts:silence": false }, "mstts:silence"), false);
   assert.equal(isSsmlEditorButtonVisible({ customTag: false }, "customTag"), false);
+});
+
+test("provides attribute values from the active SSML tag and attribute", () => {
+  const suggestions = getSuggestions('<prosody rate="');
+
+  assert.equal(
+    suggestions.some((suggestion) => suggestion.label === "x-slow" && suggestion.kind === 2),
+    true,
+  );
+  assert.equal(
+    suggestions.some((suggestion) => suggestion.label === "break"),
+    false,
+  );
+});
+
+test("supports single-quoted and case-insensitive attribute contexts", () => {
+  const provider = createCompletionProvider();
+  assert.deepEqual(provider.triggerCharacters, ["<", '"', "'"]);
+
+  const suggestions = getSuggestions("<SAY-AS INTERPRET-AS='");
+  assert.equal(
+    suggestions.some((suggestion) => suggestion.label === "characters" && suggestion.kind === 2),
+    true,
+  );
+});
+
+test("replaces a typed opening bracket when selecting a tag completion", () => {
+  const suggestions = getSuggestions("<");
+  const subSuggestion = suggestions.find((suggestion) => suggestion.label === "sub");
+
+  assert.deepEqual(subSuggestion?.range, {
+    startLineNumber: 1,
+    startColumn: 1,
+    endLineNumber: 1,
+    endColumn: 2,
+  });
+});
+
+test("replaces a partially typed tag prefix when selecting a tag completion", () => {
+  for (const [source, startColumn] of [
+    ["<s", 1],
+    ["<br", 1],
+    ["text <s", 6],
+  ] as const) {
+    const suggestions = getSuggestions(source);
+    const subSuggestion = suggestions.find((suggestion) => suggestion.label === "sub");
+
+    assert.deepEqual(subSuggestion?.range, {
+      startLineNumber: 1,
+      startColumn,
+      endLineNumber: 1,
+      endColumn: source.length + 1,
+    });
+  }
+});
+
+test("does not provide opening-tag completions while typing a closing tag", () => {
+  for (const source of ["</", "</p", "text </prosody"]) {
+    const suggestions = getSuggestions(source);
+
+    assert.deepEqual(suggestions, []);
+  }
+});
+
+test("replaces an automatically inserted closing bracket after an opening bracket", () => {
+  const suggestions = getSuggestions("<>", 2);
+  const subSuggestion = suggestions.find((suggestion) => suggestion.label === "sub");
+
+  assert.deepEqual(subSuggestion?.range, {
+    startLineNumber: 1,
+    startColumn: 1,
+    endLineNumber: 1,
+    endColumn: 3,
+  });
 });
 
 test("keeps wrapped insertion tags inline and terminates them with a line break", () => {

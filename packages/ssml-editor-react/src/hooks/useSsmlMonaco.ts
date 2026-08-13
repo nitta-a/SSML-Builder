@@ -8,11 +8,13 @@ import {
   type SsmlSyntaxError,
   updateSsmlDiagnostics,
 } from "../ssmlDiagnostics";
+import { registerSsmlCompletionProvider } from "../ssmlCompletion";
 import { findSsmlHoverTarget, formatSsmlHover } from "../ssmlHover";
 
 type MonacoLanguages = Monaco["languages"];
 type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
 type MonacoContentDisposable = ReturnType<MonacoEditor["onDidChangeModelContent"]>;
+type MonacoCompletionDisposable = ReturnType<MonacoLanguages["registerCompletionItemProvider"]>;
 type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
 type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
 type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
@@ -167,6 +169,7 @@ export function useSsmlMonaco({
 }: UseSsmlMonacoOptions): UseSsmlMonacoResult {
   const editorRef = useRef<MonacoEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
+  const completionProviderRef = useRef<MonacoCompletionDisposable | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const selectionChangeRef = useRef<MonacoDisposable | null>(null);
   const diagnosticsChangeRef = useRef<MonacoContentDisposable | null>(null);
@@ -225,6 +228,8 @@ export function useSsmlMonaco({
     }
     selectionChangeRef.current?.dispose();
     selectionChangeRef.current = null;
+    completionProviderRef.current?.dispose();
+    completionProviderRef.current = null;
     for (const disposable of selectionLayoutDisposablesRef.current) {
       disposable.dispose();
     }
@@ -244,6 +249,16 @@ export function useSsmlMonaco({
         onSelectionOverlayChangeRef.current(editor, true);
       });
       diagnosticsChangeRef.current = editor.onDidChangeModelContent(() => {
+        const model = editor.getModel();
+        if (model) {
+          inlineDecorationIdsRef.current = syncSsmlInlineDecorations(
+            model,
+            model.getValue(),
+            languageRef.current,
+            decorationsVisibleRef.current,
+            inlineDecorationIdsRef.current,
+          );
+        }
         scheduleSsmlDiagnostics(editor, monaco);
       });
       selectionLayoutDisposablesRef.current = [
@@ -251,6 +266,7 @@ export function useSsmlMonaco({
         editor.onDidLayoutChange(() => onSelectionOverlayChangeRef.current(editor, false)),
         editor.onDidContentSizeChange(() => onSelectionOverlayChangeRef.current(editor, false)),
       ];
+      completionProviderRef.current = registerSsmlCompletionProvider(monaco);
       releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, languageRef.current);
       runSsmlDiagnostics(editor, monaco);
       const model = editor.getModel();
