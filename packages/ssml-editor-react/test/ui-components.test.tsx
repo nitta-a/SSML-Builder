@@ -482,6 +482,116 @@ describe("SsmlEditor props", () => {
     expect(monacoState.getValue()).toBe('<break time="500ms"/>');
   });
 
+  it("offers a preferred quick fix for an unclosed tag", () => {
+    monacoState.setValue("<voice>Hello");
+    renderEditor();
+
+    const marker = monacoState.monaco.editor.setModelMarkers.mock.lastCall?.[2]?.[0];
+    const provider = monacoState.monaco.languages.registerCodeActionProvider.mock.lastCall?.[1];
+    const result = provider?.provideCodeActions?.(
+      monacoState.editor.getModel(),
+      marker ?? {
+        startLineNumber: 1,
+        startColumn: 1,
+        endLineNumber: 1,
+        endColumn: 1,
+      },
+      { markers: marker ? [marker] : [], trigger: 1 },
+      {} as never,
+    );
+    const actions = result && !(result instanceof Promise) ? result.actions : [];
+
+    expect(marker?.code).toEqual({ value: "UNCLOSED_TAG", target: "voice" });
+    expect(actions).toEqual([
+      expect.objectContaining({
+        title: '閉じタグ "</voice>" を自動挿入',
+        kind: "quickfix",
+        isPreferred: true,
+        edit: expect.objectContaining({
+          edits: [
+            expect.objectContaining({
+              textEdit: expect.objectContaining({
+                range: {
+                  startLineNumber: marker?.endLineNumber,
+                  startColumn: marker?.endColumn,
+                  endLineNumber: marker?.endLineNumber,
+                  endColumn: marker?.endColumn,
+                },
+                text: "</voice>",
+              }),
+            }),
+          ],
+        }),
+      }),
+    ]);
+
+    const edit = actions[0]?.edit?.edits[0];
+    if (edit && "textEdit" in edit) {
+      monacoState.editor.executeEdits("ssml-code-action", [
+        {
+          range: edit.textEdit.range,
+          text: edit.textEdit.text,
+        },
+      ]);
+    }
+    expect(monacoState.getValue()).toBe("<voice>Hello</voice>");
+  });
+
+  it("offers a preferred quick fix for an invalid attribute value", () => {
+    monacoState.setValue('<prosody rate="invalid">Hello</prosody>');
+    renderEditor();
+
+    const marker = monacoState.monaco.editor.setModelMarkers.mock.lastCall?.[2]?.[0];
+    const provider = monacoState.monaco.languages.registerCodeActionProvider.mock.lastCall?.[1];
+    const result = provider?.provideCodeActions?.(
+      monacoState.editor.getModel(),
+      marker ?? {
+        startLineNumber: 1,
+        startColumn: 1,
+        endLineNumber: 1,
+        endColumn: 1,
+      },
+      { markers: marker ? [marker] : [], trigger: 1 },
+      {} as never,
+    );
+    const actions = result && !(result instanceof Promise) ? result.actions : [];
+
+    expect(marker?.code).toEqual({ value: "INVALID_ATTR_VALUE", suggestedValue: "x-fast" });
+    expect(actions).toEqual([
+      expect.objectContaining({
+        title: '"x-fast" に変更',
+        kind: "quickfix",
+        isPreferred: true,
+        edit: expect.objectContaining({
+          edits: [
+            expect.objectContaining({
+              textEdit: expect.objectContaining({
+                text: "x-fast",
+                range: {
+                  startLineNumber: marker?.startLineNumber,
+                  startColumn: marker?.startColumn,
+                  endLineNumber: marker?.endLineNumber,
+                  endColumn: marker?.endColumn,
+                },
+              }),
+            }),
+          ],
+        }),
+      }),
+    ]);
+
+    const edit = actions[0]?.edit?.edits[0];
+    if (edit && "textEdit" in edit) {
+      monacoState.editor.executeEdits("ssml-code-action", [
+        {
+          range: edit.textEdit.range,
+          text: edit.textEdit.text,
+        },
+      ]);
+    }
+    expect(monacoState.getValue()).toBe('<prosody rate="x-fast">Hello</prosody>');
+  });
+
   it("cleans up the diagnostics listener and pending timer on unmount", () => {
     vi.useFakeTimers();
     try {
