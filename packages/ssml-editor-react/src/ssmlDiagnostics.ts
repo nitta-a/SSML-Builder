@@ -39,7 +39,8 @@ export interface SsmlSyntaxError {
 const MISSING_TIME_UNIT_PATTERN = /<break\b[^>]*?\s+time\s*=\s*(["'])(\s*)(\d+(?:\.\d+)?)(\s*)\1/i;
 const OPEN_TAG_PATTERN = /<([A-Za-z_][A-Za-z0-9_.:-]*)\b((?:"[^"]*"|'[^']*'|[^'">])*)>/g;
 const ATTRIBUTE_PATTERN = /([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*(["'])([\s\S]*?)\2/g;
-const UNCLOSED_TAG_MESSAGE_PATTERN = /^(?:Unclosed XML element: <([^>]+)>|Mismatched closing element: expected <\/([^>]+)> but found <\/speak>)$/;
+const UNCLOSED_TAG_MESSAGE_PATTERN =
+  /^(?:Unclosed XML element: <([^>]+)>|Mismatched closing element: expected <\/([^>]+)> but found <\/speak>)$/;
 
 function getSsmlAttributePresets(tagName: string, attributeName: string): readonly string[] | undefined {
   const tagPresets = Object.entries(SSML_ATTRIBUTE_PRESETS).find(
