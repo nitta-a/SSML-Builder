@@ -29,6 +29,13 @@ export interface EditorCopy {
   noAvailableOptions: string;
 }
 
+export interface ExpressAsStyleCategoryCopy {
+  categoryEmotions: string;
+  categoryScenarios: string;
+  categoryMedia: string;
+  categoryOther: string;
+}
+
 export interface InlineBadgeCopy {
   pause: string;
   pitch: string;
@@ -107,6 +114,21 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     previewSelection: "Preview selection",
     previewSelectionTitle: "Preview the selected SSML",
     noAvailableOptions: "No options are available.",
+  },
+};
+
+export const EXPRESS_AS_STYLE_CATEGORY_COPY: Readonly<Record<SsmlEditorLocale, ExpressAsStyleCategoryCopy>> = {
+  ja: {
+    categoryEmotions: "感情 / トーン",
+    categoryScenarios: "会話 / シナリオ",
+    categoryMedia: "メディア / 放送",
+    categoryOther: "その他",
+  },
+  en: {
+    categoryEmotions: "Emotions / Tone",
+    categoryScenarios: "Conversations / Scenarios",
+    categoryMedia: "Media / Broadcast",
+    categoryOther: "Other",
   },
 };
 

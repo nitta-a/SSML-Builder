@@ -301,6 +301,27 @@ describe("SsmlEditor toolbar menus", () => {
     expect(within(menu).queryByRole("menuitem", { name: "friendly" })).toBeNull();
   });
 
+  it("groups emotion styles into localized optgroups and keeps selection working", async () => {
+    const user = userEvent.setup();
+    renderEditor({ document: createVoiceDocument("en-US-JennyNeural"), locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    const menu = screen.getByRole("menu", { name: "Emotion" });
+    const select = within(menu).getByRole("combobox");
+    const groups = select.querySelectorAll("optgroup");
+
+    expect(groups.length).toBeGreaterThan(0);
+    expect(Array.from(groups).map((group) => group.getAttribute("label"))).toEqual(
+      expect.arrayContaining(["Emotions / Tone", "Conversations / Scenarios", "Media / Broadcast"]),
+    );
+
+    await user.selectOptions(select, "chat");
+
+    expect(monacoState.editor.executeEdits).toHaveBeenCalledTimes(1);
+    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toContain('<mstts:express-as style="chat">');
+    expect(screen.queryByRole("menu", { name: "Emotion" })).toBeNull();
+  });
+
   it("uses an inner Monaco voice instead of the document voice", async () => {
     const user = userEvent.setup();
     const value = '<voice name="en-US-GuyNeural">Hello</voice>';

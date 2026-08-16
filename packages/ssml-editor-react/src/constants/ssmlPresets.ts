@@ -38,23 +38,100 @@ export const PROSODY_VOLUME_PRESETS = ["silent", "x-soft", "soft", "medium", "lo
 
 export const EXPRESS_AS_STYLE_PRESETS = [
   "cheerful",
-  "friendly",
-  "calm",
   "sad",
   "angry",
+  "calm",
+  "fearful",
+  "depressed",
+  "disgruntled",
+  "embarrassed",
+  "empathetic",
+  "envious",
   "excited",
-  "serious",
-  "assistant",
-  "chat",
-  "customerservice",
+  "friendly",
+  "gentle",
   "hopeful",
-  "newscast",
+  "serious",
   "shouting",
   "terrified",
   "unfriendly",
   "whispering",
+  "chat",
+  "customerservice",
+  "assistant",
+  "livecommercial",
+  "poetry-reading",
+  "story",
+  "newscast",
+  "newscast-casual",
+  "newscast-formal",
+  "narration-professional",
+  "narration-relaxed",
+  "documentary-narration",
+  "advertisement_upbeat",
+  "sports_commentary",
+  "sports_commentary_excited",
 ] as const;
 export type ExpressAsStyle = (typeof EXPRESS_AS_STYLE_PRESETS)[number];
+
+export const EXPRESS_AS_STYLE_CATEGORY_GROUPS = {
+  emotions: [
+    "cheerful",
+    "sad",
+    "angry",
+    "calm",
+    "fearful",
+    "depressed",
+    "disgruntled",
+    "embarrassed",
+    "empathetic",
+    "envious",
+    "excited",
+    "friendly",
+    "gentle",
+    "hopeful",
+    "serious",
+    "shouting",
+    "terrified",
+    "unfriendly",
+    "whispering",
+  ],
+  scenarios: ["chat", "customerservice", "assistant", "livecommercial", "poetry-reading", "story"],
+  media: [
+    "newscast",
+    "newscast-casual",
+    "newscast-formal",
+    "narration-professional",
+    "narration-relaxed",
+    "documentary-narration",
+    "advertisement_upbeat",
+    "sports_commentary",
+    "sports_commentary_excited",
+  ],
+} as const satisfies Readonly<Record<string, readonly string[]>>;
+
+export type ExpressAsStyleCategory = "emotions" | "scenarios" | "media" | "other";
+
+export function getExpressAsStyleCategory(style: string): ExpressAsStyleCategory {
+  for (const [category, styles] of Object.entries(EXPRESS_AS_STYLE_CATEGORY_GROUPS) as Array<
+    ["emotions" | "scenarios" | "media", readonly string[]]
+  >) {
+    if (styles.includes(style)) {
+      return category;
+    }
+  }
+  return "other";
+}
+
+export function groupExpressAsStylesByCategory(
+  styles: readonly string[],
+): ReadonlyArray<{ category: ExpressAsStyleCategory; values: readonly string[] }> {
+  const categories: ExpressAsStyleCategory[] = ["emotions", "scenarios", "media", "other"];
+  return categories.flatMap((category) => {
+    const values = styles.filter((style) => getExpressAsStyleCategory(style) === category);
+    return values.length === 0 ? [] : [{ category, values }];
+  });
+}
 
 export const EXPRESS_AS_STYLES_BY_VOICE = {
   "ja-JP-NanamiNeural": ["chat", "cheerful", "customerservice"],
@@ -351,14 +428,6 @@ export const EXPRESS_AS_STYLE_DESCRIPTIONS = {
     ja: "明るく元気なスタイル",
     en: "Uses a cheerful style.",
   },
-  friendly: {
-    ja: "親しみやすいスタイル",
-    en: "Uses a friendly style.",
-  },
-  calm: {
-    ja: "穏やかなスタイル",
-    en: "Uses a calm style.",
-  },
   sad: {
     ja: "悲しげなスタイル",
     en: "Uses a sad style.",
@@ -367,33 +436,53 @@ export const EXPRESS_AS_STYLE_DESCRIPTIONS = {
     ja: "怒ったようなスタイル",
     en: "Uses an angry style.",
   },
+  calm: {
+    ja: "穏やかなスタイル",
+    en: "Uses a calm style.",
+  },
+  fearful: {
+    ja: "恐れを感じるスタイル",
+    en: "Uses a fearful style.",
+  },
+  depressed: {
+    ja: "落ち込んだスタイル",
+    en: "Uses a depressed style.",
+  },
+  disgruntled: {
+    ja: "不満を抱いたスタイル",
+    en: "Uses a disgruntled style.",
+  },
+  embarrassed: {
+    ja: "照れくさそうなスタイル",
+    en: "Uses an embarrassed style.",
+  },
+  empathetic: {
+    ja: "共感的なスタイル",
+    en: "Uses an empathetic style.",
+  },
+  envious: {
+    ja: "嫉妬を含んだスタイル",
+    en: "Uses an envious style.",
+  },
   excited: {
     ja: "興奮したスタイル",
     en: "Uses an excited style.",
   },
-  serious: {
-    ja: "真剣なスタイル",
-    en: "Uses a serious style.",
+  friendly: {
+    ja: "親しみやすいスタイル",
+    en: "Uses a friendly style.",
   },
-  assistant: {
-    ja: "デジタルアシスタント向けのスタイル",
-    en: "Uses a digital assistant style.",
-  },
-  chat: {
-    ja: "会話向けのスタイル",
-    en: "Uses a conversational style.",
-  },
-  customerservice: {
-    ja: "カスタマーサービス向けのスタイル",
-    en: "Uses a customer service style.",
+  gentle: {
+    ja: "優しいスタイル",
+    en: "Uses a gentle style.",
   },
   hopeful: {
     ja: "希望に満ちたスタイル",
     en: "Uses a hopeful style.",
   },
-  newscast: {
-    ja: "ニュース読み上げ向けのスタイル",
-    en: "Uses a newscast style.",
+  serious: {
+    ja: "真剣なスタイル",
+    en: "Uses a serious style.",
   },
   shouting: {
     ja: "叫ぶようなスタイル",
@@ -410,6 +499,66 @@ export const EXPRESS_AS_STYLE_DESCRIPTIONS = {
   whispering: {
     ja: "ささやくようなスタイル",
     en: "Uses a whispering style.",
+  },
+  assistant: {
+    ja: "デジタルアシスタント向けのスタイル",
+    en: "Uses a digital assistant style.",
+  },
+  chat: {
+    ja: "会話向けのスタイル",
+    en: "Uses a conversational style.",
+  },
+  customerservice: {
+    ja: "カスタマーサービス向けのスタイル",
+    en: "Uses a customer service style.",
+  },
+  livecommercial: {
+    ja: "ライブコマーシャル向けのスタイル",
+    en: "Uses a live commercial style.",
+  },
+  "poetry-reading": {
+    ja: "詩の朗読向けのスタイル",
+    en: "Uses a poetry reading style.",
+  },
+  story: {
+    ja: "物語の語り向けのスタイル",
+    en: "Uses a story style.",
+  },
+  newscast: {
+    ja: "ニュース読み上げ向けのスタイル",
+    en: "Uses a newscast style.",
+  },
+  "newscast-casual": {
+    ja: "カジュアルなニュース読み上げ向けのスタイル",
+    en: "Uses a casual newscast style.",
+  },
+  "newscast-formal": {
+    ja: "フォーマルなニュース読み上げ向けのスタイル",
+    en: "Uses a formal newscast style.",
+  },
+  "narration-professional": {
+    ja: "プロフェッショナルなナレーション向けのスタイル",
+    en: "Uses a professional narration style.",
+  },
+  "narration-relaxed": {
+    ja: "リラックスしたナレーション向けのスタイル",
+    en: "Uses a relaxed narration style.",
+  },
+  "documentary-narration": {
+    ja: "ドキュメンタリーのナレーション向けのスタイル",
+    en: "Uses a documentary narration style.",
+  },
+  advertisement_upbeat: {
+    ja: "明るい広告向けのスタイル",
+    en: "Uses an upbeat advertisement style.",
+  },
+  sports_commentary: {
+    ja: "スポーツ実況向けのスタイル",
+    en: "Uses a sports commentary style.",
+  },
+  sports_commentary_excited: {
+    ja: "興奮したスポーツ実況向けのスタイル",
+    en: "Uses an excited sports commentary style.",
   },
 } as const satisfies Readonly<Record<(typeof EXPRESS_AS_STYLE_PRESETS)[number], SsmlPresetDescription>>;
 
