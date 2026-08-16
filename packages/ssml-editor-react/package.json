@@ -1,7 +1,7 @@
 {
   "name": "@ssml-builder-js/ssml-editor-react",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "React-based SSML editor component",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
