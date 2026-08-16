@@ -900,7 +900,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     getSelectedSsml,
     getCurrentLineSsml,
     getFullSsml,
+    getOuterVoiceName,
     openPopoverId,
+    popoverVoiceName,
     popoverPosition,
     isPopoverOpen,
     togglePopover,
@@ -921,6 +923,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     language,
     text,
     decorationsVisible,
+    getOuterVoiceName,
     onSelectionOverlayChange: refreshSelectionOverlay,
     onSyntaxErrorChange: setSyntaxError,
   });
@@ -945,6 +948,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       showToolbarIcons,
       showToolbarText,
       toolbarButtonStyle,
+      emptyOptionsMessage: copy.noAvailableOptions,
       isReadOnly,
       openPopoverId,
       menuPosition: popoverPosition,
@@ -964,7 +968,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       return <TimingPopovers {...props} insertions={[insertion]} />;
     }
     if (isProsodyPopover) {
-      return <ProsodyPopovers {...props} insertions={[insertion]} />;
+      return <ProsodyPopovers {...props} insertions={[insertion]} voiceName={popoverVoiceName} />;
     }
     if (isTextPopover) {
       return <TextPopovers {...props} insertions={[insertion]} />;

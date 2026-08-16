@@ -239,6 +239,19 @@ const editorDocument = {
   children: ["Hello world"],
 };
 
+function createVoiceDocument(name: string) {
+  return {
+    ...editorDocument,
+    children: [
+      {
+        type: "voice" as const,
+        name,
+        children: ["Hello world"],
+      },
+    ],
+  };
+}
+
 function renderEditor(props: Partial<ComponentProps<typeof SsmlEditor>> = {}) {
   return render(<SsmlEditor document={editorDocument} {...props} />);
 }
@@ -274,6 +287,70 @@ describe("SsmlEditor toolbar menus", () => {
       await user.click(trigger);
       expect(screen.queryByRole("menu", { name: label })).toBeNull();
     }
+  });
+
+  it("filters emotion options using the document voice outside Monaco", async () => {
+    const user = userEvent.setup();
+    renderEditor({ document: createVoiceDocument("ja-JP-NanamiNeural"), locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    const menu = screen.getByRole("menu", { name: "Emotion" });
+
+    expect(within(menu).getByRole("menuitem", { name: "cheerful" })).toBeTruthy();
+    expect(within(menu).getByRole("menuitem", { name: "chat" })).toBeTruthy();
+    expect(within(menu).queryByRole("menuitem", { name: "friendly" })).toBeNull();
+  });
+
+  it("uses an inner Monaco voice instead of the document voice", async () => {
+    const user = userEvent.setup();
+    const value = '<voice name="en-US-GuyNeural">Hello</voice>';
+    monacoState.setValue(value);
+    monacoState.setSelectionOffsets(value.indexOf("Hello") + 2, value.indexOf("Hello") + 2);
+    renderEditor({ document: createVoiceDocument("ja-JP-KeitaNeural"), locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    const menu = screen.getByRole("menu", { name: "Emotion" });
+
+    expect(within(menu).getByRole("menuitem", { name: "friendly" })).toBeTruthy();
+    expect(within(menu).queryByRole("menuitem", { name: "assistant" })).toBeNull();
+  });
+
+  it("intersects custom emotion styles with the active voice styles", async () => {
+    const user = userEvent.setup();
+    renderEditor({
+      document: createVoiceDocument("ja-JP-NanamiNeural"),
+      emotionStyles: ["friendly", "cheerful", "custom"],
+      locale: "en",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    const options = within(screen.getByRole("menu", { name: "Emotion" })).getAllByRole("menuitem");
+
+    expect(options.map((option) => option.textContent)).toEqual(["cheerful"]);
+  });
+
+  it("shows a localized empty state when the active voice supports no styles", async () => {
+    const user = userEvent.setup();
+    renderEditor({ document: createVoiceDocument("ja-JP-KeitaNeural") });
+
+    await user.click(screen.getByRole("button", { name: "感情" }));
+
+    expect(within(screen.getByRole("menu", { name: "感情" })).getByRole("status").textContent).toBe(
+      "利用可能な選択肢がありません。",
+    );
+  });
+
+  it("inserts an emotion style allowed by the active voice", async () => {
+    const user = userEvent.setup();
+    monacoState.setSelectionOffsets(0, 5);
+    renderEditor({ document: createVoiceDocument("ja-JP-NanamiNeural"), locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    await user.click(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" }));
+
+    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toBe(
+      '<mstts:express-as style="chat">Hello</mstts:express-as>\n',
+    );
   });
 
   it("inserts a tag and closes the popover when an option is clicked", async () => {

@@ -18,6 +18,7 @@ import type {
 import { clearSsmlDocument } from "../clearSsmlDocument";
 import { formatXmlFragment, INTRINSICALLY_EMPTY_ELEMENTS } from "../formatXml";
 import { createSsmlInsertionEdit } from "../ssmlInsertion";
+import { findSsmlVoiceContext } from "../ssmlContext";
 import type { MonacoEditor, SsmlSyntaxError } from "../ssmlDiagnostics";
 import { SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "../constants/ui";
 
@@ -228,6 +229,29 @@ function findFirstElement<T extends SsmlElement>(
   return undefined;
 }
 
+function findFirstElementPath(
+  nodes: SsmlNode[],
+  predicate: (element: SsmlElement) => boolean,
+  ancestors: readonly SsmlElement[] = [],
+): SsmlElement[] | undefined {
+  for (const node of nodes) {
+    if (!isSsmlElement(node)) {
+      continue;
+    }
+
+    const path = [...ancestors, node];
+    if (predicate(node)) {
+      return path;
+    }
+
+    const childPath = findFirstElementPath(node.children ?? [], predicate, path);
+    if (childPath) {
+      return childPath;
+    }
+  }
+  return undefined;
+}
+
 function updateFirstElement<T extends SsmlElement>(
   nodes: SsmlNode[],
   predicate: (element: SsmlElement) => element is T,
@@ -297,10 +321,19 @@ function serializeEditableText(nodes: SsmlNode[], lang: string): string {
   return xml.slice(contentStart, -"</speak>".length);
 }
 
-function getEditableChildren(document: SsmlDocument): SsmlNode[] {
+function getEditableRegion(document: SsmlDocument): { children: SsmlNode[]; voiceName?: string } {
   const children = getDocumentChildren(document);
-  const element = findFirstElement(children, isProsody) ?? findFirstElement(children, isVoice);
-  return element?.children ?? children;
+  const path = findFirstElementPath(children, isProsody) ?? findFirstElementPath(children, isVoice);
+  const element = path ? path[path.length - 1] : undefined;
+  const voice = path ? [...path].reverse().find(isVoice) : undefined;
+  return {
+    children: element?.children ?? children,
+    ...(voice ? { voiceName: voice.name } : {}),
+  };
+}
+
+function getEditableChildren(document: SsmlDocument): SsmlNode[] {
+  return getEditableRegion(document).children;
 }
 
 function getEditableText(document: SsmlDocument): string {
@@ -399,6 +432,19 @@ function getSelectedText(editor: MonacoEditor): string | null {
   return selectedText.length > 0 ? selectedText : getCurrentLineText(editor);
 }
 
+function getEffectiveVoiceName(editor: MonacoEditor, document: SsmlDocument): string | undefined {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  const outerVoiceName = getEditableRegion(document).voiceName;
+  if (!model || !selection) {
+    return outerVoiceName;
+  }
+
+  const offset = model.getOffsetAt(selection.getStartPosition());
+  const voiceContext = findSsmlVoiceContext(model.getValue(), offset);
+  return voiceContext === undefined ? outerVoiceName : voiceContext.voiceName;
+}
+
 function getSelectedSsml(editor: MonacoEditor, document: SsmlDocument): string | null {
   const selectedText = getSelectedText(editor);
   return selectedText === null ? null : buildPartialSsml(selectedText, getPartialContext(document));
@@ -477,6 +523,7 @@ export function useSsmlEditorState({
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const [popoverVoiceName, setPopoverVoiceName] = useState<string | undefined>(undefined);
   const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null);
   const helpPanelId = useId();
   const draftDocumentRef = useRef(document);
@@ -509,6 +556,7 @@ export function useSsmlEditorState({
 
   const closePopover = useCallback((restoreFocus = false): void => {
     setOpenPopoverId(null);
+    setPopoverVoiceName(undefined);
     setPopoverPosition(null);
     if (restoreFocus) {
       activePopoverTriggerRef.current?.focus();
@@ -518,10 +566,14 @@ export function useSsmlEditorState({
   const togglePopover = useCallback((id: string, trigger: HTMLButtonElement): void => {
     setOpenPopoverId((currentId) => {
       if (currentId === id) {
+        setPopoverVoiceName(undefined);
         setPopoverPosition(null);
         return null;
       }
       activePopoverTriggerRef.current = trigger;
+      setPopoverVoiceName(
+        editorRef.current ? getEffectiveVoiceName(editorRef.current, draftDocumentRef.current) : undefined,
+      );
       return id;
     });
   }, []);
@@ -691,6 +743,7 @@ export function useSsmlEditorState({
       ),
     [],
   );
+  const getOuterVoiceName = useCallback(() => getEditableRegion(draftDocumentRef.current).voiceName, []);
 
   return {
     editorRef,
@@ -721,7 +774,9 @@ export function useSsmlEditorState({
     getSelectedSsml: getSelectedSsmlValue,
     getCurrentLineSsml: getCurrentLineSsmlValue,
     getFullSsml,
+    getOuterVoiceName,
     openPopoverId,
+    popoverVoiceName,
     popoverPosition,
     isPopoverOpen: (id: string) => openPopoverId === id,
     togglePopover,

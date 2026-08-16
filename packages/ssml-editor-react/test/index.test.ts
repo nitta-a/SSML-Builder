@@ -15,7 +15,7 @@ type CompletionMethod = NonNullable<CompletionProvider["provideCompletionItems"]
 type CompletionModel = Parameters<CompletionMethod>[0];
 type CompletionPosition = Parameters<CompletionMethod>[1];
 
-function createCompletionProvider(): CompletionProvider {
+function createCompletionProvider(outerVoiceName?: string): CompletionProvider {
   let provider: CompletionProvider | undefined;
   const monaco = {
     languages: {
@@ -28,13 +28,13 @@ function createCompletionProvider(): CompletionProvider {
     },
   } as unknown as Monaco;
 
-  registerSsmlCompletionProvider(monaco);
+  registerSsmlCompletionProvider(monaco, { getOuterVoiceName: () => outerVoiceName });
   assert.ok(provider);
   return provider;
 }
 
-function getSuggestions(source: string, column = source.length + 1) {
-  const provider = createCompletionProvider();
+function getSuggestions(source: string, column = source.length + 1, outerVoiceName?: string) {
+  const provider = createCompletionProvider(outerVoiceName);
   const model = {
     getValue: () => source,
     getOffsetAt: (position: CompletionPosition) => position.column - 1,
@@ -96,12 +96,56 @@ test("resolves express-as styles by normalized voice name with compatible fallba
 });
 
 test("finds the innermost open voice at a source offset", () => {
-  const source =
-    '<voice name="outer"><prosody><voice name=\'inner\'>text</voice><mstts:express-as style="';
+  const source = '<voice name="outer"><prosody><voice name=\'inner\'>text</voice><mstts:express-as style="';
 
   assert.deepEqual(findSsmlVoiceContext(source, source.length), { voiceName: "outer" });
   assert.deepEqual(findSsmlVoiceContext(source, source.indexOf("text") + 2), { voiceName: "inner" });
   assert.deepEqual(findSsmlVoiceContext("<voice>text", "<voice>text".length), {});
+});
+
+test("filters express-as style completions by the effective voice", () => {
+  const outerVoiceSuggestions = getSuggestions('<mstts:express-as style="', undefined, "ja-JP-NanamiNeural");
+  assert.deepEqual(
+    outerVoiceSuggestions.map((suggestion) => suggestion.label),
+    ["cheerful", "chat", "customerservice"],
+  );
+
+  const innerVoiceSuggestions = getSuggestions(
+    '<voice name="en-US-GuyNeural"><mstts:express-as style="',
+    undefined,
+    "ja-JP-KeitaNeural",
+  );
+  assert.equal(
+    innerVoiceSuggestions.some((suggestion) => suggestion.label === "friendly"),
+    true,
+  );
+  assert.equal(
+    innerVoiceSuggestions.some((suggestion) => suggestion.label === "assistant"),
+    false,
+  );
+
+  const unknownInnerVoiceSuggestions = getSuggestions(
+    '<voice name="custom"><mstts:express-as style="',
+    undefined,
+    "ja-JP-KeitaNeural",
+  );
+  assert.equal(
+    unknownInnerVoiceSuggestions.some((suggestion) => suggestion.label === "calm"),
+    true,
+  );
+});
+
+test("keeps non-style attribute completions independent of voice", () => {
+  const suggestions = getSuggestions(
+    '<voice name="ja-JP-KeitaNeural"><mstts:express-as role="',
+    undefined,
+    "ja-JP-KeitaNeural",
+  );
+
+  assert.equal(
+    suggestions.some((suggestion) => suggestion.label === "Girl"),
+    true,
+  );
 });
 
 test("ignores XML non-content and quoted brackets while finding voice context", () => {

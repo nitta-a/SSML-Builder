@@ -119,6 +119,12 @@ export const editorStyles: Record<string, CSSProperties> = {
     whiteSpace: "nowrap",
     cursor: "pointer",
   },
+  toolbarEmpty: {
+    margin: 0,
+    padding: "0.375rem 0.5rem",
+    color: "var(--ssml-editor-color)",
+    whiteSpace: "nowrap",
+  },
   helpPanel: {
     display: "grid",
     gap: "0.5rem",

@@ -10,6 +10,7 @@ export interface InsertionPopoverProps {
   showToolbarIcons: boolean;
   showToolbarText: boolean;
   toolbarButtonStyle: CSSProperties;
+  emptyOptionsMessage: string;
   isReadOnly: boolean;
   isOpen: boolean;
   menuPosition: { top: number; left: number } | null;
@@ -35,6 +36,7 @@ export function InsertionPopover({
   showToolbarIcons,
   showToolbarText,
   toolbarButtonStyle,
+  emptyOptionsMessage,
   isReadOnly,
   isOpen,
   menuPosition,
@@ -54,25 +56,31 @@ export function InsertionPopover({
         role="menu"
         aria-label={insertion.labels[language]}
       >
-        {insertion.options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="menuitem"
-            style={styles.toolbarOption}
-            title={option.descriptions?.[language] ?? insertion.descriptions[language]}
-            disabled={isReadOnly}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              if (!isReadOnly) {
-                onApply(insertion, option);
-              }
-              onClose();
-            }}
-          >
-            {option.labels[language]}
-          </button>
-        ))}
+        {insertion.options.length === 0 ? (
+          <p role="status" style={styles.toolbarEmpty}>
+            {emptyOptionsMessage}
+          </p>
+        ) : (
+          insertion.options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="menuitem"
+              style={styles.toolbarOption}
+              title={option.descriptions?.[language] ?? insertion.descriptions[language]}
+              disabled={isReadOnly}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                if (!isReadOnly) {
+                  onApply(insertion, option);
+                }
+                onClose();
+              }}
+            >
+              {option.labels[language]}
+            </button>
+          ))
+        )}
       </div>
     ) : null;
 
