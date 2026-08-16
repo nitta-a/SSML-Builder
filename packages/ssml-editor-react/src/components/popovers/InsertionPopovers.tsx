@@ -9,6 +9,7 @@ export interface InsertionPopoversProps {
   showToolbarIcons: boolean;
   showToolbarText: boolean;
   toolbarButtonStyle: CSSProperties;
+  emptyOptionsMessage: string;
   isReadOnly: boolean;
   openPopoverId: string | null;
   menuPosition: { top: number; left: number } | null;

@@ -37,6 +37,7 @@ export interface UseSsmlMonacoOptions {
   language: SsmlEditorLanguage;
   text: string;
   decorationsVisible: boolean;
+  getOuterVoiceName: () => string | undefined;
   onSelectionOverlayChange: (editor: MonacoEditor, notify: boolean) => void;
   onSyntaxErrorChange: (error: SsmlSyntaxError | null) => void;
 }
@@ -169,6 +170,7 @@ export function useSsmlMonaco({
   language,
   text,
   decorationsVisible,
+  getOuterVoiceName,
   onSelectionOverlayChange,
   onSyntaxErrorChange,
 }: UseSsmlMonacoOptions): UseSsmlMonacoResult {
@@ -185,11 +187,13 @@ export function useSsmlMonaco({
   const inlineDecorationIdsRef = useRef<string[]>([]);
   const languageRef = useRef(language);
   const decorationsVisibleRef = useRef(decorationsVisible);
+  const getOuterVoiceNameRef = useRef(getOuterVoiceName);
   const onSelectionOverlayChangeRef = useRef(onSelectionOverlayChange);
   const onSyntaxErrorChangeRef = useRef(onSyntaxErrorChange);
 
   languageRef.current = language;
   decorationsVisibleRef.current = decorationsVisible;
+  getOuterVoiceNameRef.current = getOuterVoiceName;
   onSelectionOverlayChangeRef.current = onSelectionOverlayChange;
   onSyntaxErrorChangeRef.current = onSyntaxErrorChange;
 
@@ -275,7 +279,10 @@ export function useSsmlMonaco({
         editor.onDidLayoutChange(() => onSelectionOverlayChangeRef.current(editor, false)),
         editor.onDidContentSizeChange(() => onSelectionOverlayChangeRef.current(editor, false)),
       ];
-      completionProviderRef.current = registerSsmlCompletionProvider(monaco);
+      completionProviderRef.current = registerSsmlCompletionProvider(monaco, {
+        getOuterVoiceName: () => getOuterVoiceNameRef.current(),
+        model: editor.getModel(),
+      });
       codeActionProviderRef.current = registerSsmlCodeActions(monaco);
       releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, languageRef.current);
       runSsmlDiagnostics(editor, monaco);

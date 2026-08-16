@@ -1,6 +1,8 @@
 import type { Monaco } from "@monaco-editor/react";
 // @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
-import { SSML_ATTRIBUTE_PRESETS } from "./constants/ssmlPresets.ts";
+import { resolveExpressAsStyles, SSML_ATTRIBUTE_PRESETS } from "./constants/ssmlPresets.ts";
+// @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
+import { findSsmlVoiceContext } from "./ssmlContext.ts";
 
 type MonacoLanguages = Monaco["languages"];
 type MonacoCompletionProvider = Parameters<MonacoLanguages["registerCompletionItemProvider"]>[1];
@@ -9,6 +11,12 @@ type MonacoCompletionModel = Parameters<MonacoCompletionMethod>[0];
 type MonacoCompletionPosition = Parameters<MonacoCompletionMethod>[1];
 
 const SSML_ATTRIBUTE_VALUE_PATTERN = /<([\w:-]+)\s+[^>]*?\b([\w:-]+)=["']([^"']*)$/i;
+const EXPRESS_AS_TAG_NAMES = new Set(["mstts:express-as", "express-as", "expressas"]);
+
+export interface SsmlCompletionProviderOptions {
+  getOuterVoiceName?: () => string | undefined;
+  model?: MonacoCompletionModel | null;
+}
 
 function findSsmlAttributePresets(tagName: string, attributeName: string): readonly string[] | undefined {
   const tagPresets = Object.entries(SSML_ATTRIBUTE_PRESETS).find(
@@ -41,19 +49,34 @@ const SSML_COMPLETION_SNIPPETS = [
 
 export function registerSsmlCompletionProvider(
   monaco: Monaco,
+  options: SsmlCompletionProviderOptions = {},
 ): ReturnType<MonacoLanguages["registerCompletionItemProvider"]> {
   const provider: MonacoCompletionProvider = {
     provideCompletionItems(model: MonacoCompletionModel, position: MonacoCompletionPosition) {
-      const textUntilPosition = model.getValue().slice(0, model.getOffsetAt(position));
+      if (options.model && options.model !== model) {
+        return { suggestions: [] };
+      }
+
+      const value = model.getValue();
+      const offset = model.getOffsetAt(position);
+      const textUntilPosition = value.slice(0, offset);
       const isClosingTag = /<\/[a-zA-Z0-9:-]*$/.test(textUntilPosition);
       if (isClosingTag) {
         return { suggestions: [] };
       }
 
       const attributeMatch = SSML_ATTRIBUTE_VALUE_PATTERN.exec(textUntilPosition);
-      const attributeValues = attributeMatch
-        ? findSsmlAttributePresets(attributeMatch[1], attributeMatch[2])
-        : undefined;
+      let attributeValues = attributeMatch ? findSsmlAttributePresets(attributeMatch[1], attributeMatch[2]) : undefined;
+      if (
+        attributeMatch &&
+        attributeValues &&
+        EXPRESS_AS_TAG_NAMES.has(attributeMatch[1].toLowerCase()) &&
+        attributeMatch[2].toLowerCase() === "style"
+      ) {
+        const voiceContext = findSsmlVoiceContext(value, offset);
+        const voiceName = voiceContext === undefined ? options.getOuterVoiceName?.() : voiceContext.voiceName;
+        attributeValues = resolveExpressAsStyles(voiceName, attributeValues);
+      }
       const openTagMatch = textUntilPosition.match(/<(?!\/)[a-zA-Z0-9:-]*$/);
       const openTagLength = openTagMatch?.[0].length ?? 0;
       const isAfterBracket =

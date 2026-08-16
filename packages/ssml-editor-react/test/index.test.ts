@@ -3,8 +3,10 @@ import test from "node:test";
 import type { Monaco } from "@monaco-editor/react";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "../src/buttonVisibility.ts";
 import { clearSsmlDocument } from "../src/clearSsmlDocument.ts";
+import { EXPRESS_AS_STYLE_PRESETS, resolveExpressAsStyles } from "../src/constants/ssmlPresets.ts";
 import { formatXml } from "../src/formatXml.ts";
 import { registerSsmlCompletionProvider } from "../src/ssmlCompletion.ts";
+import { findSsmlVoiceContext } from "../src/ssmlContext.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
 
@@ -13,7 +15,7 @@ type CompletionMethod = NonNullable<CompletionProvider["provideCompletionItems"]
 type CompletionModel = Parameters<CompletionMethod>[0];
 type CompletionPosition = Parameters<CompletionMethod>[1];
 
-function createCompletionProvider(): CompletionProvider {
+function createCompletionProvider(outerVoiceName?: string, model?: CompletionModel): CompletionProvider {
   let provider: CompletionProvider | undefined;
   const monaco = {
     languages: {
@@ -26,19 +28,23 @@ function createCompletionProvider(): CompletionProvider {
     },
   } as unknown as Monaco;
 
-  registerSsmlCompletionProvider(monaco);
+  registerSsmlCompletionProvider(monaco, { getOuterVoiceName: () => outerVoiceName, model });
   assert.ok(provider);
   return provider;
 }
 
-function getSuggestions(source: string, column = source.length + 1) {
-  const provider = createCompletionProvider();
-  const model = {
+function createCompletionModel(source: string): CompletionModel {
+  return {
     getValue: () => source,
     getOffsetAt: (position: CompletionPosition) => position.column - 1,
     getValueInRange: (range: { startColumn: number; endColumn: number }) =>
       source.slice(range.startColumn - 1, range.endColumn - 1),
   } as CompletionModel;
+}
+
+function getSuggestions(source: string, column = source.length + 1, outerVoiceName?: string) {
+  const provider = createCompletionProvider(outerVoiceName);
+  const model = createCompletionModel(source);
   const position = { lineNumber: 1, column } as CompletionPosition;
   const result = provider.provideCompletionItems?.(model, position);
 
@@ -82,6 +88,91 @@ test("supports single-quoted and case-insensitive attribute contexts", () => {
     suggestions.some((suggestion) => suggestion.label === "characters" && suggestion.kind === 2),
     true,
   );
+});
+
+test("resolves express-as styles by normalized voice name with compatible fallbacks", () => {
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-NanamiNeural"), ["cheerful", "chat", "customerservice"]);
+  assert.deepEqual(resolveExpressAsStyles("  JA-jp-nanamineural  "), ["cheerful", "chat", "customerservice"]);
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-KeitaNeural"), []);
+  assert.deepEqual(resolveExpressAsStyles(undefined), EXPRESS_AS_STYLE_PRESETS);
+  assert.deepEqual(resolveExpressAsStyles("custom-Voice", ["custom", "cheerful"]), ["custom", "cheerful"]);
+  assert.deepEqual(resolveExpressAsStyles("en-US-GuyNeural", ["custom", "friendly", "chat"]), ["friendly"]);
+});
+
+test("finds the innermost open voice at a source offset", () => {
+  const source = '<voice name="outer"><prosody><voice name=\'inner\'>text</voice><mstts:express-as style="';
+
+  assert.deepEqual(findSsmlVoiceContext(source, source.length), { voiceName: "outer" });
+  assert.deepEqual(findSsmlVoiceContext(source, source.indexOf("text") + 2), { voiceName: "inner" });
+  assert.deepEqual(findSsmlVoiceContext("<voice>text", "<voice>text".length), {});
+});
+
+test("filters express-as style completions by the effective voice", () => {
+  const outerVoiceSuggestions = getSuggestions('<mstts:express-as style="', undefined, "ja-JP-NanamiNeural");
+  assert.deepEqual(
+    outerVoiceSuggestions.map((suggestion) => suggestion.label),
+    ["cheerful", "chat", "customerservice"],
+  );
+
+  const innerVoiceSuggestions = getSuggestions(
+    '<voice name="en-US-GuyNeural"><mstts:express-as style="',
+    undefined,
+    "ja-JP-KeitaNeural",
+  );
+  assert.equal(
+    innerVoiceSuggestions.some((suggestion) => suggestion.label === "friendly"),
+    true,
+  );
+  assert.equal(
+    innerVoiceSuggestions.some((suggestion) => suggestion.label === "assistant"),
+    false,
+  );
+
+  const unknownInnerVoiceSuggestions = getSuggestions(
+    '<voice name="custom"><mstts:express-as style="',
+    undefined,
+    "ja-JP-KeitaNeural",
+  );
+  assert.equal(
+    unknownInnerVoiceSuggestions.some((suggestion) => suggestion.label === "calm"),
+    true,
+  );
+});
+
+test("keeps non-style attribute completions independent of voice", () => {
+  const suggestions = getSuggestions(
+    '<voice name="ja-JP-KeitaNeural"><mstts:express-as role="',
+    undefined,
+    "ja-JP-KeitaNeural",
+  );
+
+  assert.equal(
+    suggestions.some((suggestion) => suggestion.label === "Girl"),
+    true,
+  );
+});
+
+test("does not provide completion items for a different Monaco model", () => {
+  const source = '<mstts:express-as style="';
+  const provider = createCompletionProvider("en-US-JennyNeural", createCompletionModel(source));
+  const result = provider.provideCompletionItems?.(
+    createCompletionModel(source),
+    { lineNumber: 1, column: source.length + 1 } as CompletionPosition,
+    {} as never,
+    {} as never,
+  );
+
+  assert.ok(result && !(result instanceof Promise));
+  assert.deepEqual(result.suggestions, []);
+});
+
+test("ignores XML non-content and quoted brackets while finding voice context", () => {
+  const source =
+    '<?xml version="1.0"?><voice name="outer > inner"><!-- <voice name="comment"> --><![CDATA[<voice name="cdata">]]><prosody>text';
+
+  assert.deepEqual(findSsmlVoiceContext(source, source.length), { voiceName: "outer > inner" });
+  assert.equal(findSsmlVoiceContext('<voice name="closed"></voice><prosody>text', 44), undefined);
+  assert.doesNotThrow(() => findSsmlVoiceContext('<voice name="unfinished', 24));
 });
 
 test("replaces a typed opening bracket when selecting a tag completion", () => {

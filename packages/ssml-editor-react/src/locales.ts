@@ -26,6 +26,7 @@ export interface EditorCopy {
   selectionCountSuffix: string;
   previewSelection: string;
   previewSelectionTitle: string;
+  noAvailableOptions: string;
 }
 
 export interface InlineBadgeCopy {
@@ -79,6 +80,7 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     selectionCountSuffix: "文字",
     previewSelection: "選択部分を試聴",
     previewSelectionTitle: "選択部分のSSMLを試聴",
+    noAvailableOptions: "利用可能な選択肢がありません。",
   },
   en: {
     editorAriaLabel: "SSML editor",
@@ -104,6 +106,7 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     selectionCountSuffix: " characters",
     previewSelection: "Preview selection",
     previewSelectionTitle: "Preview the selected SSML",
+    noAvailableOptions: "No options are available.",
   },
 };
 
