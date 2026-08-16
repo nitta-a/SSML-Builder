@@ -345,10 +345,34 @@ describe("SsmlEditor toolbar menus", () => {
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
     const menu = screen.getByRole("menu", { name: "Emotion" });
+    const select = within(menu).getByRole("combobox", { name: "Emotion" });
 
-    expect(within(menu).getByRole("menuitem", { name: "cheerful" })).toBeTruthy();
-    expect(within(menu).getByRole("menuitem", { name: "chat" })).toBeTruthy();
-    expect(within(menu).queryByRole("menuitem", { name: "friendly" })).toBeNull();
+    expect(within(select).getByRole("option", { name: "cheerful" })).toBeTruthy();
+    expect(within(select).getByRole("option", { name: "chat" })).toBeTruthy();
+    expect(within(select).queryByRole("option", { name: "friendly" })).toBeNull();
+  });
+
+  it("groups emotion styles into localized optgroups and keeps custom styles in Other", async () => {
+    const user = userEvent.setup();
+    renderEditor({
+      emotionStyles: ["cheerful", "chat", "newscast", "custom"],
+      locale: "en",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    const select = screen.getByRole("combobox", { name: "Emotion" });
+    const groups = Array.from(select.querySelectorAll("optgroup"));
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Emotions / Tone",
+      "Conversations / Scenarios",
+      "Media / Broadcast",
+      "Other",
+    ]);
+    expect(within(groups[0] as HTMLElement).getByRole("option", { name: "cheerful" })).toBeTruthy();
+    expect(within(groups[1] as HTMLElement).getByRole("option", { name: "chat" })).toBeTruthy();
+    expect(within(groups[2] as HTMLElement).getByRole("option", { name: "newscast" })).toBeTruthy();
+    expect(within(groups[3] as HTMLElement).getByRole("option", { name: "custom" })).toBeTruthy();
   });
 
   it("uses an inner Monaco voice instead of the document voice", async () => {
@@ -361,8 +385,8 @@ describe("SsmlEditor toolbar menus", () => {
     await user.click(screen.getByRole("button", { name: "Emotion" }));
     const menu = screen.getByRole("menu", { name: "Emotion" });
 
-    expect(within(menu).getByRole("menuitem", { name: "friendly" })).toBeTruthy();
-    expect(within(menu).queryByRole("menuitem", { name: "assistant" })).toBeNull();
+    expect(within(menu).getByRole("option", { name: "friendly" })).toBeTruthy();
+    expect(within(menu).queryByRole("option", { name: "assistant" })).toBeNull();
   });
 
   it("intersects custom emotion styles with the active voice styles", async () => {
@@ -374,7 +398,9 @@ describe("SsmlEditor toolbar menus", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
-    const options = within(screen.getByRole("menu", { name: "Emotion" })).getAllByRole("menuitem");
+    const options = within(screen.getByRole("combobox", { name: "Emotion" }))
+      .getAllByRole("option")
+      .filter((option) => option.getAttribute("value") !== "");
 
     expect(options.map((option) => option.textContent)).toEqual(["cheerful"]);
   });
@@ -395,7 +421,9 @@ describe("SsmlEditor toolbar menus", () => {
     const { rerender } = renderEditor({ document: createVoiceDocument("ja-JP-NanamiNeural"), locale: "en" });
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
-    expect(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" })).toBeTruthy();
+    expect(
+      within(screen.getByRole("combobox", { name: "Emotion" })).getByRole("option", { name: "chat" }),
+    ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Emotion" }));
 
     rerender(<SsmlEditor document={createVoiceDocument("ja-JP-KeitaNeural")} locale="en" />);
@@ -412,7 +440,7 @@ describe("SsmlEditor toolbar menus", () => {
     renderEditor({ document: createVoiceDocument("ja-JP-NanamiNeural"), locale: "en" });
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
-    await user.click(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Emotion" }), "chat");
 
     expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toBe(
       '<mstts:express-as style="chat">Hello</mstts:express-as>\n',

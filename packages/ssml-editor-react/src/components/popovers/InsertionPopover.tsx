@@ -3,6 +3,11 @@ import { createPortal } from "react-dom";
 import type { SsmlEditorInsertionDefinition, SsmlEditorInsertionOption } from "../../SsmlEditor";
 import { editorStyles as styles } from "../../styles/editorStyles";
 
+export interface InsertionOptionGroup {
+  label: string;
+  options: readonly SsmlEditorInsertionOption[];
+}
+
 export interface InsertionPopoverProps {
   insertion: SsmlEditorInsertionDefinition;
   language: "ja" | "en";
@@ -18,6 +23,7 @@ export interface InsertionPopoverProps {
   onToggle: (trigger: HTMLButtonElement) => void;
   onClose: () => void;
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
+  optionGroups?: readonly InsertionOptionGroup[];
 }
 
 function getInsertionTitle(insertion: SsmlEditorInsertionDefinition, language: "ja" | "en"): string {
@@ -44,7 +50,9 @@ export function InsertionPopover({
   onToggle,
   onClose,
   onApply,
+  optionGroups,
 }: InsertionPopoverProps): ReactElement {
+  const availableOptions = optionGroups?.flatMap((group) => group.options) ?? insertion.options;
   const menu =
     isOpen && menuPosition && typeof document !== "undefined" ? (
       <div
@@ -56,10 +64,37 @@ export function InsertionPopover({
         role="menu"
         aria-label={insertion.labels[language]}
       >
-        {insertion.options.length === 0 ? (
+        {availableOptions.length === 0 ? (
           <p role="status" style={styles.toolbarEmpty}>
             {emptyOptionsMessage}
           </p>
+        ) : optionGroups ? (
+          <select
+            aria-label={insertion.labels[language]}
+            defaultValue=""
+            disabled={isReadOnly}
+            style={styles.toolbarSelect}
+            onChange={(event) => {
+              const option = availableOptions.find((candidate) => candidate.value === event.currentTarget.value);
+              if (option && !isReadOnly) {
+                onApply(insertion, option);
+                onClose();
+              }
+            }}
+          >
+            <option value="" disabled hidden>
+              {insertion.labels[language]}
+            </option>
+            {optionGroups.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.value} value={option.value} title={option.descriptions?.[language]}>
+                    {option.labels[language]}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         ) : (
           insertion.options.map((option) => (
             <button

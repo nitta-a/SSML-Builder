@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactElement, Ref } from "react";
 import type { SsmlEditorInsertionDefinition, SsmlEditorInsertionOption } from "../../SsmlEditor";
-import { InsertionPopover } from "./InsertionPopover";
+import { InsertionPopover, type InsertionOptionGroup } from "./InsertionPopover";
 
 export interface InsertionPopoversProps {
   insertions: readonly SsmlEditorInsertionDefinition[];
@@ -17,12 +17,14 @@ export interface InsertionPopoversProps {
   onToggle: (id: string, trigger: HTMLButtonElement) => void;
   onClose: () => void;
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
+  optionGroups?: Readonly<Record<string, readonly InsertionOptionGroup[]>>;
 }
 
 export function InsertionPopovers({
   insertions,
   openPopoverId,
   onToggle,
+  optionGroups,
   ...props
 }: InsertionPopoversProps): ReactElement {
   return (
@@ -32,6 +34,7 @@ export function InsertionPopovers({
           key={insertion.id}
           {...props}
           insertion={insertion}
+          optionGroups={optionGroups?.[insertion.id]}
           isOpen={openPopoverId === insertion.id}
           onToggle={(trigger) => onToggle(insertion.id, trigger)}
         />
