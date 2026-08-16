@@ -76,7 +76,7 @@ export function InsertionPopover({
             style={styles.toolbarSelect}
             onChange={(event) => {
               const option = availableOptions.find((candidate) => candidate.value === event.currentTarget.value);
-              if (option && !isReadOnly) {
+              if (option) {
                 onApply(insertion, option);
                 onClose();
               }
