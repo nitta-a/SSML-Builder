@@ -21,9 +21,23 @@ const CATEGORY_LABEL_KEYS = {
 
 const CATEGORY_ORDER: readonly ExpressAsStyleCategory[] = ["emotions", "scenarios", "media", "other"];
 
-export function ProsodyPopovers({ insertions, voiceName, language, ...props }: ProsodyPopoversProps): ReactElement {
+function isExpressAsInsertion(insertion: ProsodyPopoversProps["insertions"][number]): boolean {
+  return insertion.tagName?.toLowerCase() === "mstts:express-as";
+}
+
+function createOptionGroups(
+  options: ProsodyPopoversProps["insertions"][number]["options"],
+  language: ProsodyPopoversProps["language"],
+): readonly InsertionOptionGroup[] {
   const t = (key: keyof EditorCopy): string => EDITOR_COPY[language][key];
-  let optionGroups: readonly InsertionOptionGroup[] | undefined;
+
+  return CATEGORY_ORDER.map((category) => ({
+    label: t(CATEGORY_LABEL_KEYS[category]),
+    options: options.filter((option) => getExpressAsStyleCategory(option.value) === category),
+  })).filter((group) => group.options.length > 0);
+}
+
+export function ProsodyPopovers({ insertions, voiceName, language, ...props }: ProsodyPopoversProps): ReactElement {
   const filteredInsertions = insertions.map((insertion) => {
     if (insertion.id !== "emotion" || insertion.tagName?.toLowerCase() !== "mstts:express-as") {
       return insertion;
@@ -36,23 +50,19 @@ export function ProsodyPopovers({ insertions, voiceName, language, ...props }: P
       ),
     );
     const availableOptions = insertion.options.filter((option) => availableStyles.has(option.value));
-    optionGroups = CATEGORY_ORDER.map((category) => ({
-      label: t(CATEGORY_LABEL_KEYS[category]),
-      options: availableOptions.filter((option) => getExpressAsStyleCategory(option.value) === category),
-    })).filter((group) => group.options.length > 0);
 
     return {
       ...insertion,
       options: availableOptions,
     };
   });
+  const optionGroups = Object.fromEntries(
+    filteredInsertions
+      .filter(isExpressAsInsertion)
+      .map((insertion) => [insertion.id, createOptionGroups(insertion.options, language)]),
+  );
 
   return (
-    <InsertionPopovers
-      {...props}
-      language={language}
-      insertions={filteredInsertions}
-      optionGroups={{ emotion: optionGroups ?? [] }}
-    />
+    <InsertionPopovers {...props} language={language} insertions={filteredInsertions} optionGroups={optionGroups} />
   );
 }
