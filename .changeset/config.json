@@ -3,11 +3,10 @@
   "commit": false,
   "fixed": [
     [
-      "ssml-builder-js",
+      "playground",
       "@ssml-builder-js/ssml-editor-react",
       "@ssml-builder-js/ssml-core",
-      "@ssml-builder-js/azure-tts-client",
-      "playground"
+      "@ssml-builder-js/azure-tts-client"
     ]
   ],
   "access": "public",

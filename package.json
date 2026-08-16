@@ -1,6 +1,6 @@
 {
   "name": "ssml-builder-js",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "SSML building utilities, a React editor, and an Azure Text-to-Speech client",
   "workspaces": [
     "packages/*",
@@ -45,7 +45,7 @@
     "release": "npm run build && changeset publish",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version && node scripts/sync-root-version.js"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
