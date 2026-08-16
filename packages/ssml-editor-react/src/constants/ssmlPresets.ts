@@ -36,7 +36,80 @@ export const PROSODY_RATE_VALUES = [...PROSODY_RATE_PRESETS, "percentage"] as co
 export const PROSODY_PITCH_PRESETS = ["+2st", "-2st", "0st", "+4st", "-4st", "+8st", "-8st", "+12st", "-12st"] as const;
 export const PROSODY_VOLUME_PRESETS = ["silent", "x-soft", "soft", "medium", "loud", "x-loud"] as const;
 
-export const EXPRESS_AS_STYLE_PRESETS = ["cheerful", "friendly", "calm", "sad", "angry", "excited", "serious"] as const;
+export const EXPRESS_AS_STYLE_PRESETS = [
+  "cheerful",
+  "friendly",
+  "calm",
+  "sad",
+  "angry",
+  "excited",
+  "serious",
+  "assistant",
+  "chat",
+  "customerservice",
+  "hopeful",
+  "newscast",
+  "shouting",
+  "terrified",
+  "unfriendly",
+  "whispering",
+] as const;
+export type ExpressAsStyle = (typeof EXPRESS_AS_STYLE_PRESETS)[number];
+
+export const EXPRESS_AS_STYLES_BY_VOICE = {
+  "ja-JP-NanamiNeural": ["chat", "cheerful", "customerservice"],
+  "ja-JP-KeitaNeural": [],
+  "en-US-JennyNeural": [
+    "angry",
+    "assistant",
+    "chat",
+    "cheerful",
+    "customerservice",
+    "excited",
+    "friendly",
+    "hopeful",
+    "newscast",
+    "sad",
+    "shouting",
+    "terrified",
+    "unfriendly",
+    "whispering",
+  ],
+  "en-US-GuyNeural": [
+    "angry",
+    "cheerful",
+    "excited",
+    "friendly",
+    "hopeful",
+    "newscast",
+    "sad",
+    "shouting",
+    "terrified",
+    "unfriendly",
+    "whispering",
+  ],
+} as const satisfies Readonly<Record<string, readonly ExpressAsStyle[]>>;
+
+const EXPRESS_AS_STYLES_BY_NORMALIZED_VOICE = new Map<string, readonly ExpressAsStyle[]>(
+  Object.entries(EXPRESS_AS_STYLES_BY_VOICE).map(([voiceName, styles]) => [voiceName.toLowerCase(), styles]),
+);
+
+export function resolveExpressAsStyles(
+  voiceName: string | undefined,
+  candidates: readonly string[] = EXPRESS_AS_STYLE_PRESETS,
+): readonly string[] {
+  if (voiceName === undefined) {
+    return candidates;
+  }
+
+  const supportedStyles = EXPRESS_AS_STYLES_BY_NORMALIZED_VOICE.get(voiceName.trim().toLowerCase());
+  if (supportedStyles === undefined) {
+    return candidates;
+  }
+
+  const supportedStyleSet = new Set<string>(supportedStyles);
+  return candidates.filter((style) => supportedStyleSet.has(style));
+}
 export const EXPRESS_AS_ROLE_PRESETS = [
   "Girl",
   "Boy",
@@ -301,6 +374,42 @@ export const EXPRESS_AS_STYLE_DESCRIPTIONS = {
   serious: {
     ja: "真剣なスタイル",
     en: "Uses a serious style.",
+  },
+  assistant: {
+    ja: "デジタルアシスタント向けのスタイル",
+    en: "Uses a digital assistant style.",
+  },
+  chat: {
+    ja: "会話向けのスタイル",
+    en: "Uses a conversational style.",
+  },
+  customerservice: {
+    ja: "カスタマーサービス向けのスタイル",
+    en: "Uses a customer service style.",
+  },
+  hopeful: {
+    ja: "希望に満ちたスタイル",
+    en: "Uses a hopeful style.",
+  },
+  newscast: {
+    ja: "ニュース読み上げ向けのスタイル",
+    en: "Uses a newscast style.",
+  },
+  shouting: {
+    ja: "叫ぶようなスタイル",
+    en: "Uses a shouting style.",
+  },
+  terrified: {
+    ja: "恐怖に満ちたスタイル",
+    en: "Uses a terrified style.",
+  },
+  unfriendly: {
+    ja: "無愛想なスタイル",
+    en: "Uses an unfriendly style.",
+  },
+  whispering: {
+    ja: "ささやくようなスタイル",
+    en: "Uses a whispering style.",
   },
 } as const satisfies Readonly<Record<(typeof EXPRESS_AS_STYLE_PRESETS)[number], SsmlPresetDescription>>;
 

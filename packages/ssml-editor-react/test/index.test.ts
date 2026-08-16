@@ -3,8 +3,10 @@ import test from "node:test";
 import type { Monaco } from "@monaco-editor/react";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "../src/buttonVisibility.ts";
 import { clearSsmlDocument } from "../src/clearSsmlDocument.ts";
+import { EXPRESS_AS_STYLE_PRESETS, resolveExpressAsStyles } from "../src/constants/ssmlPresets.ts";
 import { formatXml } from "../src/formatXml.ts";
 import { registerSsmlCompletionProvider } from "../src/ssmlCompletion.ts";
+import { findSsmlVoiceContext } from "../src/ssmlContext.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
 
@@ -82,6 +84,33 @@ test("supports single-quoted and case-insensitive attribute contexts", () => {
     suggestions.some((suggestion) => suggestion.label === "characters" && suggestion.kind === 2),
     true,
   );
+});
+
+test("resolves express-as styles by normalized voice name with compatible fallbacks", () => {
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-NanamiNeural"), ["cheerful", "chat", "customerservice"]);
+  assert.deepEqual(resolveExpressAsStyles("  JA-jp-nanamineural  "), ["cheerful", "chat", "customerservice"]);
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-KeitaNeural"), []);
+  assert.deepEqual(resolveExpressAsStyles(undefined), EXPRESS_AS_STYLE_PRESETS);
+  assert.deepEqual(resolveExpressAsStyles("custom-Voice", ["custom", "cheerful"]), ["custom", "cheerful"]);
+  assert.deepEqual(resolveExpressAsStyles("en-US-GuyNeural", ["custom", "friendly", "chat"]), ["friendly"]);
+});
+
+test("finds the innermost open voice at a source offset", () => {
+  const source =
+    '<voice name="outer"><prosody><voice name=\'inner\'>text</voice><mstts:express-as style="';
+
+  assert.deepEqual(findSsmlVoiceContext(source, source.length), { voiceName: "outer" });
+  assert.deepEqual(findSsmlVoiceContext(source, source.indexOf("text") + 2), { voiceName: "inner" });
+  assert.deepEqual(findSsmlVoiceContext("<voice>text", "<voice>text".length), {});
+});
+
+test("ignores XML non-content and quoted brackets while finding voice context", () => {
+  const source =
+    '<?xml version="1.0"?><voice name="outer > inner"><!-- <voice name="comment"> --><![CDATA[<voice name="cdata">]]><prosody>text';
+
+  assert.deepEqual(findSsmlVoiceContext(source, source.length), { voiceName: "outer > inner" });
+  assert.equal(findSsmlVoiceContext('<voice name="closed"></voice><prosody>text', 44), undefined);
+  assert.doesNotThrow(() => findSsmlVoiceContext('<voice name="unfinished', 24));
 });
 
 test("replaces a typed opening bracket when selecting a tag completion", () => {
