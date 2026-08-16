@@ -56,6 +56,57 @@ export const EXPRESS_AS_STYLE_PRESETS = [
 ] as const;
 export type ExpressAsStyle = (typeof EXPRESS_AS_STYLE_PRESETS)[number];
 
+export const EXPRESS_AS_STYLE_CATEGORIES = {
+  emotions: [
+    "cheerful",
+    "sad",
+    "angry",
+    "calm",
+    "fearful",
+    "depressed",
+    "disgruntled",
+    "embarrassed",
+    "empathetic",
+    "envious",
+    "excited",
+    "friendly",
+    "gentle",
+    "hopeful",
+    "serious",
+    "shouting",
+    "terrified",
+    "unfriendly",
+    "whispering",
+  ],
+  scenarios: ["chat", "customerservice", "assistant", "livecommercial", "poetry-reading", "story"],
+  media: [
+    "newscast",
+    "newscast-casual",
+    "newscast-formal",
+    "narration-professional",
+    "narration-relaxed",
+    "documentary-narration",
+    "advertisement_upbeat",
+    "sports_commentary",
+    "sports_commentary_excited",
+  ],
+} as const;
+
+export type ExpressAsStyleCategory = keyof typeof EXPRESS_AS_STYLE_CATEGORIES | "other";
+
+export function getExpressAsStyleCategory(style: string): ExpressAsStyleCategory {
+  for (const [category, styles] of Object.entries(EXPRESS_AS_STYLE_CATEGORIES) as [
+    keyof typeof EXPRESS_AS_STYLE_CATEGORIES,
+    readonly string[],
+  ][]) {
+    if (styles.includes(style)) {
+      return category;
+    }
+  }
+
+  return "other";
+}
+
 export const EXPRESS_AS_STYLES_BY_VOICE = {
   "ja-JP-NanamiNeural": ["chat", "cheerful", "customerservice"],
   "ja-JP-KeitaNeural": [],

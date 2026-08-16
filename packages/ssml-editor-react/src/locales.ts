@@ -27,6 +27,10 @@ export interface EditorCopy {
   previewSelection: string;
   previewSelectionTitle: string;
   noAvailableOptions: string;
+  categoryEmotions: string;
+  categoryScenarios: string;
+  categoryMedia: string;
+  categoryOther: string;
 }
 
 export interface InlineBadgeCopy {
@@ -81,6 +85,10 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     previewSelection: "選択部分を試聴",
     previewSelectionTitle: "選択部分のSSMLを試聴",
     noAvailableOptions: "利用可能な選択肢がありません。",
+    categoryEmotions: "感情・トーン",
+    categoryScenarios: "会話・シナリオ",
+    categoryMedia: "メディア・ナレーション",
+    categoryOther: "その他",
   },
   en: {
     editorAriaLabel: "SSML editor",
@@ -107,6 +115,10 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     previewSelection: "Preview selection",
     previewSelectionTitle: "Preview the selected SSML",
     noAvailableOptions: "No options are available.",
+    categoryEmotions: "Emotions / Tone",
+    categoryScenarios: "Conversations / Scenarios",
+    categoryMedia: "Media / Broadcast",
+    categoryOther: "Other",
   },
 };
 
