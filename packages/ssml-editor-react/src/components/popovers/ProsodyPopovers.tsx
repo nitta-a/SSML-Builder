@@ -22,7 +22,7 @@ const CATEGORY_LABEL_KEYS = {
 const CATEGORY_ORDER: readonly ExpressAsStyleCategory[] = ["emotions", "scenarios", "media", "other"];
 
 function isExpressAsInsertion(insertion: ProsodyPopoversProps["insertions"][number]): boolean {
-  return insertion.tagName?.toLowerCase() === "mstts:express-as";
+  return insertion.id === "emotion" && insertion.tagName?.toLowerCase() === "mstts:express-as";
 }
 
 function createOptionGroups(
