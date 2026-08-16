@@ -29,6 +29,4 @@ const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, "utf8"));
 rootPackage.version = version;
 fs.writeFileSync(rootPackagePath, `${JSON.stringify(rootPackage, null, 2)}\n`);
 
-console.log(
-  `Synced root package.json version to ${version} from ${path.relative(repoRoot, workspacePackagePath)}.`
-);
+console.log(`Synced root package.json version to ${version} from ${path.relative(repoRoot, workspacePackagePath)}.`);
