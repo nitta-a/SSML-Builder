@@ -120,6 +120,8 @@ export const editorStyles: Record<string, CSSProperties> = {
     backgroundColor: "transparent",
     font: "inherit",
     textAlign: "left",
+    whiteSpace: "nowrap",
+    cursor: "pointer",
   },
   toolbarSelect: {
     minWidth: "12rem",
