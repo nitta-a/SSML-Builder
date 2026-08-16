@@ -74,6 +74,10 @@ export const editorStyles: Record<string, CSSProperties> = {
     font: "inherit",
     cursor: "pointer",
   },
+  toolbarButtonActive: {
+    border: "1px solid var(--ssml-editor-active-border)",
+    backgroundColor: "var(--ssml-editor-active-bg)",
+  },
   display: {
     display: "grid",
     gap: "0.5rem",

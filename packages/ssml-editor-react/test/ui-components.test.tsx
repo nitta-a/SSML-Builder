@@ -12,7 +12,9 @@ const monacoState = vi.hoisted(() => {
   let selectionStartOffset = 0;
   let selectionEndOffset = 0;
   const contentChangeListeners = new Set<() => void>();
+  const cursorPositionListeners = new Set<(event: { position: { lineNumber: number; column: number } }) => void>();
   let latestContentDispose: ReturnType<typeof vi.fn> | null = null;
+  let latestCursorPositionDispose: ReturnType<typeof vi.fn> | null = null;
   const positionAt = (offset: number) => {
     const lines = value.slice(0, offset).split(/\r\n|\r|\n/);
     return {
@@ -71,9 +73,17 @@ const monacoState = vi.hoisted(() => {
     getModel: () => model,
     getValue: () => value,
     getSelection: () => selection,
+    getPosition: () => selection.getEndPosition(),
     getScrolledVisiblePosition: () => null,
     getLayoutInfo: () => ({ height: 100 }),
     onDidChangeCursorSelection: vi.fn(disposable),
+    onDidChangeCursorPosition: vi.fn(
+      (listener: (event: { position: { lineNumber: number; column: number } }) => void) => {
+        cursorPositionListeners.add(listener);
+        latestCursorPositionDispose = vi.fn(() => cursorPositionListeners.delete(listener));
+        return { dispose: latestCursorPositionDispose };
+      },
+    ),
     onDidChangeModelContent: vi.fn((listener: () => void) => {
       contentChangeListeners.add(listener);
       latestContentDispose = vi.fn(() => contentChangeListeners.delete(listener));
@@ -144,6 +154,7 @@ const monacoState = vi.hoisted(() => {
     reset: () => {
       for (const mock of [
         editor.onDidChangeCursorSelection,
+        editor.onDidChangeCursorPosition,
         editor.onDidChangeModelContent,
         editor.onDidScrollChange,
         editor.onDidLayoutChange,
@@ -167,7 +178,9 @@ const monacoState = vi.hoisted(() => {
       selectionStartOffset = 0;
       selectionEndOffset = 0;
       contentChangeListeners.clear();
+      cursorPositionListeners.clear();
       latestContentDispose = null;
+      latestCursorPositionDispose = null;
     },
     setValue: (nextValue: string) => {
       value = nextValue;
@@ -192,7 +205,16 @@ const monacoState = vi.hoisted(() => {
         listener();
       }
     },
+    emitCursorPositionChange: (offset: number) => {
+      selectionStartOffset = offset;
+      selectionEndOffset = offset;
+      const position = positionAt(offset);
+      for (const listener of cursorPositionListeners) {
+        listener({ position });
+      }
+    },
     getLatestContentDispose: () => latestContentDispose,
+    getLatestCursorPositionDispose: () => latestCursorPositionDispose,
   };
 });
 
@@ -273,6 +295,34 @@ afterEach(() => {
 });
 
 describe("SsmlEditor toolbar menus", () => {
+  it("highlights prosody buttons while the cursor is inside a prosody element", () => {
+    const value = '<prosody rate="slow">Hello</prosody> outside';
+    monacoState.setValue(value);
+    monacoState.setSelectionOffsets(value.length, value.length);
+    renderEditor({ locale: "en" });
+
+    const rateButton = screen.getByRole("button", { name: "Rate" });
+    const pitchButton = screen.getByRole("button", { name: "Pitch" });
+    const volumeButton = screen.getByRole("button", { name: "Volume" });
+
+    expect(rateButton.style.backgroundColor).toBe("var(--ssml-editor-control-bg)");
+
+    act(() => monacoState.emitCursorPositionChange(value.indexOf("Hello") + 2));
+
+    expect(rateButton.style.backgroundColor).toBe("var(--ssml-editor-active-bg)");
+    expect(rateButton.style.border).toBe("1px solid var(--ssml-editor-active-border)");
+    expect(pitchButton.style.backgroundColor).toBe("var(--ssml-editor-active-bg)");
+    expect(volumeButton.style.backgroundColor).toBe("var(--ssml-editor-active-bg)");
+    expect(screen.getByRole("button", { name: "Emphasis" }).style.backgroundColor).toBe(
+      "var(--ssml-editor-control-bg)",
+    );
+
+    act(() => monacoState.emitCursorPositionChange(value.length));
+
+    expect(rateButton.style.backgroundColor).toBe("var(--ssml-editor-control-bg)");
+    expect(rateButton.style.border).toBe("1px solid var(--ssml-editor-control-border)");
+  });
+
   it("opens the break, prosody, and express-as popovers", async () => {
     const user = userEvent.setup();
     renderEditor({ locale: "en" });
@@ -690,15 +740,18 @@ describe("SsmlEditor props", () => {
     try {
       const { unmount } = renderEditor();
       const contentDispose = monacoState.getLatestContentDispose();
+      const cursorPositionDispose = monacoState.getLatestCursorPositionDispose();
       const codeActionDispose = monacoState.monaco.languages.registerCodeActionProvider.mock.results[0]?.value.dispose;
 
       expect(contentDispose).not.toBeNull();
+      expect(cursorPositionDispose).not.toBeNull();
       expect(codeActionDispose).toBeDefined();
       monacoState.setValue("<voice>");
       monacoState.emitContentChange();
       unmount();
 
       expect(contentDispose).toHaveBeenCalledTimes(1);
+      expect(cursorPositionDispose).toHaveBeenCalledTimes(1);
       expect(codeActionDispose).toHaveBeenCalledTimes(1);
       const markerCallCountAfterUnmount = monacoState.monaco.editor.setModelMarkers.mock.calls.length;
       vi.advanceTimersByTime(300);

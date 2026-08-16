@@ -6,7 +6,7 @@ import { clearSsmlDocument } from "../src/clearSsmlDocument.ts";
 import { EXPRESS_AS_STYLE_PRESETS, resolveExpressAsStyles } from "../src/constants/ssmlPresets.ts";
 import { formatXml } from "../src/formatXml.ts";
 import { registerSsmlCompletionProvider } from "../src/ssmlCompletion.ts";
-import { findSsmlVoiceContext } from "../src/ssmlContext.ts";
+import { findActiveSsmlTags, findSsmlVoiceContext } from "../src/ssmlContext.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
 
@@ -173,6 +173,35 @@ test("ignores XML non-content and quoted brackets while finding voice context", 
   assert.deepEqual(findSsmlVoiceContext(source, source.length), { voiceName: "outer > inner" });
   assert.equal(findSsmlVoiceContext('<voice name="closed"></voice><prosody>text', 44), undefined);
   assert.doesNotThrow(() => findSsmlVoiceContext('<voice name="unfinished', 24));
+});
+
+test("finds nested active SSML tags at the cursor", () => {
+  const source = "<voice><prosody>text<emphasis>strong</emphasis></prosody></voice>";
+
+  assert.deepEqual([...findActiveSsmlTags(source, source.indexOf("strong") + 2)], ["voice", "prosody", "emphasis"]);
+  assert.deepEqual(
+    [...findActiveSsmlTags(source, source.indexOf("</emphasis>") + 3)],
+    ["voice", "prosody", "emphasis"],
+  );
+  assert.deepEqual([...findActiveSsmlTags(source, source.indexOf("</prosody>"))], ["voice", "prosody"]);
+});
+
+test("finds tags while the cursor is on opening and self-closing elements", () => {
+  const source = '<voice><mstts:express-as style="chat">text</mstts:express-as><break time="500ms"/></voice>';
+  const expressAsStart = source.indexOf("<mstts:express-as");
+  const breakStart = source.indexOf("<break");
+  const breakEnd = source.indexOf("/>", breakStart) + 2;
+
+  assert.deepEqual([...findActiveSsmlTags(source, expressAsStart + 4)], ["voice", "mstts:express-as"]);
+  assert.deepEqual([...findActiveSsmlTags(source, breakStart + 3)], ["voice", "break"]);
+  assert.deepEqual([...findActiveSsmlTags(source, breakEnd)], ["voice"]);
+});
+
+test("ignores XML non-content and quoted brackets while finding active tags", () => {
+  const source =
+    '<?xml version="1.0"?><voice name="outer > inner"><!-- <prosody> --><![CDATA[<emphasis>]]><mstts:express-as>text';
+
+  assert.deepEqual([...findActiveSsmlTags(source, source.length)], ["voice", "mstts:express-as"]);
 });
 
 test("replaces a typed opening bracket when selecting a tag completion", () => {
