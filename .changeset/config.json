@@ -1,4 +1,15 @@
 {
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "ssml-builder-js",
+      "@ssml-builder-js/ssml-editor-react",
+      "@ssml-builder-js/ssml-core",
+      "@ssml-builder-js/azure-tts-client",
+      "playground"
+    ]
+  ],
   "access": "public",
   "baseBranch": "main"
 }
