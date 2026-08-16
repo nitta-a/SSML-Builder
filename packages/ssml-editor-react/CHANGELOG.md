@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.1.0
+
+### Minor Changes
+
+- 5b21410: Filter express-as style completion and Emotion menu options by the active parent voice.
+
 ## 2.0.0
 
 ### Major Changes
