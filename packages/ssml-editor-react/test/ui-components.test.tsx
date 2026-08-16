@@ -340,6 +340,22 @@ describe("SsmlEditor toolbar menus", () => {
     );
   });
 
+  it("refreshes emotion options after the document voice changes", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderEditor({ document: createVoiceDocument("ja-JP-NanamiNeural"), locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    expect(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+
+    rerender(<SsmlEditor document={createVoiceDocument("ja-JP-KeitaNeural")} locale="en" />);
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+
+    expect(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("status").textContent).toBe(
+      "No options are available.",
+    );
+  });
+
   it("inserts an emotion style allowed by the active voice", async () => {
     const user = userEvent.setup();
     monacoState.setSelectionOffsets(0, 5);

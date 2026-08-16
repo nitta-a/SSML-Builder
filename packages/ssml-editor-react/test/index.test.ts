@@ -15,7 +15,7 @@ type CompletionMethod = NonNullable<CompletionProvider["provideCompletionItems"]
 type CompletionModel = Parameters<CompletionMethod>[0];
 type CompletionPosition = Parameters<CompletionMethod>[1];
 
-function createCompletionProvider(outerVoiceName?: string): CompletionProvider {
+function createCompletionProvider(outerVoiceName?: string, model?: CompletionModel): CompletionProvider {
   let provider: CompletionProvider | undefined;
   const monaco = {
     languages: {
@@ -28,19 +28,23 @@ function createCompletionProvider(outerVoiceName?: string): CompletionProvider {
     },
   } as unknown as Monaco;
 
-  registerSsmlCompletionProvider(monaco, { getOuterVoiceName: () => outerVoiceName });
+  registerSsmlCompletionProvider(monaco, { getOuterVoiceName: () => outerVoiceName, model });
   assert.ok(provider);
   return provider;
 }
 
-function getSuggestions(source: string, column = source.length + 1, outerVoiceName?: string) {
-  const provider = createCompletionProvider(outerVoiceName);
-  const model = {
+function createCompletionModel(source: string): CompletionModel {
+  return {
     getValue: () => source,
     getOffsetAt: (position: CompletionPosition) => position.column - 1,
     getValueInRange: (range: { startColumn: number; endColumn: number }) =>
       source.slice(range.startColumn - 1, range.endColumn - 1),
   } as CompletionModel;
+}
+
+function getSuggestions(source: string, column = source.length + 1, outerVoiceName?: string) {
+  const provider = createCompletionProvider(outerVoiceName);
+  const model = createCompletionModel(source);
   const position = { lineNumber: 1, column } as CompletionPosition;
   const result = provider.provideCompletionItems?.(model, position);
 
@@ -146,6 +150,20 @@ test("keeps non-style attribute completions independent of voice", () => {
     suggestions.some((suggestion) => suggestion.label === "Girl"),
     true,
   );
+});
+
+test("does not provide completion items for a different Monaco model", () => {
+  const source = '<mstts:express-as style="';
+  const provider = createCompletionProvider("en-US-JennyNeural", createCompletionModel(source));
+  const result = provider.provideCompletionItems?.(
+    createCompletionModel(source),
+    { lineNumber: 1, column: source.length + 1 } as CompletionPosition,
+    {} as never,
+    {} as never,
+  );
+
+  assert.ok(result && !(result instanceof Promise));
+  assert.deepEqual(result.suggestions, []);
 });
 
 test("ignores XML non-content and quoted brackets while finding voice context", () => {
