@@ -41,6 +41,57 @@ function closeElement(stack: OpenElement[], name: string): void {
   }
 }
 
+export function findActiveSsmlTags(source: string, offset: number): Set<string> {
+  const limit = Math.max(0, Math.min(offset, source.length));
+  const stack: OpenElement[] = [];
+  let index = 0;
+
+  while (index < source.length) {
+    const tagStart = source.indexOf("<", index);
+    if (tagStart === -1 || tagStart > limit) {
+      break;
+    }
+
+    const nonContentEnd = source.startsWith("<!--", tagStart)
+      ? source.indexOf("-->", tagStart + 4)
+      : source.startsWith("<![CDATA[", tagStart)
+        ? source.indexOf("]]>", tagStart + 9)
+        : source.startsWith("<?", tagStart)
+          ? source.indexOf("?>", tagStart + 2)
+          : undefined;
+    if (nonContentEnd !== undefined) {
+      const delimiterLength = source.startsWith("<?", tagStart) ? 2 : 3;
+      const end = nonContentEnd === -1 ? source.length : nonContentEnd + delimiterLength;
+      if (limit < end) {
+        break;
+      }
+      index = end;
+      continue;
+    }
+
+    const tagEnd = findTagEnd(source, tagStart, source.length);
+    const tag = source.slice(tagStart, tagEnd === -1 ? source.length : tagEnd + 1);
+    const closingMatch = tag.match(/^<\s*\/\s*([A-Za-z_][A-Za-z0-9_.:-]*)/);
+    const openingMatch = tag.match(/^<\s*([A-Za-z_][A-Za-z0-9_.:-]*)/);
+
+    if (tagEnd === -1 || limit <= tagEnd) {
+      if (openingMatch?.[1]) {
+        stack.push({ name: openingMatch[1].toLowerCase() });
+      }
+      break;
+    }
+
+    if (closingMatch?.[1]) {
+      closeElement(stack, closingMatch[1].toLowerCase());
+    } else if (openingMatch?.[1] && !/\/\s*>$/.test(tag)) {
+      stack.push({ name: openingMatch[1].toLowerCase() });
+    }
+    index = tagEnd + 1;
+  }
+
+  return new Set(stack.map(({ name }) => name));
+}
+
 export function findSsmlVoiceContext(source: string, offset: number): SsmlVoiceContext | undefined {
   const limit = Math.max(0, Math.min(offset, source.length));
   const stack: OpenElement[] = [];

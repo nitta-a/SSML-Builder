@@ -11,11 +11,13 @@ import {
 import { registerSsmlCompletionProvider } from "../ssmlCompletion";
 import { registerSsmlCodeActions } from "../ssmlCodeAction";
 import { findSsmlHoverTarget, formatSsmlHover } from "../ssmlHover";
+import { findActiveSsmlTags } from "../ssmlContext";
 import type { MonacoEditorRef } from "./useSsmlEditorState";
 
 type MonacoLanguages = Monaco["languages"];
 type MonacoDisposable = ReturnType<MonacoEditor["onDidChangeCursorSelection"]>;
 type MonacoContentDisposable = ReturnType<MonacoEditor["onDidChangeModelContent"]>;
+type MonacoCursorPositionDisposable = ReturnType<MonacoEditor["onDidChangeCursorPosition"]>;
 type MonacoCompletionDisposable = ReturnType<MonacoLanguages["registerCompletionItemProvider"]>;
 type MonacoCodeActionDisposable = ReturnType<MonacoLanguages["registerCodeActionProvider"]>;
 type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
@@ -39,6 +41,7 @@ export interface UseSsmlMonacoOptions {
   decorationsVisible: boolean;
   getOuterVoiceName: () => string | undefined;
   onSelectionOverlayChange: (editor: MonacoEditor, notify: boolean) => void;
+  onActiveTagsChange: (tags: ReadonlySet<string>) => void;
   onSyntaxErrorChange: (error: SsmlSyntaxError | null) => void;
 }
 
@@ -172,6 +175,7 @@ export function useSsmlMonaco({
   decorationsVisible,
   getOuterVoiceName,
   onSelectionOverlayChange,
+  onActiveTagsChange,
   onSyntaxErrorChange,
 }: UseSsmlMonacoOptions): UseSsmlMonacoResult {
   const internalEditorRef = useRef<MonacoEditor | null>(null);
@@ -181,6 +185,7 @@ export function useSsmlMonaco({
   const codeActionProviderRef = useRef<MonacoCodeActionDisposable | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const selectionChangeRef = useRef<MonacoDisposable | null>(null);
+  const cursorPositionChangeRef = useRef<MonacoCursorPositionDisposable | null>(null);
   const diagnosticsChangeRef = useRef<MonacoContentDisposable | null>(null);
   const diagnosticsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectionLayoutDisposablesRef = useRef<MonacoDisposable[]>([]);
@@ -189,12 +194,14 @@ export function useSsmlMonaco({
   const decorationsVisibleRef = useRef(decorationsVisible);
   const getOuterVoiceNameRef = useRef(getOuterVoiceName);
   const onSelectionOverlayChangeRef = useRef(onSelectionOverlayChange);
+  const onActiveTagsChangeRef = useRef(onActiveTagsChange);
   const onSyntaxErrorChangeRef = useRef(onSyntaxErrorChange);
 
   languageRef.current = language;
   decorationsVisibleRef.current = decorationsVisible;
   getOuterVoiceNameRef.current = getOuterVoiceName;
   onSelectionOverlayChangeRef.current = onSelectionOverlayChange;
+  onActiveTagsChangeRef.current = onActiveTagsChange;
   onSyntaxErrorChangeRef.current = onSyntaxErrorChange;
 
   const runSsmlDiagnostics = useCallback((editor: MonacoEditor, monaco: Monaco): void => {
@@ -230,6 +237,16 @@ export function useSsmlMonaco({
     diagnosticsChangeRef.current = null;
   }, []);
 
+  const syncActiveTags = useCallback((editor: MonacoEditor): void => {
+    const model = editor.getModel();
+    const position = editor.getPosition();
+    if (!model || !position) {
+      onActiveTagsChangeRef.current(new Set());
+      return;
+    }
+    onActiveTagsChangeRef.current(findActiveSsmlTags(model.getValue(), model.getOffsetAt(position)));
+  }, []);
+
   const disposeMonacoResources = useCallback((): void => {
     clearSsmlDiagnosticsResources();
     const model = editorRef.current?.getModel();
@@ -239,6 +256,8 @@ export function useSsmlMonaco({
     }
     selectionChangeRef.current?.dispose();
     selectionChangeRef.current = null;
+    cursorPositionChangeRef.current?.dispose();
+    cursorPositionChangeRef.current = null;
     completionProviderRef.current?.dispose();
     completionProviderRef.current = null;
     codeActionProviderRef.current?.dispose();
@@ -261,6 +280,9 @@ export function useSsmlMonaco({
       selectionChangeRef.current = editor.onDidChangeCursorSelection(() => {
         onSelectionOverlayChangeRef.current(editor, true);
       });
+      cursorPositionChangeRef.current = editor.onDidChangeCursorPosition(() => {
+        syncActiveTags(editor);
+      });
       diagnosticsChangeRef.current = editor.onDidChangeModelContent(() => {
         const model = editor.getModel();
         if (model) {
@@ -272,6 +294,7 @@ export function useSsmlMonaco({
             inlineDecorationIdsRef.current,
           );
         }
+        syncActiveTags(editor);
         scheduleSsmlDiagnostics(editor, monaco);
       });
       selectionLayoutDisposablesRef.current = [
@@ -297,8 +320,9 @@ export function useSsmlMonaco({
         );
       }
       onSelectionOverlayChangeRef.current(editor, true);
+      syncActiveTags(editor);
     },
-    [disposeMonacoResources, editorRef, runSsmlDiagnostics, scheduleSsmlDiagnostics],
+    [disposeMonacoResources, editorRef, runSsmlDiagnostics, scheduleSsmlDiagnostics, syncActiveTags],
   );
 
   useEffect(() => {

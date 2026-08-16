@@ -522,6 +522,7 @@ export function useSsmlEditorState({
   const [decorationsVisible, setDecorationsVisible] = useState(showDecorations);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
+  const [activeTags, setActiveTags] = useState<Set<string>>(() => new Set());
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [popoverVoiceName, setPopoverVoiceName] = useState<string | undefined>(undefined);
   const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null);
@@ -642,6 +643,15 @@ export function useSsmlEditorState({
     }
   }, []);
 
+  const updateActiveTags = useCallback((nextTags: ReadonlySet<string>): void => {
+    setActiveTags((currentTags) => {
+      if (currentTags.size === nextTags.size && [...currentTags].every((tag) => nextTags.has(tag))) {
+        return currentTags;
+      }
+      return new Set(nextTags);
+    });
+  }, []);
+
   const commit = useCallback(
     (nextDocument: SsmlDocument): void => {
       draftDocumentRef.current = nextDocument;
@@ -750,6 +760,7 @@ export function useSsmlEditorState({
     draftDocument,
     text: getEditableText(draftDocument),
     selectionOverlay,
+    activeTags,
     isDarkTheme: resolvedTheme === "dark" || (resolvedTheme === "system" && isDark),
     decorationsVisible,
     setDecorationsVisible,
@@ -771,6 +782,7 @@ export function useSsmlEditorState({
     previewSelection,
     canPreviewSelection: onPreviewSelection !== undefined,
     refreshSelectionOverlay,
+    updateActiveTags,
     getSelectedSsml: getSelectedSsmlValue,
     getCurrentLineSsml: getCurrentLineSsmlValue,
     getFullSsml,

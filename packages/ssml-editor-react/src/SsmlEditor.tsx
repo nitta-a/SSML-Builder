@@ -523,6 +523,8 @@ const STYLE_CSS = `
   --ssml-editor-border: #d1d5db;
   --ssml-editor-control-bg: #f9fafb;
   --ssml-editor-control-border: #9ca3af;
+  --ssml-editor-active-bg: #dbeafe;
+  --ssml-editor-active-border: #2563eb;
   --ssml-editor-preview-bg: #f3f4f6;
   --ssml-editor-error: #b91c1c;
   --ssml-editor-error-bg: #fef2f2;
@@ -540,6 +542,8 @@ const STYLE_CSS = `
   --ssml-editor-border: #374151;
   --ssml-editor-control-bg: #111827;
   --ssml-editor-control-border: #4b5563;
+  --ssml-editor-active-bg: #1e3a8a;
+  --ssml-editor-active-border: #60a5fa;
   --ssml-editor-preview-bg: #111827;
   --ssml-editor-error: #fca5a5;
   --ssml-editor-error-bg: #450a0a;
@@ -877,6 +881,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     editorRef,
     text,
     selectionOverlay,
+    activeTags,
     isDarkTheme,
     decorationsVisible,
     setDecorationsVisible,
@@ -897,6 +902,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     previewSelection,
     canPreviewSelection,
     refreshSelectionOverlay,
+    updateActiveTags,
     getSelectedSsml,
     getCurrentLineSsml,
     getFullSsml,
@@ -925,6 +931,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     decorationsVisible,
     getOuterVoiceName,
     onSelectionOverlayChange: refreshSelectionOverlay,
+    onActiveTagsChange: updateActiveTags,
     onSyntaxErrorChange: setSyntaxError,
   });
 
@@ -942,12 +949,16 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     const isTimingPopover = insertion.tagName !== undefined && TIMING_POPOVER_TAGS.has(insertion.tagName);
     const isProsodyPopover = insertion.tagName !== undefined && PROSODY_POPOVER_TAGS.has(insertion.tagName);
     const isTextPopover = insertion.tagName !== undefined && TEXT_POPOVER_TAGS.has(insertion.tagName);
+    const insertionButtonStyle =
+      insertion.tagName && activeTags.has(insertion.tagName.toLowerCase())
+        ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive }
+        : toolbarButtonStyle;
     const props = {
       language,
       isDarkTheme,
       showToolbarIcons,
       showToolbarText,
-      toolbarButtonStyle,
+      toolbarButtonStyle: insertionButtonStyle,
       emptyOptionsMessage: copy.noAvailableOptions,
       isReadOnly,
       openPopoverId,
