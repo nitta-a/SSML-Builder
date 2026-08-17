@@ -53,6 +53,17 @@ export const EXPRESS_AS_STYLE_PRESETS = [
   "terrified",
   "unfriendly",
   "whispering",
+  "empathetic",
+  "relieved",
+  "fearful",
+  "depressed",
+  "disgruntled",
+  "embarrassed",
+  "narration-relaxed",
+  "poetry-reading",
+  "sports_commentary",
+  "sports_commentary_excited",
+  "story",
 ] as const;
 export type ExpressAsStyle = (typeof EXPRESS_AS_STYLE_PRESETS)[number];
 
@@ -72,6 +83,7 @@ export const EXPRESS_AS_STYLE_CATEGORIES = {
     "friendly",
     "gentle",
     "hopeful",
+    "relieved",
     "serious",
     "shouting",
     "terrified",
@@ -107,19 +119,33 @@ export function getExpressAsStyleCategory(style: string): ExpressAsStyleCategory
   return "other";
 }
 
-export const EXPRESS_AS_STYLES_BY_VOICE = {
-  "ja-JP-NanamiNeural": ["chat", "cheerful", "customerservice"],
-  "ja-JP-KeitaNeural": [],
-  "en-US-JennyNeural": [
-    "angry",
-    "assistant",
-    "chat",
+export const VOICE_STYLE_MAP = {
+  "ja-JP-MayuNeural": ["calm", "cheerful", "sad"],
+  "ja-JP-KeitaNeural": ["chat"],
+  "ja-JP-NanamiNeural": ["chat", "customerservice", "cheerful", "whispering", "sad"],
+  "en-US-JennyMultilingualNeural": [
     "cheerful",
-    "customerservice",
+    "empathetic",
     "excited",
     "friendly",
     "hopeful",
+    "sad",
+    "shouting",
+    "terrified",
+    "unfriendly",
+    "whispering",
+  ],
+  "en-US-AndrewNeural": ["empathetic", "relieved"],
+  "en-US-JennyNeural": [
+    "assistant",
+    "chat",
+    "customerservice",
     "newscast",
+    "cheerful",
+    "empathetic",
+    "excited",
+    "friendly",
+    "hopeful",
     "sad",
     "shouting",
     "terrified",
@@ -139,23 +165,63 @@ export const EXPRESS_AS_STYLES_BY_VOICE = {
     "unfriendly",
     "whispering",
   ],
+  "ko-KR-SunHiNeural": ["cheerful", "sad"],
+  "zh-CN-XiaoxiaoNeural": [
+    "assistant",
+    "chat",
+    "customerservice",
+    "newscast",
+    "cheerful",
+    "empathetic",
+    "excited",
+    "friendly",
+    "hopeful",
+    "sad",
+    "terrified",
+    "whispering",
+    "poetry-reading",
+    "sports_commentary",
+    "sports_commentary_excited",
+    "story",
+  ],
+  "zh-CN-YunxiNeural": [
+    "narration-relaxed",
+    "embarrassed",
+    "fearful",
+    "sad",
+    "disgruntled",
+    "serious",
+    "angry",
+    "depressed",
+    "chat",
+    "cheerful",
+    "assistant",
+  ],
+  "fr-FR-DeniseNeural": ["cheerful", "sad"],
+  "fr-FR-HenriNeural": ["cheerful", "sad"],
+  "pt-BR-FranciscaNeural": ["calm"],
+  "it-IT-ElsaNeural": ["cheerful", "sad"],
+  "de-DE-KatjaNeural": ["cheerful", "sad"],
+  "de-DE-ConradNeural": ["cheerful", "sad"],
+  "ru-RU-SvetlanaNeural": ["cheerful", "sad", "angry", "disgruntled", "embarrassed", "fearful"],
 } as const satisfies Readonly<Record<string, readonly ExpressAsStyle[]>>;
 
-const EXPRESS_AS_STYLES_BY_NORMALIZED_VOICE = new Map<string, readonly ExpressAsStyle[]>(
-  Object.entries(EXPRESS_AS_STYLES_BY_VOICE).map(([voiceName, styles]) => [voiceName.toLowerCase(), styles]),
+const VOICE_STYLE_MAP_BY_NORMALIZED_NAME = new Map<string, readonly ExpressAsStyle[]>(
+  Object.entries(VOICE_STYLE_MAP).map(([voiceName, styles]) => [voiceName.toLowerCase(), styles]),
 );
 
 export function resolveExpressAsStyles(
-  voiceName: string | undefined,
+  voiceName: string | null | undefined,
   candidates: readonly string[] = EXPRESS_AS_STYLE_PRESETS,
 ): readonly string[] {
-  if (voiceName === undefined) {
+  const normalizedVoiceName = voiceName?.trim().toLowerCase();
+  if (!normalizedVoiceName) {
     return candidates;
   }
 
-  const supportedStyles = EXPRESS_AS_STYLES_BY_NORMALIZED_VOICE.get(voiceName.trim().toLowerCase());
+  const supportedStyles = VOICE_STYLE_MAP_BY_NORMALIZED_NAME.get(normalizedVoiceName);
   if (supportedStyles === undefined) {
-    return candidates;
+    return [];
   }
 
   const supportedStyleSet = new Set<string>(supportedStyles);
@@ -422,6 +488,30 @@ export const EXPRESS_AS_STYLE_DESCRIPTIONS = {
     ja: "興奮したスタイル",
     en: "Uses an excited style.",
   },
+  empathetic: {
+    ja: "共感を示すスタイル",
+    en: "Uses an empathetic style.",
+  },
+  relieved: {
+    ja: "安心したスタイル",
+    en: "Uses a relieved style.",
+  },
+  fearful: {
+    ja: "恐れを感じさせるスタイル",
+    en: "Uses a fearful style.",
+  },
+  depressed: {
+    ja: "落ち込んだスタイル",
+    en: "Uses a depressed style.",
+  },
+  disgruntled: {
+    ja: "不満を感じさせるスタイル",
+    en: "Uses a disgruntled style.",
+  },
+  embarrassed: {
+    ja: "恥ずかしそうなスタイル",
+    en: "Uses an embarrassed style.",
+  },
   serious: {
     ja: "真剣なスタイル",
     en: "Uses a serious style.",
@@ -461,6 +551,26 @@ export const EXPRESS_AS_STYLE_DESCRIPTIONS = {
   whispering: {
     ja: "ささやくようなスタイル",
     en: "Uses a whispering style.",
+  },
+  "narration-relaxed": {
+    ja: "リラックスしたナレーション向けのスタイル",
+    en: "Uses a relaxed narration style.",
+  },
+  "poetry-reading": {
+    ja: "詩の朗読向けのスタイル",
+    en: "Uses a poetry-reading style.",
+  },
+  sports_commentary: {
+    ja: "スポーツ実況向けのスタイル",
+    en: "Uses a sports commentary style.",
+  },
+  sports_commentary_excited: {
+    ja: "興奮したスポーツ実況向けのスタイル",
+    en: "Uses an excited sports commentary style.",
+  },
+  story: {
+    ja: "物語の朗読向けのスタイル",
+    en: "Uses a storytelling style.",
   },
 } as const satisfies Readonly<Record<(typeof EXPRESS_AS_STYLE_PRESETS)[number], SsmlPresetDescription>>;
 

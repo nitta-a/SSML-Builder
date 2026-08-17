@@ -38,6 +38,7 @@ function createOptionGroups(
 }
 
 export function ProsodyPopovers({ insertions, voiceName, language, ...props }: ProsodyPopoversProps): ReactElement {
+  const emptyOptionsMessages: Record<string, string> = {};
   const filteredInsertions = insertions.map((insertion) => {
     if (!isExpressAsInsertion(insertion)) {
       return insertion;
@@ -49,6 +50,9 @@ export function ProsodyPopovers({ insertions, voiceName, language, ...props }: P
         insertion.options.map((option) => option.value),
       ),
     );
+    if (availableStyles.size === 0) {
+      emptyOptionsMessages[insertion.id] = EDITOR_COPY[language].styleNotSupported;
+    }
     const availableOptions = insertion.options.filter((option) => availableStyles.has(option.value));
 
     return {
@@ -63,6 +67,12 @@ export function ProsodyPopovers({ insertions, voiceName, language, ...props }: P
   );
 
   return (
-    <InsertionPopovers {...props} language={language} insertions={filteredInsertions} optionGroups={optionGroups} />
+    <InsertionPopovers
+      {...props}
+      emptyOptionsMessages={emptyOptionsMessages}
+      language={language}
+      insertions={filteredInsertions}
+      optionGroups={optionGroups}
+    />
   );
 }

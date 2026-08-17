@@ -27,6 +27,7 @@ export interface EditorCopy {
   previewSelection: string;
   previewSelectionTitle: string;
   noAvailableOptions: string;
+  styleNotSupported: string;
   categoryEmotions: string;
   categoryScenarios: string;
   categoryMedia: string;
@@ -85,6 +86,7 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     previewSelection: "選択部分を試聴",
     previewSelectionTitle: "選択部分のSSMLを試聴",
     noAvailableOptions: "利用可能な選択肢がありません。",
+    styleNotSupported: "この音声はスタイル指定に対応していません",
     categoryEmotions: "感情・トーン",
     categoryScenarios: "会話・シナリオ",
     categoryMedia: "メディア・ナレーション",
@@ -115,6 +117,7 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     previewSelection: "Preview selection",
     previewSelectionTitle: "Preview the selected SSML",
     noAvailableOptions: "No options are available.",
+    styleNotSupported: "This voice does not support style selection.",
     categoryEmotions: "Emotions / Tone",
     categoryScenarios: "Conversations / Scenarios",
     categoryMedia: "Media / Broadcast",
