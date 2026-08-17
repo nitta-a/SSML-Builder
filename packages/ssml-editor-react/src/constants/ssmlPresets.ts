@@ -137,6 +137,7 @@ export const VOICE_STYLE_MAP = {
   ],
   "en-US-AndrewNeural": ["empathetic", "relieved"],
   "en-US-JennyNeural": [
+    "assistant",
     "chat",
     "customerservice",
     "newscast",
