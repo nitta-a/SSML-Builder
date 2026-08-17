@@ -108,9 +108,7 @@ interface ParsedTagRange extends EnclosingTagRange {
 }
 
 function getTagName(tag: string, closing: boolean): string | undefined {
-  const pattern = closing
-    ? /^<\s*\/\s*([A-Za-z_][A-Za-z0-9_.:-]*)/
-    : /^<\s*([A-Za-z_][A-Za-z0-9_.:-]*)/;
+  const pattern = closing ? /^<\s*\/\s*([A-Za-z_][A-Za-z0-9_.:-]*)/ : /^<\s*([A-Za-z_][A-Za-z0-9_.:-]*)/;
   return tag.match(pattern)?.[1]?.toLowerCase();
 }
 
@@ -134,11 +132,7 @@ function getIgnoredTagEnd(source: string, start: number): number | undefined {
   return undefined;
 }
 
-export function getEnclosingTagRange(
-  source: string,
-  offset: number,
-  targetTagName?: string,
-): EnclosingTagRange | null {
+export function getEnclosingTagRange(source: string, offset: number, targetTagName?: string): EnclosingTagRange | null {
   const limit = Math.max(0, Math.min(offset, source.length));
   const target = targetTagName?.toLowerCase();
   const stack: ParsedTagRange[] = [];

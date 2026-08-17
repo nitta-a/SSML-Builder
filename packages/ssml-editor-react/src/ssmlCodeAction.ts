@@ -117,7 +117,14 @@ function toModelRange(model: MonacoCodeActionModel, startOffset: number, endOffs
   };
 }
 
-function createUnwrapTagAction(model: MonacoCodeActionModel, tagName: string, openingStart: number, openingEnd: number, closingStart: number, closingEnd: number) {
+function createUnwrapTagAction(
+  model: MonacoCodeActionModel,
+  tagName: string,
+  openingStart: number,
+  openingEnd: number,
+  closingStart: number,
+  closingEnd: number,
+) {
   return {
     title: `Unwrap <${tagName}>`,
     kind: "quickfix",

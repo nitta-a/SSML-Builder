@@ -819,9 +819,7 @@ describe("SsmlEditor props", () => {
         title: "Unwrap <prosody>",
         kind: "quickfix",
         edit: expect.objectContaining({
-          edits: expect.arrayContaining([
-            expect.objectContaining({ textEdit: expect.objectContaining({ text: "" }) }),
-          ]),
+          edits: expect.arrayContaining([expect.objectContaining({ textEdit: expect.objectContaining({ text: "" }) })]),
         }),
       }),
     );

@@ -220,7 +220,7 @@ test("finds the innermost enclosing tag and its opening and closing ranges", () 
     },
   });
   assert.equal(getEnclosingTagRange(source, offset, "voice")?.tagName, "voice");
-  assert.equal(getEnclosingTagRange(source, 0), null);
+  assert.equal(getEnclosingTagRange(source, source.length), null);
 });
 
 test("handles quoted brackets, non-content, and self-closing tags", () => {
@@ -232,7 +232,7 @@ test("handles quoted brackets, non-content, and self-closing tags", () => {
     tagName: "break",
     openingTag: { start: breakStart, end: breakEnd },
   });
-  assert.equal(getEnclosingTagRange(source, source.indexOf("prosody") + 2), null);
+  assert.equal(getEnclosingTagRange(source, source.indexOf("prosody") + 2, "prosody"), null);
 });
 
 test("replaces a typed opening bracket when selecting a tag completion", () => {
