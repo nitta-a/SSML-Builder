@@ -362,12 +362,13 @@ describe("SsmlEditor toolbar menus", () => {
     const menu = screen.getByRole("menu", { name: "Emotion" });
     const groups = within(menu).getAllByRole("group");
 
-    expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual([
+    expect(groups.map((group) => group.querySelector("legend")?.textContent)).toEqual([
       "Emotions / Tone",
       "Conversations / Scenarios",
       "Media / Broadcast",
       "Other",
     ]);
+    expect(within(menu).getByRole("group", { name: "Emotions / Tone" })).toBe(groups[0]);
     expect(within(groups[0] as HTMLElement).getByRole("menuitem", { name: "cheerful" })).toBeTruthy();
     expect(within(groups[1] as HTMLElement).getByRole("menuitem", { name: "chat" })).toBeTruthy();
     expect(within(groups[2] as HTMLElement).getByRole("menuitem", { name: "newscast" })).toBeTruthy();

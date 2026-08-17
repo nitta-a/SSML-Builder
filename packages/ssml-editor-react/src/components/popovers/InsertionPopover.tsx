@@ -89,7 +89,7 @@ export function InsertionPopover({
           </p>
         ) : optionGroups ? (
           optionGroups.map((group) => (
-            <fieldset key={group.label} aria-label={group.label} style={styles.toolbarOptionGroup}>
+            <fieldset key={group.label} style={styles.toolbarOptionGroup}>
               <legend style={styles.toolbarOptionGroupLabel}>{group.label}</legend>
               {group.options.map(renderOption)}
             </fieldset>
