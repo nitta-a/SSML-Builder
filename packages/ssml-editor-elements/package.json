@@ -1,0 +1,30 @@
+{
+  "name": "@ssml-builder-js/ssml-editor-elements",
+  "private": true,
+  "version": "2.1.0",
+  "description": "Framework-independent SSML editor custom element",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "monaco-editor": "^0.56.0"
+  }
+}

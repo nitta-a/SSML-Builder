@@ -24,6 +24,11 @@
       "types": "./dist/react.d.ts",
       "import": "./dist/react.mjs",
       "require": "./dist/react.js"
+    },
+    "./elements": {
+      "types": "./dist/elements.d.ts",
+      "import": "./dist/elements.mjs",
+      "require": "./dist/elements.js"
     }
   },
   "files": [
@@ -58,6 +63,8 @@
     "@monaco-editor/react": "^4.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
+    ,
+    "monaco-editor": "^0.56.0"
   },
   "peerDependenciesMeta": {
     "@monaco-editor/react": {
@@ -67,6 +74,9 @@
       "optional": true
     },
     "react-dom": {
+      "optional": true
+    },
+    "monaco-editor": {
       "optional": true
     }
   },
