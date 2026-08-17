@@ -426,7 +426,7 @@ describe("SsmlEditor toolbar menus", () => {
 
     const menu = screen.getByRole("menu", { name: "感情" });
     const option = within(menu).getByRole("option", { name: "この音声はスタイル指定に対応していません" });
-    expect(option).toBeDisabled();
+    expect((option as HTMLOptionElement).disabled).toBe(true);
   });
 
   it("refreshes emotion options after the document voice changes", async () => {
@@ -443,7 +443,7 @@ describe("SsmlEditor toolbar menus", () => {
     const option = within(screen.getByRole("menu", { name: "Emotion" })).getByRole("option", {
       name: "This voice does not support style selection.",
     });
-    expect(option).toBeDisabled();
+    expect((option as HTMLOptionElement).disabled).toBe(true);
   });
 
   it("inserts an emotion style allowed by the active voice", async () => {
