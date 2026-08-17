@@ -91,9 +91,9 @@ test("supports single-quoted and case-insensitive attribute contexts", () => {
 });
 
 test("resolves express-as styles by normalized voice name and handles unsupported voices", () => {
-  assert.deepEqual(resolveExpressAsStyles("ja-JP-MayuNeural"), ["calm", "cheerful", "sad"]);
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-MayuNeural"), ["cheerful", "calm", "sad"]);
   assert.deepEqual(resolveExpressAsStyles("ja-JP-NanamiNeural"), ["cheerful", "sad", "chat", "customerservice", "whispering"]);
-  assert.deepEqual(resolveExpressAsStyles("  JA-jp-mayuneural  "), ["calm", "cheerful", "sad"]);
+  assert.deepEqual(resolveExpressAsStyles("  JA-jp-mayuneural  "), ["cheerful", "calm", "sad"]);
   assert.deepEqual(resolveExpressAsStyles("ja-JP-KeitaNeural"), ["chat"]);
   assert.deepEqual(resolveExpressAsStyles(undefined), EXPRESS_AS_STYLE_PRESETS);
   assert.deepEqual(resolveExpressAsStyles(null), EXPRESS_AS_STYLE_PRESETS);
@@ -114,7 +114,7 @@ test("filters express-as style completions by the effective voice", () => {
   const outerVoiceSuggestions = getSuggestions('<mstts:express-as style="', undefined, "ja-JP-NanamiNeural");
   assert.deepEqual(
     outerVoiceSuggestions.map((suggestion) => suggestion.label),
-    ["cheerful", "chat", "customerservice"],
+    ["cheerful", "sad", "chat", "customerservice", "whispering"],
   );
 
   const innerVoiceSuggestions = getSuggestions(
