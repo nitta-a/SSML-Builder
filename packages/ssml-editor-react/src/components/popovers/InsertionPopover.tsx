@@ -52,7 +52,9 @@ export function InsertionPopover({
   onApply,
   optionGroups,
 }: InsertionPopoverProps): ReactElement {
-  const availableOptions = optionGroups?.flatMap((group) => group.options) ?? insertion.options;
+  const hasOptions = optionGroups
+    ? optionGroups.some((group) => group.options.length > 0)
+    : insertion.options.length > 0;
   const renderOption = (option: SsmlEditorInsertionOption): ReactElement => (
     <button
       key={option.value}
@@ -83,7 +85,7 @@ export function InsertionPopover({
         role="menu"
         aria-label={insertion.labels[language]}
       >
-        {availableOptions.length === 0 ? (
+        {!hasOptions ? (
           <p role="status" style={styles.toolbarEmpty}>
             {emptyOptionsMessage}
           </p>
