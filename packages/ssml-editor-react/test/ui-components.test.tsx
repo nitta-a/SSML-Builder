@@ -345,14 +345,13 @@ describe("SsmlEditor toolbar menus", () => {
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
     const menu = screen.getByRole("menu", { name: "Emotion" });
-    const select = within(menu).getByRole("combobox", { name: "Emotion" });
 
-    expect(within(select).getByRole("option", { name: "cheerful" })).toBeTruthy();
-    expect(within(select).getByRole("option", { name: "chat" })).toBeTruthy();
-    expect(within(select).queryByRole("option", { name: "friendly" })).toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "cheerful" })).toBeTruthy();
+    expect(within(menu).getByRole("menuitem", { name: "chat" })).toBeTruthy();
+    expect(within(menu).queryByRole("menuitem", { name: "friendly" })).toBeNull();
   });
 
-  it("groups emotion styles into localized optgroups and keeps custom styles in Other", async () => {
+  it("groups emotion styles into localized menu sections and keeps custom styles in Other", async () => {
     const user = userEvent.setup();
     renderEditor({
       emotionStyles: ["cheerful", "chat", "newscast", "custom"],
@@ -360,19 +359,20 @@ describe("SsmlEditor toolbar menus", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
-    const select = screen.getByRole("combobox", { name: "Emotion" });
-    const groups = Array.from(select.querySelectorAll("optgroup"));
+    const menu = screen.getByRole("menu", { name: "Emotion" });
+    const groups = within(menu).getAllByRole("group");
 
-    expect(groups.map((group) => group.label)).toEqual([
+    expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual([
       "Emotions / Tone",
       "Conversations / Scenarios",
       "Media / Broadcast",
       "Other",
     ]);
-    expect(within(groups[0] as HTMLElement).getByRole("option", { name: "cheerful" })).toBeTruthy();
-    expect(within(groups[1] as HTMLElement).getByRole("option", { name: "chat" })).toBeTruthy();
-    expect(within(groups[2] as HTMLElement).getByRole("option", { name: "newscast" })).toBeTruthy();
-    expect(within(groups[3] as HTMLElement).getByRole("option", { name: "custom" })).toBeTruthy();
+    expect(within(groups[0] as HTMLElement).getByRole("menuitem", { name: "cheerful" })).toBeTruthy();
+    expect(within(groups[1] as HTMLElement).getByRole("menuitem", { name: "chat" })).toBeTruthy();
+    expect(within(groups[2] as HTMLElement).getByRole("menuitem", { name: "newscast" })).toBeTruthy();
+    expect(within(groups[3] as HTMLElement).getByRole("menuitem", { name: "custom" })).toBeTruthy();
+    expect(within(menu).queryByRole("combobox")).toBeNull();
   });
 
   it("uses an inner Monaco voice instead of the document voice", async () => {
@@ -398,9 +398,7 @@ describe("SsmlEditor toolbar menus", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
-    const options = within(screen.getByRole("combobox", { name: "Emotion" }))
-      .getAllByRole("option")
-      .filter((option) => option.getAttribute("value") !== "");
+    const options = within(screen.getByRole("menu", { name: "Emotion" })).getAllByRole("menuitem");
 
     expect(options.map((option) => option.textContent)).toEqual(["cheerful"]);
   });
@@ -422,7 +420,7 @@ describe("SsmlEditor toolbar menus", () => {
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
     expect(
-      within(screen.getByRole("combobox", { name: "Emotion" })).getByRole("option", { name: "chat" }),
+      within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" }),
     ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Emotion" }));
 
@@ -440,7 +438,7 @@ describe("SsmlEditor toolbar menus", () => {
     renderEditor({ document: createVoiceDocument("ja-JP-NanamiNeural"), locale: "en" });
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "Emotion" }), "chat");
+    await user.click(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" }));
 
     expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toBe(
       '<mstts:express-as style="chat">Hello</mstts:express-as>\n',

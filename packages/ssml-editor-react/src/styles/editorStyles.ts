@@ -123,15 +123,16 @@ export const editorStyles: Record<string, CSSProperties> = {
     whiteSpace: "nowrap",
     cursor: "pointer",
   },
-  toolbarSelect: {
-    minWidth: "12rem",
-    padding: "0.375rem 0.5rem",
-    border: 0,
+  toolbarOptionGroup: {
+    display: "grid",
+    gap: "0.125rem",
+  },
+  toolbarOptionGroupLabel: {
+    padding: "0.375rem 0.5rem 0.125rem",
     color: "var(--ssml-editor-color)",
-    backgroundColor: "var(--ssml-editor-control-bg)",
-    font: "inherit",
+    fontSize: "0.875rem",
+    fontWeight: 600,
     whiteSpace: "nowrap",
-    cursor: "pointer",
   },
   toolbarEmpty: {
     margin: 0,

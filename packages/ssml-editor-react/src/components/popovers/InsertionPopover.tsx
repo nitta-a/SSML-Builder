@@ -53,6 +53,25 @@ export function InsertionPopover({
   optionGroups,
 }: InsertionPopoverProps): ReactElement {
   const availableOptions = optionGroups?.flatMap((group) => group.options) ?? insertion.options;
+  const renderOption = (option: SsmlEditorInsertionOption): ReactElement => (
+    <button
+      key={option.value}
+      type="button"
+      role="menuitem"
+      style={styles.toolbarOption}
+      title={option.descriptions?.[language] ?? insertion.descriptions[language]}
+      disabled={isReadOnly}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => {
+        if (!isReadOnly) {
+          onApply(insertion, option);
+        }
+        onClose();
+      }}
+    >
+      {option.labels[language]}
+    </button>
+  );
   const menu =
     isOpen && menuPosition && typeof document !== "undefined" ? (
       <div
@@ -69,52 +88,14 @@ export function InsertionPopover({
             {emptyOptionsMessage}
           </p>
         ) : optionGroups ? (
-          <select
-            aria-label={insertion.labels[language]}
-            defaultValue=""
-            disabled={isReadOnly}
-            style={styles.toolbarSelect}
-            onChange={(event) => {
-              const option = availableOptions.find((candidate) => candidate.value === event.currentTarget.value);
-              if (option) {
-                onApply(insertion, option);
-                onClose();
-              }
-            }}
-          >
-            <option value="" disabled hidden>
-              {insertion.labels[language]}
-            </option>
-            {optionGroups.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.options.map((option) => (
-                  <option key={option.value} value={option.value} title={option.descriptions?.[language]}>
-                    {option.labels[language]}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        ) : (
-          insertion.options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="menuitem"
-              style={styles.toolbarOption}
-              title={option.descriptions?.[language] ?? insertion.descriptions[language]}
-              disabled={isReadOnly}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                if (!isReadOnly) {
-                  onApply(insertion, option);
-                }
-                onClose();
-              }}
-            >
-              {option.labels[language]}
-            </button>
+          optionGroups.map((group) => (
+            <div key={group.label} role="group" aria-label={group.label} style={styles.toolbarOptionGroup}>
+              <span style={styles.toolbarOptionGroupLabel}>{group.label}</span>
+              {group.options.map(renderOption)}
+            </div>
           ))
+        ) : (
+          insertion.options.map(renderOption)
         )}
       </div>
     ) : null;
