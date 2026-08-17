@@ -9,6 +9,7 @@ import type { SsmlEditorRef } from "@ssml-builder-js/ssml-editor-react";
 
 type SpeechLanguage = "ja-JP" | "en-US";
 type SpeechGender = "female" | "male";
+type PlaygroundLocale = "ja" | "en";
 type PlaygroundTheme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "ssml-builder-playground-theme";
@@ -24,15 +25,87 @@ const VOICE_NAMES = {
   },
 } satisfies Record<SpeechLanguage, Record<SpeechGender, string>>;
 
-const LANGUAGE_OPTIONS = [
-  { value: "en-US", label: "English (en-US)" },
-  { value: "ja-JP", label: "日本語 (ja-JP)" },
-] as const;
+const LOCALE_OPTIONS = [
+  { value: "ja", label: "日本語" },
+  { value: "en", label: "English" },
+] as const satisfies ReadonlyArray<{ value: PlaygroundLocale; label: string }>;
 
 const GENDER_OPTIONS = [
-  { value: "female", label: "Female (女性)" },
-  { value: "male", label: "Male (男性)" },
+  { value: "female", labels: { ja: "女性", en: "Female" } },
+  { value: "male", labels: { ja: "男性", en: "Male" } },
 ] as const;
+
+const LANGUAGE_OPTIONS = [
+  { value: "en-US", labels: { ja: "英語 (en-US)", en: "English (en-US)" } },
+  { value: "ja-JP", labels: { ja: "日本語 (ja-JP)", en: "Japanese (ja-JP)" } },
+] as const;
+
+type PlaygroundCopy = {
+  localeLabel: string;
+  playgroundTitle: string;
+  themeLabel: string;
+  introDescription: string;
+  speechSettings: string;
+  speechLanguage: string;
+  speechGender: string;
+  voice: string;
+  audioPreview: string;
+  audioDescription: string;
+  generateAudio: string;
+  generatingAudio: string;
+  generatedAudio: string;
+  generatedSsml: string;
+  ssmlTextTrack: string;
+  unsupportedAudio: string;
+  generatedSpeechFallback: string;
+  audioError: (status: number) => string;
+  synthesisError: string;
+};
+
+const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
+  ja: {
+    localeLabel: "表示言語",
+    playgroundTitle: "Playground",
+    themeLabel: "ダークモード",
+    introDescription: "以下のサンプルドキュメントを編集して、SSML エディターとコアパッケージを確認できます。",
+    speechSettings: "音声設定",
+    speechLanguage: "音声言語",
+    speechGender: "性別",
+    voice: "音声",
+    audioPreview: "音声プレビュー",
+    audioDescription: "現在の SSML から音声を生成して、ブラウザーで再生できます。",
+    generateAudio: "音声を生成",
+    generatingAudio: "音声を生成中...",
+    generatedAudio: "生成された音声",
+    generatedSsml: "生成された SSML",
+    ssmlTextTrack: "SSML テキスト",
+    unsupportedAudio: "お使いのブラウザーは音声再生に対応していません。",
+    generatedSpeechFallback: "生成された音声",
+    audioError: (status) => `音声の生成に失敗しました (${status})。`,
+    synthesisError: "音声の生成に失敗しました。",
+  },
+  en: {
+    localeLabel: "Display language",
+    playgroundTitle: "Playground",
+    themeLabel: "Dark mode",
+    introDescription: "Edit the sample document below to verify the SSML editor and core package together.",
+    speechSettings: "Speech settings",
+    speechLanguage: "Language",
+    speechGender: "Gender",
+    voice: "Voice",
+    audioPreview: "Audio preview",
+    audioDescription: "Generate audio from the current SSML and listen to it in the browser.",
+    generateAudio: "Generate audio",
+    generatingAudio: "Generating audio...",
+    generatedAudio: "Generated speech audio",
+    generatedSsml: "Generated SSML",
+    ssmlTextTrack: "SSML text",
+    unsupportedAudio: "Your browser does not support audio playback.",
+    generatedSpeechFallback: "Generated speech",
+    audioError: (status) => `Audio generation failed (${status}).`,
+    synthesisError: "Audio generation failed.",
+  },
+};
 
 const initialDocument: SsmlDocument = {
   type: "speak",
@@ -70,19 +143,19 @@ function getNodeText(node: SsmlNode): string {
   return (node.children ?? []).map(getNodeText).join("");
 }
 
-function createCaptionTrack(document: SsmlDocument): string {
+function createCaptionTrack(document: SsmlDocument, fallbackText: string): string {
   const text =
     getDocumentChildren(document).map(getNodeText).join("").trim().replace(/\s+/g, " ").replaceAll("-->", "-- >") ||
-    "Generated speech";
+    fallbackText;
   const webVtt = `WEBVTT\n\n00:00:00.000 --> 99:59:59.999\n${text}`;
   return `data:text/vtt;charset=utf-8,${encodeURIComponent(webVtt)}`;
 }
 
-function createCaptionTrackFromSsml(ssml: string, fallbackDocument: SsmlDocument): string {
+function createCaptionTrackFromSsml(ssml: string, fallbackDocument: SsmlDocument, fallbackText: string): string {
   try {
-    return createCaptionTrack(parseSsml(ssml));
+    return createCaptionTrack(parseSsml(ssml), fallbackText);
   } catch {
-    return createCaptionTrack(fallbackDocument);
+    return createCaptionTrack(fallbackDocument, fallbackText);
   }
 }
 
@@ -138,7 +211,7 @@ function updateSpeechSettings(document: SsmlDocument, language: SpeechLanguage, 
   return nextDocument;
 }
 
-async function getSynthesisError(response: Response): Promise<string> {
+async function getSynthesisError(response: Response, fallbackMessage: string): Promise<string> {
   try {
     const body: unknown = await response.json();
     if (body !== null && typeof body === "object" && "error" in body && typeof body.error === "string") {
@@ -146,7 +219,7 @@ async function getSynthesisError(response: Response): Promise<string> {
     }
   } catch {}
 
-  return `Audio generation failed (${response.status}).`;
+  return fallbackMessage;
 }
 
 function getStoredTheme(): PlaygroundTheme | null {
@@ -166,6 +239,7 @@ function storeTheme(theme: PlaygroundTheme): void {
 
 export default function Home() {
   const [document, setDocument] = useState<SsmlDocument>(initialDocument);
+  const [locale, setLocale] = useState<PlaygroundLocale>("ja");
   const [selectedLanguage, setSelectedLanguage] = useState<SpeechLanguage>("en-US");
   const [selectedGender, setSelectedGender] = useState<SpeechGender>("female");
   const [theme, setTheme] = useState<PlaygroundTheme | null>(null);
@@ -177,9 +251,10 @@ export default function Home() {
   const audioUrlRef = useRef<string | null>(null);
   const editorRef = useRef<SsmlEditorRef>(null);
   const hasManualThemeRef = useRef(false);
+  const copy = PLAYGROUND_COPY[locale];
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
-  const currentCaptionTrack = createCaptionTrack(document);
+  const currentCaptionTrack = createCaptionTrack(document, copy.generatedSpeechFallback);
   const captionTrackSource = audioCaptionTrack ?? currentCaptionTrack;
   const captionLanguage = audioCaptionLanguage ?? document.lang;
 
@@ -190,6 +265,10 @@ export default function Home() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    globalThis.document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     const storedTheme = getStoredTheme();
@@ -265,7 +344,7 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error(await getSynthesisError(response));
+        throw new Error(await getSynthesisError(response, copy.audioError(response.status)));
       }
 
       const audioBlob = await response.blob();
@@ -273,7 +352,7 @@ export default function Home() {
       setAudioCaptionLanguage(requestCaptionLanguage);
       replaceAudioUrl(URL.createObjectURL(audioBlob));
     } catch (error) {
-      setAudioError(error instanceof Error ? error.message : "Audio generation failed.");
+      setAudioError(error instanceof Error ? error.message : copy.synthesisError);
     } finally {
       setIsGeneratingAudio(false);
     }
@@ -289,39 +368,59 @@ export default function Home() {
       return;
     }
 
-    void synthesizeAudio(selectedSsml, createCaptionTrackFromSsml(selectedSsml, document), document.lang);
+    void synthesizeAudio(
+      selectedSsml,
+      createCaptionTrackFromSsml(selectedSsml, document, copy.generatedSpeechFallback),
+      document.lang,
+    );
   };
 
   return (
     <main className="playground">
       <header className="intro">
         <div className="intro-heading">
-          <div>
+          <div className="intro-title">
             <p className="eyebrow">SSML Builder</p>
-            <h1>Playground</h1>
+            <h1>{copy.playgroundTitle}</h1>
           </div>
-          <div className="theme-switch">
-            <span id="theme-switch-label">Dark mode</span>
-            <button
-              className="theme-switch-track"
-              type="button"
-              role="switch"
-              aria-checked={theme === "dark"}
-              aria-labelledby="theme-switch-label"
-              onClick={toggleTheme}
-              disabled={theme === null}
-            >
-              <span className="theme-switch-thumb" />
-            </button>
+          <div className="intro-actions">
+            <label className="locale-field" htmlFor="app-locale">
+              <span>{copy.localeLabel}</span>
+              <select
+                id="app-locale"
+                value={locale}
+                onChange={(event) => setLocale(event.target.value as PlaygroundLocale)}
+              >
+                {LOCALE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="theme-switch">
+              <span id="theme-switch-label">{copy.themeLabel}</span>
+              <button
+                className="theme-switch-track"
+                type="button"
+                role="switch"
+                aria-checked={theme === "dark"}
+                aria-labelledby="theme-switch-label"
+                onClick={toggleTheme}
+                disabled={theme === null}
+              >
+                <span className="theme-switch-thumb" />
+              </button>
+            </div>
           </div>
         </div>
-        <p>Edit the sample document below to verify the SSML editor and core package together.</p>
+        <p>{copy.introDescription}</p>
       </header>
       <section className="speech-settings" aria-labelledby="speech-settings-heading">
-        <h2 id="speech-settings-heading">Speech settings</h2>
+        <h2 id="speech-settings-heading">{copy.speechSettings}</h2>
         <div className="settings-fields">
           <label className="setting-field" htmlFor="speech-language">
-            <span>Language</span>
+            <span>{copy.speechLanguage}</span>
             <select
               id="speech-language"
               value={selectedLanguage}
@@ -333,13 +432,13 @@ export default function Home() {
             >
               {LANGUAGE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {option.labels[locale]}
                 </option>
               ))}
             </select>
           </label>
           <label className="setting-field" htmlFor="speech-gender">
-            <span>Gender</span>
+            <span>{copy.speechGender}</span>
             <select
               id="speech-gender"
               value={selectedGender}
@@ -351,14 +450,14 @@ export default function Home() {
             >
               {GENDER_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {option.labels[locale]}
                 </option>
               ))}
             </select>
           </label>
         </div>
         <p className="selected-voice">
-          Voice: <code>{selectedVoice}</code>
+          {copy.voice}: <code>{selectedVoice}</code>
         </p>
       </section>
       <SsmlEditor
@@ -366,12 +465,12 @@ export default function Home() {
         document={document}
         onChange={setDocument}
         onPreviewSelection={previewSelectedAudio}
-        language="ja"
+        locale={locale}
         theme={theme ?? "system"}
       />
       <section className="audio-generation" aria-labelledby="audio-generation-heading">
-        <h2 id="audio-generation-heading">Audio preview</h2>
-        <p>Generate audio from the current SSML and listen to it in the browser.</p>
+        <h2 id="audio-generation-heading">{copy.audioPreview}</h2>
+        <p>{copy.audioDescription}</p>
         <button
           className="generate-audio"
           type="button"
@@ -379,7 +478,7 @@ export default function Home() {
           disabled={isGeneratingAudio}
           aria-busy={isGeneratingAudio}
         >
-          {isGeneratingAudio ? "Generating audio..." : "Generate audio"}
+          {isGeneratingAudio ? copy.generatingAudio : copy.generateAudio}
         </button>
         {audioError ? (
           <p className="audio-error" role="alert">
@@ -387,14 +486,14 @@ export default function Home() {
           </p>
         ) : null}
         {audioUrl ? (
-          <audio className="audio-player" controls autoPlay src={audioUrl} aria-label="Generated speech audio">
-            <track kind="captions" label="SSML text" src={captionTrackSource} srcLang={captionLanguage} default />
-            Your browser does not support audio playback.
+          <audio className="audio-player" controls autoPlay src={audioUrl} aria-label={copy.generatedAudio}>
+            <track kind="captions" label={copy.ssmlTextTrack} src={captionTrackSource} srcLang={captionLanguage} default />
+            {copy.unsupportedAudio}
           </audio>
         ) : null}
       </section>
       <section className="output" aria-labelledby="generated-ssml-heading">
-        <h2 id="generated-ssml-heading">Generated SSML</h2>
+        <h2 id="generated-ssml-heading">{copy.generatedSsml}</h2>
         <pre>
           <code>{ssml}</code>
         </pre>
