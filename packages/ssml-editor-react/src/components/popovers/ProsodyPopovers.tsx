@@ -39,7 +39,7 @@ function createOptionGroups(
 
 export function ProsodyPopovers({ insertions, voiceName, language, ...props }: ProsodyPopoversProps): ReactElement {
   const filteredInsertions = insertions.map((insertion) => {
-    if (insertion.id !== "emotion" || insertion.tagName?.toLowerCase() !== "mstts:express-as") {
+    if (!isExpressAsInsertion(insertion)) {
       return insertion;
     }
 
