@@ -17,6 +17,7 @@ export interface InsertionPopoversProps {
   onToggle: (id: string, trigger: HTMLButtonElement) => void;
   onClose: () => void;
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
+  emptyOptionsMessages?: Readonly<Record<string, string>>;
   optionGroups?: Readonly<Record<string, readonly InsertionOptionGroup[]>>;
 }
 
@@ -24,6 +25,7 @@ export function InsertionPopovers({
   insertions,
   openPopoverId,
   onToggle,
+  emptyOptionsMessages,
   optionGroups,
   ...props
 }: InsertionPopoversProps): ReactElement {
@@ -34,6 +36,7 @@ export function InsertionPopovers({
           key={insertion.id}
           {...props}
           insertion={insertion}
+          emptyOptionsMessage={emptyOptionsMessages?.[insertion.id] ?? props.emptyOptionsMessage}
           optionGroups={optionGroups?.[insertion.id]}
           isOpen={openPopoverId === insertion.id}
           onToggle={(trigger) => onToggle(insertion.id, trigger)}
