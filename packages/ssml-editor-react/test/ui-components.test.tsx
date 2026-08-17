@@ -419,9 +419,7 @@ describe("SsmlEditor toolbar menus", () => {
     const { rerender } = renderEditor({ document: createVoiceDocument("ja-JP-NanamiNeural"), locale: "en" });
 
     await user.click(screen.getByRole("button", { name: "Emotion" }));
-    expect(
-      within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" }),
-    ).toBeTruthy();
+    expect(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Emotion" }));
 
     rerender(<SsmlEditor document={createVoiceDocument("ja-JP-KeitaNeural")} locale="en" />);

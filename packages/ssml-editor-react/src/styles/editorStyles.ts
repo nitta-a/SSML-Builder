@@ -126,6 +126,9 @@ export const editorStyles: Record<string, CSSProperties> = {
   toolbarOptionGroup: {
     display: "grid",
     gap: "0.125rem",
+    margin: 0,
+    padding: 0,
+    border: 0,
   },
   toolbarOptionGroupLabel: {
     padding: "0.375rem 0.5rem 0.125rem",
