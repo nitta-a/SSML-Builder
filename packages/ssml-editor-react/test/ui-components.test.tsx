@@ -108,16 +108,20 @@ const monacoState = vi.hoisted(() => {
           text: string;
         }>,
       ) => {
-        const edit = edits[0];
-        if (edit) {
-          const startOffset =
-            "getStartPosition" in edit.range
-              ? model.getOffsetAt(edit.range.getStartPosition())
-              : model.getOffsetAt({ lineNumber: edit.range.startLineNumber, column: edit.range.startColumn });
-          const endOffset =
-            "getEndPosition" in edit.range
-              ? model.getOffsetAt(edit.range.getEndPosition())
-              : model.getOffsetAt({ lineNumber: edit.range.endLineNumber, column: edit.range.endColumn });
+        const offsets = edits
+          .map((edit) => {
+            const startOffset =
+              "getStartPosition" in edit.range
+                ? model.getOffsetAt(edit.range.getStartPosition())
+                : model.getOffsetAt({ lineNumber: edit.range.startLineNumber, column: edit.range.startColumn });
+            const endOffset =
+              "getEndPosition" in edit.range
+                ? model.getOffsetAt(edit.range.getEndPosition())
+                : model.getOffsetAt({ lineNumber: edit.range.endLineNumber, column: edit.range.endColumn });
+            return { edit, startOffset, endOffset };
+          })
+          .sort((left, right) => right.startOffset - left.startOffset);
+        for (const { edit, startOffset, endOffset } of offsets) {
           value = `${value.slice(0, startOffset)}${edit.text}${value.slice(endOffset)}`;
         }
         return true;
@@ -478,6 +482,33 @@ describe("SsmlEditor toolbar menus", () => {
     expect(monacoState.getValue()).toBe('Hello <prosody rate="slow">world</prosody>\n');
   });
 
+  it("unwraps the active wrapping tag when its toolbar button is clicked", async () => {
+    const user = userEvent.setup();
+    const value = '<prosody rate="slow">Hello</prosody>';
+    monacoState.setValue(value);
+    monacoState.setSelectionOffsets(value.indexOf("Hello") + 2, value.indexOf("Hello") + 2);
+    renderEditor({ locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Rate" }));
+
+    expect(monacoState.editor.executeEdits).toHaveBeenCalledTimes(1);
+    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1]).toHaveLength(2);
+    expect(monacoState.getValue()).toBe("Hello");
+  });
+
+  it("removes an active self-closing tag when its toolbar button is clicked", async () => {
+    const user = userEvent.setup();
+    const value = '<break time="500ms"/>';
+    monacoState.setValue(value);
+    monacoState.setSelectionOffsets(value.indexOf("break") + 2, value.indexOf("break") + 2);
+    renderEditor({ locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Break" }));
+
+    expect(monacoState.editor.executeEdits.mock.calls[0]?.[1]).toHaveLength(1);
+    expect(monacoState.getValue()).toBe("");
+  });
+
   it("inserts a tag and closes the popover when Enter is pressed", async () => {
     const user = userEvent.setup();
     renderEditor({ locale: "en" });
@@ -758,6 +789,48 @@ describe("SsmlEditor props", () => {
       ]);
     }
     expect(monacoState.getValue()).toBe('<prosody rate="x-fast">Hello</prosody>');
+  });
+
+  it("offers an Unwrap quick action for a wrapping tag at the cursor", () => {
+    const value = '<prosody rate="slow">Hello</prosody>';
+    const cursorOffset = value.indexOf("Hello") + 2;
+    monacoState.setValue(value);
+    monacoState.setSelectionOffsets(cursorOffset, cursorOffset);
+    renderEditor({ locale: "en" });
+
+    const provider = monacoState.monaco.languages.registerCodeActionProvider.mock.lastCall?.[1];
+    const result = provider?.provideCodeActions?.(
+      monacoState.editor.getModel(),
+      {
+        startLineNumber: 1,
+        startColumn: cursorOffset + 1,
+        endLineNumber: 1,
+        endColumn: cursorOffset + 1,
+      },
+      { markers: [], trigger: 1 },
+      {} as never,
+    );
+    const actions = result && !(result instanceof Promise) ? result.actions : [];
+    const action = actions[0];
+
+    expect(actions).toHaveLength(1);
+    expect(action).toEqual(
+      expect.objectContaining({
+        title: "Unwrap <prosody>",
+        kind: "quickfix",
+        edit: expect.objectContaining({
+          edits: expect.arrayContaining([
+            expect.objectContaining({ textEdit: expect.objectContaining({ text: "" }) }),
+          ]),
+        }),
+      }),
+    );
+    const edits = action?.edit?.edits ?? [];
+    monacoState.editor.executeEdits(
+      "ssml-code-action",
+      edits.flatMap((edit) => ("textEdit" in edit ? [{ range: edit.textEdit.range, text: edit.textEdit.text }] : [])),
+    );
+    expect(monacoState.getValue()).toBe("Hello");
   });
 
   it("cleans up the diagnostics listener and pending timer on unmount", () => {

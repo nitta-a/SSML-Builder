@@ -216,7 +216,7 @@ export function getEnclosingTagRange(
       return closingTag !== undefined && openingTag.end <= limit && limit < closingTag.end;
     });
 
-  const candidate = candidates.at(-1);
+  const candidate = candidates[candidates.length - 1];
   if (!candidate) {
     return null;
   }

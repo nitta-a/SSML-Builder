@@ -6,7 +6,7 @@ import { clearSsmlDocument } from "../src/clearSsmlDocument.ts";
 import { EXPRESS_AS_STYLE_PRESETS, resolveExpressAsStyles } from "../src/constants/ssmlPresets.ts";
 import { formatXml } from "../src/formatXml.ts";
 import { registerSsmlCompletionProvider } from "../src/ssmlCompletion.ts";
-import { findActiveSsmlTags, findSsmlVoiceContext } from "../src/ssmlContext.ts";
+import { findActiveSsmlTags, findSsmlVoiceContext, getEnclosingTagRange } from "../src/ssmlContext.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
 
@@ -202,6 +202,37 @@ test("ignores XML non-content and quoted brackets while finding active tags", ()
     '<?xml version="1.0"?><voice name="outer > inner"><!-- <prosody> --><![CDATA[<emphasis>]]><mstts:express-as>text';
 
   assert.deepEqual([...findActiveSsmlTags(source, source.length)], ["voice", "mstts:express-as"]);
+});
+
+test("finds the innermost enclosing tag and its opening and closing ranges", () => {
+  const source = '<voice name="outer"><prosody rate="slow">text</prosody></voice>';
+  const offset = source.indexOf("text") + 2;
+
+  assert.deepEqual(getEnclosingTagRange(source, offset), {
+    tagName: "prosody",
+    openingTag: {
+      start: source.indexOf("<prosody"),
+      end: source.indexOf(">text") + 1,
+    },
+    closingTag: {
+      start: source.indexOf("</prosody>"),
+      end: source.indexOf("</prosody>") + "</prosody>".length,
+    },
+  });
+  assert.equal(getEnclosingTagRange(source, offset, "voice")?.tagName, "voice");
+  assert.equal(getEnclosingTagRange(source, 0), null);
+});
+
+test("handles quoted brackets, non-content, and self-closing tags", () => {
+  const source = '<?xml version="1.0"?><voice name="outer > inner"><!-- <prosody> --><break time="500ms"/>text</voice>';
+  const breakStart = source.indexOf("<break");
+  const breakEnd = source.indexOf("/>", breakStart) + 2;
+
+  assert.deepEqual(getEnclosingTagRange(source, breakStart + 8), {
+    tagName: "break",
+    openingTag: { start: breakStart, end: breakEnd },
+  });
+  assert.equal(getEnclosingTagRange(source, source.indexOf("prosody") + 2), null);
 });
 
 test("replaces a typed opening bracket when selecting a tag completion", () => {
