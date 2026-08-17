@@ -7,7 +7,7 @@ import type { SsmlNode } from "@ssml-builder-js/ssml-core";
 import { SsmlEditor } from "@ssml-builder-js/ssml-editor-react";
 import type { SsmlEditorRef } from "@ssml-builder-js/ssml-editor-react";
 
-type SpeechLanguage = "ja-JP" | "en-US";
+type SpeechLanguage = "ja-JP" | "en-US" | "ko" | "zh-Hans" | "fr" | "pt-BR" | "it" | "de" | "ru";
 type SpeechGender = "female" | "male";
 type PlaygroundLocale = "ja" | "en" | "ko" | "zh-Hans" | "fr" | "pt-BR" | "it" | "de" | "ru";
 type PlaygroundTheme = "light" | "dark";
@@ -22,6 +22,34 @@ const VOICE_NAMES = {
   "en-US": {
     female: "en-US-JennyNeural",
     male: "en-US-GuyNeural",
+  },
+  ko: {
+    female: "ko-KR-SunHiNeural",
+    male: "ko-KR-InJoonNeural",
+  },
+  "zh-Hans": {
+    female: "zh-CN-XiaoxiaoNeural",
+    male: "zh-CN-YunxiNeural",
+  },
+  fr: {
+    female: "fr-FR-DeniseNeural",
+    male: "fr-FR-HenriNeural",
+  },
+  "pt-BR": {
+    female: "pt-BR-FranciscaNeural",
+    male: "pt-BR-AntonioNeural",
+  },
+  it: {
+    female: "it-IT-ElsaNeural",
+    male: "it-IT-DiegoNeural",
+  },
+  de: {
+    female: "de-DE-KatjaNeural",
+    male: "de-DE-ConradNeural",
+  },
+  ru: {
+    female: "ru-RU-SvetlanaNeural",
+    male: "ru-RU-DmitryNeural",
   },
 } satisfies Record<SpeechLanguage, Record<SpeechGender, string>>;
 
@@ -95,6 +123,104 @@ const LANGUAGE_OPTIONS = [
       it: "Giapponese (ja-JP)",
       de: "Japanisch (ja-JP)",
       ru: "Японский (ja-JP)",
+    },
+  },
+  {
+    value: "ko",
+    labels: {
+      ja: "韓国語 (ko)",
+      en: "Korean (ko)",
+      ko: "한국어 (ko)",
+      "zh-Hans": "韩语 (ko)",
+      fr: "Coréen (ko)",
+      "pt-BR": "Coreano (ko)",
+      it: "Coreano (ko)",
+      de: "Koreanisch (ko)",
+      ru: "Корейский (ko)",
+    },
+  },
+  {
+    value: "zh-Hans",
+    labels: {
+      ja: "中国語 簡体字 (zh-Hans)",
+      en: "Simplified Chinese (zh-Hans)",
+      ko: "중국어 간체 (zh-Hans)",
+      "zh-Hans": "简体中文 (zh-Hans)",
+      fr: "Chinois simplifié (zh-Hans)",
+      "pt-BR": "Chinês simplificado (zh-Hans)",
+      it: "Cinese semplificato (zh-Hans)",
+      de: "Vereinfachtes Chinesisch (zh-Hans)",
+      ru: "Китайский (упрощённый) (zh-Hans)",
+    },
+  },
+  {
+    value: "fr",
+    labels: {
+      ja: "フランス語 (fr)",
+      en: "French (fr)",
+      ko: "프랑스어 (fr)",
+      "zh-Hans": "法语 (fr)",
+      fr: "Français (fr)",
+      "pt-BR": "Francês (fr)",
+      it: "Francese (fr)",
+      de: "Französisch (fr)",
+      ru: "Французский (fr)",
+    },
+  },
+  {
+    value: "pt-BR",
+    labels: {
+      ja: "ポルトガル語 (pt-BR)",
+      en: "Portuguese (pt-BR)",
+      ko: "포르투갈어 (pt-BR)",
+      "zh-Hans": "葡萄牙语 (pt-BR)",
+      fr: "Portugais (pt-BR)",
+      "pt-BR": "Português (pt-BR)",
+      it: "Portoghese (pt-BR)",
+      de: "Portugiesisch (pt-BR)",
+      ru: "Португальский (pt-BR)",
+    },
+  },
+  {
+    value: "it",
+    labels: {
+      ja: "イタリア語 (it)",
+      en: "Italian (it)",
+      ko: "이탈리아어 (it)",
+      "zh-Hans": "意大利语 (it)",
+      fr: "Italien (it)",
+      "pt-BR": "Italiano (it)",
+      it: "Italiano (it)",
+      de: "Italienisch (it)",
+      ru: "Итальянский (it)",
+    },
+  },
+  {
+    value: "de",
+    labels: {
+      ja: "ドイツ語 (de)",
+      en: "German (de)",
+      ko: "독일어 (de)",
+      "zh-Hans": "德语 (de)",
+      fr: "Allemand (de)",
+      "pt-BR": "Alemão (de)",
+      it: "Tedesco (de)",
+      de: "Deutsch (de)",
+      ru: "Немецкий (de)",
+    },
+  },
+  {
+    value: "ru",
+    labels: {
+      ja: "ロシア語 (ru)",
+      en: "Russian (ru)",
+      ko: "러시아어 (ru)",
+      "zh-Hans": "俄语 (ru)",
+      fr: "Russe (ru)",
+      "pt-BR": "Russo (ru)",
+      it: "Russo (ru)",
+      de: "Russisch (ru)",
+      ru: "Русский (ru)",
     },
   },
 ] as const;
