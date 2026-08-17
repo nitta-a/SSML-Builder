@@ -86,9 +86,11 @@ export function InsertionPopover({
         aria-label={insertion.labels[language]}
       >
         {!hasOptions ? (
-          <p role="status" style={styles.toolbarEmpty}>
-            {emptyOptionsMessage}
-          </p>
+          <select aria-label={insertion.labels[language]} disabled value="" style={styles.toolbarOption}>
+            <option value="" disabled>
+              {emptyOptionsMessage}
+            </option>
+          </select>
         ) : optionGroups ? (
           optionGroups.map((group) => (
             <fieldset key={group.label} style={styles.toolbarOptionGroup}>

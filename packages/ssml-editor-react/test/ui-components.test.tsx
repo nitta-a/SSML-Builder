@@ -351,6 +351,20 @@ describe("SsmlEditor toolbar menus", () => {
     expect(within(menu).queryByRole("menuitem", { name: "friendly" })).toBeNull();
   });
 
+  it("filters Mayu emotion options to calm, cheerful, and sad", async () => {
+    const user = userEvent.setup();
+    renderEditor({ document: createVoiceDocument("ja-JP-MayuNeural"), locale: "en" });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    const menu = screen.getByRole("menu", { name: "Emotion" });
+
+    expect(within(menu).getAllByRole("menuitem").map((option) => option.textContent)).toEqual([
+      "cheerful",
+      "calm",
+      "sad",
+    ]);
+  });
+
   it("groups emotion styles into localized menu sections and keeps custom styles in Other", async () => {
     const user = userEvent.setup();
     renderEditor({
@@ -404,15 +418,15 @@ describe("SsmlEditor toolbar menus", () => {
     expect(options.map((option) => option.textContent)).toEqual(["cheerful"]);
   });
 
-  it("shows a localized empty state when the active voice supports no styles", async () => {
+  it("shows a disabled localized option when the active voice supports no styles", async () => {
     const user = userEvent.setup();
-    renderEditor({ document: createVoiceDocument("ja-JP-KeitaNeural") });
+    renderEditor({ document: createVoiceDocument("th-TH-PremwadeeNeural") });
 
     await user.click(screen.getByRole("button", { name: "感情" }));
 
-    expect(within(screen.getByRole("menu", { name: "感情" })).getByRole("status").textContent).toBe(
-      "利用可能な選択肢がありません。",
-    );
+    const menu = screen.getByRole("menu", { name: "感情" });
+    const option = within(menu).getByRole("option", { name: "この音声はスタイル指定に対応していません" });
+    expect(option).toBeDisabled();
   });
 
   it("refreshes emotion options after the document voice changes", async () => {
@@ -423,12 +437,13 @@ describe("SsmlEditor toolbar menus", () => {
     expect(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("menuitem", { name: "chat" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Emotion" }));
 
-    rerender(<SsmlEditor document={createVoiceDocument("ja-JP-KeitaNeural")} locale="en" />);
+    rerender(<SsmlEditor document={createVoiceDocument("th-TH-PremwadeeNeural")} locale="en" />);
     await user.click(screen.getByRole("button", { name: "Emotion" }));
 
-    expect(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("status").textContent).toBe(
-      "No options are available.",
-    );
+    const option = within(screen.getByRole("menu", { name: "Emotion" })).getByRole("option", {
+      name: "This voice does not support style selection.",
+    });
+    expect(option).toBeDisabled();
   });
 
   it("inserts an emotion style allowed by the active voice", async () => {

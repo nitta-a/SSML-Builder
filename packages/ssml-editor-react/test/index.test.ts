@@ -90,12 +90,15 @@ test("supports single-quoted and case-insensitive attribute contexts", () => {
   );
 });
 
-test("resolves express-as styles by normalized voice name with compatible fallbacks", () => {
-  assert.deepEqual(resolveExpressAsStyles("ja-JP-NanamiNeural"), ["cheerful", "chat", "customerservice"]);
-  assert.deepEqual(resolveExpressAsStyles("  JA-jp-nanamineural  "), ["cheerful", "chat", "customerservice"]);
-  assert.deepEqual(resolveExpressAsStyles("ja-JP-KeitaNeural"), []);
+test("resolves express-as styles by normalized voice name and handles unsupported voices", () => {
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-MayuNeural"), ["calm", "cheerful", "sad"]);
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-NanamiNeural"), ["cheerful", "sad", "chat", "customerservice", "whispering"]);
+  assert.deepEqual(resolveExpressAsStyles("  JA-jp-mayuneural  "), ["calm", "cheerful", "sad"]);
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-KeitaNeural"), ["chat"]);
   assert.deepEqual(resolveExpressAsStyles(undefined), EXPRESS_AS_STYLE_PRESETS);
-  assert.deepEqual(resolveExpressAsStyles("custom-Voice", ["custom", "cheerful"]), ["custom", "cheerful"]);
+  assert.deepEqual(resolveExpressAsStyles(null), EXPRESS_AS_STYLE_PRESETS);
+  assert.deepEqual(resolveExpressAsStyles(""), EXPRESS_AS_STYLE_PRESETS);
+  assert.deepEqual(resolveExpressAsStyles("custom-Voice", ["custom", "cheerful"]), []);
   assert.deepEqual(resolveExpressAsStyles("en-US-GuyNeural", ["custom", "friendly", "chat"]), ["friendly"]);
 });
 
@@ -133,10 +136,7 @@ test("filters express-as style completions by the effective voice", () => {
     undefined,
     "ja-JP-KeitaNeural",
   );
-  assert.equal(
-    unknownInnerVoiceSuggestions.some((suggestion) => suggestion.label === "calm"),
-    true,
-  );
+  assert.deepEqual(unknownInnerVoiceSuggestions, []);
 });
 
 test("keeps non-style attribute completions independent of voice", () => {
