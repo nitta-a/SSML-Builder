@@ -895,6 +895,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     handleInsertBreak,
     handleInsertProsody,
     handleInsertText,
+    handleUnwrapTag,
     handleClear,
     handleFormat,
     handleUndo,
@@ -953,6 +954,15 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       insertion.tagName && activeTags.has(insertion.tagName.toLowerCase())
         ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive }
         : toolbarButtonStyle;
+    const isActiveTag = insertion.tagName !== undefined && activeTags.has(insertion.tagName.toLowerCase());
+    const handleInsertionToggle = (trigger: HTMLButtonElement): void => {
+      if (isActiveTag && insertion.tagName) {
+        handleUnwrapTag(insertion.tagName);
+        closePopover();
+        return;
+      }
+      togglePopover(insertion.id, trigger);
+    };
     const props = {
       language,
       isDarkTheme,
@@ -964,7 +974,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       openPopoverId,
       menuPosition: popoverPosition,
       menuRef: setPopoverMenuRef,
-      onToggle: togglePopover,
+      onToggle: (_id: string, trigger: HTMLButtonElement) => handleInsertionToggle(trigger),
       onClose: closePopover,
       onApply: isTimingPopover
         ? handleInsertBreak
@@ -989,7 +999,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
         {...props}
         insertion={insertion}
         isOpen={isPopoverOpen(insertion.id)}
-        onToggle={(trigger) => togglePopover(insertion.id, trigger)}
+        onToggle={handleInsertionToggle}
       />
     );
   };

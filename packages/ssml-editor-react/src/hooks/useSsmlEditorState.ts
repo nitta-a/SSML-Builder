@@ -18,7 +18,7 @@ import type {
 import { clearSsmlDocument } from "../clearSsmlDocument";
 import { formatXmlFragment, INTRINSICALLY_EMPTY_ELEMENTS } from "../formatXml";
 import { createSsmlInsertionEdit } from "../ssmlInsertion";
-import { findSsmlVoiceContext } from "../ssmlContext";
+import { findSsmlVoiceContext, getEnclosingTagRange } from "../ssmlContext";
 import type { MonacoEditor, SsmlSyntaxError } from "../ssmlDiagnostics";
 import { SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "../constants/ui";
 
@@ -505,6 +505,51 @@ function applySsmlInsertion(
   applySsmlTemplate(editor, insertion.createTemplate(option.value));
 }
 
+function unwrapSsmlTag(editor: MonacoEditor, tagName: string): void {
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!model || !selection) {
+    return;
+  }
+
+  const range = getEnclosingTagRange(model.getValue(), model.getOffsetAt(selection.getStartPosition()), tagName);
+  if (!range) {
+    return;
+  }
+
+  const toEditorRange = (offsetRange: { start: number; end: number }) => {
+    const start = model.getPositionAt(offsetRange.start);
+    const end = model.getPositionAt(offsetRange.end);
+    return {
+      startLineNumber: start.lineNumber,
+      startColumn: start.column,
+      endLineNumber: end.lineNumber,
+      endColumn: end.column,
+    };
+  };
+  const edits = [
+    {
+      range: toEditorRange(range.openingTag),
+      text: "",
+    },
+    ...(range.closingTag
+      ? [
+          {
+            range: toEditorRange(range.closingTag),
+            text: "",
+          },
+        ]
+      : []),
+  ];
+
+  editor.pushUndoStop();
+  const applied = editor.executeEdits("ssml-unwrap", edits);
+  editor.pushUndoStop();
+  if (applied) {
+    editor.focus();
+  }
+}
+
 export function useSsmlEditorState({
   document,
   resolvedTheme,
@@ -704,6 +749,11 @@ export function useSsmlEditorState({
     },
     [handleInsert],
   );
+  const handleUnwrapTag = useCallback((tagName: string): void => {
+    if (editorRef.current) {
+      unwrapSsmlTag(editorRef.current, tagName);
+    }
+  }, []);
 
   const handleClear = useCallback((): void => {
     commit(clearSsmlDocument(draftDocumentRef.current));
@@ -775,6 +825,7 @@ export function useSsmlEditorState({
     handleInsertBreak,
     handleInsertProsody,
     handleInsertText,
+    handleUnwrapTag,
     handleClear,
     handleFormat,
     handleUndo,

@@ -7,6 +7,17 @@ interface OpenElement {
   voiceName?: string;
 }
 
+export interface SsmlOffsetRange {
+  start: number;
+  end: number;
+}
+
+export interface EnclosingTagRange {
+  tagName: string;
+  openingTag: SsmlOffsetRange;
+  closingTag?: SsmlOffsetRange;
+}
+
 function findTagEnd(source: string, start: number, limit: number): number {
   let quote: string | undefined;
   for (let index = start + 1; index < limit; index += 1) {
@@ -90,6 +101,128 @@ export function findActiveSsmlTags(source: string, offset: number): Set<string> 
   }
 
   return new Set(stack.map(({ name }) => name));
+}
+
+interface ParsedTagRange extends EnclosingTagRange {
+  selfClosing: boolean;
+}
+
+function getTagName(tag: string, closing: boolean): string | undefined {
+  const pattern = closing
+    ? /^<\s*\/\s*([A-Za-z_][A-Za-z0-9_.:-]*)/
+    : /^<\s*([A-Za-z_][A-Za-z0-9_.:-]*)/;
+  return tag.match(pattern)?.[1]?.toLowerCase();
+}
+
+function isIgnoredTag(source: string, start: number): boolean {
+  return source.startsWith("<!--", start) || source.startsWith("<![CDATA[", start) || source.startsWith("<?", start);
+}
+
+function getIgnoredTagEnd(source: string, start: number): number | undefined {
+  if (source.startsWith("<!--", start)) {
+    const end = source.indexOf("-->", start + 4);
+    return end === -1 ? source.length : end + 3;
+  }
+  if (source.startsWith("<![CDATA[", start)) {
+    const end = source.indexOf("]]>", start + 9);
+    return end === -1 ? source.length : end + 3;
+  }
+  if (source.startsWith("<?", start)) {
+    const end = source.indexOf("?>", start + 2);
+    return end === -1 ? source.length : end + 2;
+  }
+  return undefined;
+}
+
+export function getEnclosingTagRange(
+  source: string,
+  offset: number,
+  targetTagName?: string,
+): EnclosingTagRange | null {
+  const limit = Math.max(0, Math.min(offset, source.length));
+  const target = targetTagName?.toLowerCase();
+  const stack: ParsedTagRange[] = [];
+  const tags: ParsedTagRange[] = [];
+  let index = 0;
+
+  while (index < source.length) {
+    const tagStart = source.indexOf("<", index);
+    if (tagStart === -1) {
+      break;
+    }
+
+    if (isIgnoredTag(source, tagStart)) {
+      index = getIgnoredTagEnd(source, tagStart) ?? source.length;
+      continue;
+    }
+
+    const tagEnd = findTagEnd(source, tagStart, source.length);
+    if (tagEnd === -1) {
+      break;
+    }
+
+    const tag = source.slice(tagStart, tagEnd + 1);
+    const range = { start: tagStart, end: tagEnd + 1 };
+    const closingName = getTagName(tag, true);
+    if (closingName) {
+      let stackIndex = -1;
+      for (let stackIndexCandidate = stack.length - 1; stackIndexCandidate >= 0; stackIndexCandidate -= 1) {
+        if (stack[stackIndexCandidate]?.tagName === closingName) {
+          stackIndex = stackIndexCandidate;
+          break;
+        }
+      }
+      if (stackIndex !== -1) {
+        const openingTag = stack[stackIndex];
+        if (openingTag) {
+          openingTag.closingTag = range;
+        }
+        stack.splice(stackIndex);
+      }
+      index = tagEnd + 1;
+      continue;
+    }
+
+    if (tag.startsWith("<!")) {
+      index = tagEnd + 1;
+      continue;
+    }
+
+    const openingName = getTagName(tag, false);
+    if (!openingName) {
+      index = tagEnd + 1;
+      continue;
+    }
+
+    const parsedTag: ParsedTagRange = {
+      tagName: openingName,
+      openingTag: range,
+      selfClosing: /\/\s*>$/.test(tag),
+    };
+    tags.push(parsedTag);
+    if (!parsedTag.selfClosing) {
+      stack.push(parsedTag);
+    }
+    index = tagEnd + 1;
+  }
+
+  const candidates = tags
+    .filter(({ tagName }) => target === undefined || tagName === target)
+    .filter(({ selfClosing, closingTag }) => selfClosing || closingTag !== undefined)
+    .filter(({ openingTag, closingTag }) => {
+      if (openingTag.start <= limit && limit < openingTag.end) {
+        return true;
+      }
+      return closingTag !== undefined && openingTag.end <= limit && limit < closingTag.end;
+    });
+
+  const candidate = candidates.at(-1);
+  if (!candidate) {
+    return null;
+  }
+
+  const { selfClosing: _selfClosing, ...result } = candidate;
+  return result;
 }
 
 export function findSsmlVoiceContext(source: string, offset: number): SsmlVoiceContext | undefined {

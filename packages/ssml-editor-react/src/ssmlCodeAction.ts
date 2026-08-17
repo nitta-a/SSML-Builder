@@ -1,5 +1,6 @@
 import type { Monaco } from "@monaco-editor/react";
 import { SSML_DIAGNOSTIC_CODES } from "./ssmlDiagnostics";
+import { getEnclosingTagRange } from "./ssmlContext";
 
 type MonacoLanguages = Monaco["languages"];
 type MonacoCodeActionProvider = Parameters<MonacoLanguages["registerCodeActionProvider"]>[1];
@@ -105,11 +106,50 @@ function createInvalidAttributeValueAction(
   };
 }
 
+function toModelRange(model: MonacoCodeActionModel, startOffset: number, endOffset: number) {
+  const start = model.getPositionAt(startOffset);
+  const end = model.getPositionAt(endOffset);
+  return {
+    startLineNumber: start.lineNumber,
+    startColumn: start.column,
+    endLineNumber: end.lineNumber,
+    endColumn: end.column,
+  };
+}
+
+function createUnwrapTagAction(model: MonacoCodeActionModel, tagName: string, openingStart: number, openingEnd: number, closingStart: number, closingEnd: number) {
+  return {
+    title: `Unwrap <${tagName}>`,
+    kind: "quickfix",
+    isPreferred: true,
+    edit: {
+      edits: [
+        {
+          resource: model.uri,
+          versionId: model.getVersionId(),
+          textEdit: {
+            range: toModelRange(model, openingStart, openingEnd),
+            text: "",
+          },
+        },
+        {
+          resource: model.uri,
+          versionId: model.getVersionId(),
+          textEdit: {
+            range: toModelRange(model, closingStart, closingEnd),
+            text: "",
+          },
+        },
+      ],
+    },
+  };
+}
+
 export function registerSsmlCodeActions(monaco: Monaco): ReturnType<MonacoLanguages["registerCodeActionProvider"]> {
   const provider: MonacoCodeActionProvider = {
     provideCodeActions(
       model: MonacoCodeActionModel,
-      _range: MonacoCodeActionRange,
+      range: MonacoCodeActionRange,
       context: MonacoCodeActionContext,
     ): ReturnType<MonacoCodeActionMethod> {
       const actions = context.markers.flatMap((marker: MonacoCodeActionMarker) => {
@@ -130,6 +170,25 @@ export function registerSsmlCodeActions(monaco: Monaco): ReturnType<MonacoLangua
 
         return [];
       });
+      if (context.markers.length === 0) {
+        const offset = model.getOffsetAt({
+          lineNumber: range.startLineNumber,
+          column: range.startColumn,
+        });
+        const enclosingTag = getEnclosingTagRange(model.getValue(), offset);
+        if (enclosingTag?.closingTag) {
+          actions.push(
+            createUnwrapTagAction(
+              model,
+              enclosingTag.tagName,
+              enclosingTag.openingTag.start,
+              enclosingTag.openingTag.end,
+              enclosingTag.closingTag.start,
+              enclosingTag.closingTag.end,
+            ),
+          );
+        }
+      }
 
       return {
         actions,
