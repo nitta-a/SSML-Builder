@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
 import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
 import type { SsmlNode } from "@ssml-builder-js/ssml-core";
@@ -620,7 +620,7 @@ export default function Home() {
   const captionTrackSource = audioCaptionTrack ?? currentCaptionTrack;
   const captionLanguage = audioCaptionLanguage ?? document.lang;
 
-  const handleWebComponentChange = (event: Event): void => {
+  const handleWebComponentChange = useCallback((event: Event): void => {
     const detail = (event as CustomEvent<SsmlEditorChangeDetail>).detail;
     if (!detail || typeof detail.value !== "string") {
       return;
@@ -630,7 +630,7 @@ export default function Home() {
     try {
       setDocument(parseSsml(detail.value));
     } catch {}
-  };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -656,7 +656,7 @@ export default function Home() {
 
     editor.addEventListener("change", handleWebComponentChange);
     return () => editor.removeEventListener("change", handleWebComponentChange);
-  }, [editorMode]);
+  }, [editorMode, handleWebComponentChange]);
 
   useEffect(() => {
     globalThis.document.documentElement.lang = locale;
@@ -809,21 +809,21 @@ export default function Home() {
         <p>{copy.introDescription}</p>
       </header>
       <fieldset className="editor-mode">
-       <legend>{copy.editorMode}</legend>
-       <div className="editor-mode-options">
-         {EDITOR_MODE_OPTIONS.map((option) => (
-           <label key={option.value}>
-             <input
-               type="radio"
-               name="editor-mode"
-               value={option.value}
-               checked={editorMode === option.value}
-               onChange={() => setEditorMode(option.value)}
-             />
-             {option.label}
-           </label>
-         ))}
-       </div>
+        <legend>{copy.editorMode}</legend>
+        <div className="editor-mode-options">
+          {EDITOR_MODE_OPTIONS.map((option) => (
+            <label key={option.value}>
+              <input
+                type="radio"
+                name="editor-mode"
+                value={option.value}
+                checked={editorMode === option.value}
+                onChange={() => setEditorMode(option.value)}
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
       </fieldset>
       <section className="speech-settings" aria-labelledby="speech-settings-heading">
         <h2 id="speech-settings-heading">{copy.speechSettings}</h2>
@@ -880,11 +880,7 @@ export default function Home() {
         />
       ) : (
         <section className="web-component-editor" aria-label="SSML Web Component editor">
-          <ssml-editor
-            ref={webComponentRef}
-            value={editorValue}
-            theme={theme === "dark" ? "vs-dark" : "light"}
-          />
+          <ssml-editor ref={webComponentRef} value={editorValue} theme={theme === "dark" ? "vs-dark" : "light"} />
         </section>
       )}
       <section className="audio-generation" aria-labelledby="audio-generation-heading">
