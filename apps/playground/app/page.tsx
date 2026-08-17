@@ -487,7 +487,13 @@ export default function Home() {
         ) : null}
         {audioUrl ? (
           <audio className="audio-player" controls autoPlay src={audioUrl} aria-label={copy.generatedAudio}>
-            <track kind="captions" label={copy.ssmlTextTrack} src={captionTrackSource} srcLang={captionLanguage} default />
+            <track
+              kind="captions"
+              label={copy.ssmlTextTrack}
+              src={captionTrackSource}
+              srcLang={captionLanguage}
+              default
+            />
             {copy.unsupportedAudio}
           </audio>
         ) : null}
