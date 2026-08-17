@@ -143,6 +143,15 @@ export const editorStyles: Record<string, CSSProperties> = {
     color: "var(--ssml-editor-color)",
     whiteSpace: "nowrap",
   },
+  toolbarEmptySelect: {
+    padding: "0.375rem 0.5rem",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.125rem",
+    color: "var(--ssml-editor-color)",
+    backgroundColor: "var(--ssml-editor-control-bg)",
+    font: "inherit",
+    textAlign: "left",
+  },
   helpPanel: {
     display: "grid",
     gap: "0.5rem",

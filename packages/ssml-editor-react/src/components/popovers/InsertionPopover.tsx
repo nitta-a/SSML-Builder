@@ -86,7 +86,7 @@ export function InsertionPopover({
         aria-label={insertion.labels[language]}
       >
         {!hasOptions ? (
-          <select aria-label={insertion.labels[language]} disabled value="" style={styles.toolbarOption}>
+          <select aria-label={insertion.labels[language]} disabled value="" style={styles.toolbarEmptySelect}>
             <option value="" disabled>
               {emptyOptionsMessage}
             </option>
