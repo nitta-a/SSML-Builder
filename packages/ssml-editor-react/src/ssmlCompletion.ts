@@ -117,6 +117,7 @@ export function registerSsmlCompletionProvider(
             label: value,
             kind: monaco.languages.CompletionItemKind.Value,
             insertText: value,
+            range,
           })) ?? []),
         ],
       };

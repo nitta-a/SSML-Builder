@@ -1,3 +1,5 @@
+import { SsmlEditorElement } from "./SsmlEditorElement";
+
 export { SsmlEditorElement } from "./SsmlEditorElement";
 export type { SsmlEditorChangeDetail, SsmlEditorTheme } from "./SsmlEditorElement";
 
@@ -8,5 +10,3 @@ export function defineSsmlEditorElement(): void {
 
   customElements.define(SsmlEditorElement.tagName, SsmlEditorElement);
 }
-
-import { SsmlEditorElement } from "./SsmlEditorElement";
