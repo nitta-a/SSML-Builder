@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
 import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
 import type { SsmlNode } from "@ssml-builder-js/ssml-core";
+import { defineSsmlEditorElement } from "@ssml-builder-js/ssml-editor-elements";
+import type { SsmlEditorChangeDetail, SsmlEditorElement } from "@ssml-builder-js/ssml-editor-elements";
 import { SsmlEditor } from "@ssml-builder-js/ssml-editor-react";
 import type { SsmlEditorRef } from "@ssml-builder-js/ssml-editor-react";
 
@@ -11,8 +13,14 @@ type SpeechLanguage = "ja-JP" | "en-US" | "ko" | "zh-Hans" | "fr" | "pt-BR" | "i
 type SpeechGender = "female" | "male";
 type PlaygroundLocale = "ja" | "en" | "ko" | "zh-Hans" | "fr" | "pt-BR" | "it" | "de" | "ru";
 type PlaygroundTheme = "light" | "dark";
+type EditorMode = "react" | "web-component";
 
 const THEME_STORAGE_KEY = "ssml-builder-playground-theme";
+
+const EDITOR_MODE_OPTIONS = [
+  { value: "react", label: "React Component" },
+  { value: "web-component", label: "Web Component" },
+] as const satisfies ReadonlyArray<{ value: EditorMode; label: string }>;
 
 const VOICE_NAMES = {
   "ja-JP": {
@@ -229,6 +237,7 @@ type PlaygroundCopy = {
   localeLabel: string;
   playgroundTitle: string;
   themeLabel: string;
+  editorMode: string;
   introDescription: string;
   speechSettings: string;
   speechLanguage: string;
@@ -252,6 +261,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "表示言語",
     playgroundTitle: "Playground",
     themeLabel: "ダークモード",
+    editorMode: "エディターモード",
     introDescription: "以下のサンプルドキュメントを編集して、SSML エディターとコアパッケージを確認できます。",
     speechSettings: "音声設定",
     speechLanguage: "音声言語",
@@ -273,6 +283,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "Display language",
     playgroundTitle: "Playground",
     themeLabel: "Dark mode",
+    editorMode: "Editor mode",
     introDescription: "Edit the sample document below to verify the SSML editor and core package together.",
     speechSettings: "Speech settings",
     speechLanguage: "Language",
@@ -294,6 +305,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "표시 언어",
     playgroundTitle: "Playground",
     themeLabel: "다크 모드",
+    editorMode: "편집기 모드",
     introDescription: "아래 샘플 문서를 편집하여 SSML 편집기와 코어 패키지를 함께 확인할 수 있습니다.",
     speechSettings: "음성 설정",
     speechLanguage: "음성 언어",
@@ -315,6 +327,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "显示语言",
     playgroundTitle: "Playground",
     themeLabel: "深色模式",
+    editorMode: "编辑器模式",
     introDescription: "编辑下面的示例文档，以同时查看 SSML 编辑器和核心包。",
     speechSettings: "语音设置",
     speechLanguage: "语音语言",
@@ -336,6 +349,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "Langue d’affichage",
     playgroundTitle: "Playground",
     themeLabel: "Mode sombre",
+    editorMode: "Mode de l’éditeur",
     introDescription:
       "Modifiez le document d’exemple ci-dessous pour vérifier l’éditeur SSML et le package principal ensemble.",
     speechSettings: "Paramètres vocaux",
@@ -358,6 +372,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "Idioma de exibição",
     playgroundTitle: "Playground",
     themeLabel: "Modo escuro",
+    editorMode: "Modo do editor",
     introDescription:
       "Edite o documento de exemplo abaixo para verificar o editor SSML e o pacote principal em conjunto.",
     speechSettings: "Configurações de voz",
@@ -380,6 +395,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "Lingua di visualizzazione",
     playgroundTitle: "Playground",
     themeLabel: "Modalità scura",
+    editorMode: "Modalità editor",
     introDescription:
       "Modifica il documento di esempio qui sotto per verificare insieme l’editor SSML e il pacchetto principale.",
     speechSettings: "Impostazioni vocali",
@@ -402,6 +418,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "Anzeigesprache",
     playgroundTitle: "Playground",
     themeLabel: "Dunkelmodus",
+    editorMode: "Editormodus",
     introDescription:
       "Bearbeiten Sie das Beispieldokument unten, um den SSML-Editor und das Kernpaket gemeinsam zu prüfen.",
     speechSettings: "Spracheinstellungen",
@@ -424,6 +441,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     localeLabel: "Язык интерфейса",
     playgroundTitle: "Playground",
     themeLabel: "Тёмный режим",
+    editorMode: "Режим редактора",
     introDescription:
       "Измените расположенный ниже пример документа, чтобы проверить работу редактора SSML и основного пакета вместе.",
     speechSettings: "Настройки речи",
@@ -579,6 +597,8 @@ export default function Home() {
   const [locale, setLocale] = useState<PlaygroundLocale>("ja");
   const [selectedLanguage, setSelectedLanguage] = useState<SpeechLanguage>("en-US");
   const [selectedGender, setSelectedGender] = useState<SpeechGender>("female");
+  const [editorMode, setEditorMode] = useState<EditorMode>("react");
+  const [editorValue, setEditorValue] = useState(() => buildSsml(initialDocument));
   const [theme, setTheme] = useState<PlaygroundTheme | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -587,14 +607,30 @@ export default function Home() {
   const [audioCaptionLanguage, setAudioCaptionLanguage] = useState<string | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const editorRef = useRef<SsmlEditorRef>(null);
+  const webComponentRef = useRef<SsmlEditorElement>(null);
   const hasManualThemeRef = useRef(false);
   const copy = PLAYGROUND_COPY[locale];
   const editorLocale = locale === "ja" ? "ja" : "en";
-  const ssml = buildSsml(document);
+  const ssml = editorMode === "web-component" ? editorValue : buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
-  const currentCaptionTrack = createCaptionTrack(document, copy.generatedSpeechFallback);
+  const currentCaptionTrack =
+    editorMode === "web-component"
+      ? createCaptionTrackFromSsml(ssml, document, copy.generatedSpeechFallback)
+      : createCaptionTrack(document, copy.generatedSpeechFallback);
   const captionTrackSource = audioCaptionTrack ?? currentCaptionTrack;
   const captionLanguage = audioCaptionLanguage ?? document.lang;
+
+  const handleWebComponentChange = (event: Event): void => {
+    const detail = (event as CustomEvent<SsmlEditorChangeDetail>).detail;
+    if (!detail || typeof detail.value !== "string") {
+      return;
+    }
+
+    setEditorValue(detail.value);
+    try {
+      setDocument(parseSsml(detail.value));
+    } catch {}
+  };
 
   useEffect(() => {
     return () => {
@@ -603,6 +639,24 @@ export default function Home() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    defineSsmlEditorElement();
+  }, []);
+
+  useEffect(() => {
+    setEditorValue(buildSsml(document));
+  }, [document]);
+
+  useEffect(() => {
+    const editor = webComponentRef.current;
+    if (editorMode !== "web-component" || !editor) {
+      return;
+    }
+
+    editor.addEventListener("change", handleWebComponentChange);
+    return () => editor.removeEventListener("change", handleWebComponentChange);
+  }, [editorMode]);
 
   useEffect(() => {
     globalThis.document.documentElement.lang = locale;
@@ -754,6 +808,23 @@ export default function Home() {
         </div>
         <p>{copy.introDescription}</p>
       </header>
+      <fieldset className="editor-mode">
+       <legend>{copy.editorMode}</legend>
+       <div className="editor-mode-options">
+         {EDITOR_MODE_OPTIONS.map((option) => (
+           <label key={option.value}>
+             <input
+               type="radio"
+               name="editor-mode"
+               value={option.value}
+               checked={editorMode === option.value}
+               onChange={() => setEditorMode(option.value)}
+             />
+             {option.label}
+           </label>
+         ))}
+       </div>
+      </fieldset>
       <section className="speech-settings" aria-labelledby="speech-settings-heading">
         <h2 id="speech-settings-heading">{copy.speechSettings}</h2>
         <div className="settings-fields">
@@ -798,14 +869,24 @@ export default function Home() {
           {copy.voice}: <code>{selectedVoice}</code>
         </p>
       </section>
-      <SsmlEditor
-        ref={editorRef}
-        document={document}
-        onChange={setDocument}
-        onPreviewSelection={previewSelectedAudio}
-        locale={editorLocale}
-        theme={theme ?? "system"}
-      />
+      {editorMode === "react" ? (
+        <SsmlEditor
+          ref={editorRef}
+          document={document}
+          onChange={setDocument}
+          onPreviewSelection={previewSelectedAudio}
+          locale={editorLocale}
+          theme={theme ?? "system"}
+        />
+      ) : (
+        <section className="web-component-editor" aria-label="SSML Web Component editor">
+          <ssml-editor
+            ref={webComponentRef}
+            value={editorValue}
+            theme={theme === "dark" ? "vs-dark" : "light"}
+          />
+        </section>
+      )}
       <section className="audio-generation" aria-labelledby="audio-generation-heading">
         <h2 id="audio-generation-heading">{copy.audioPreview}</h2>
         <p>{copy.audioDescription}</p>
