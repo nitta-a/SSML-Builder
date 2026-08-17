@@ -92,7 +92,13 @@ test("supports single-quoted and case-insensitive attribute contexts", () => {
 
 test("resolves express-as styles by normalized voice name and handles unsupported voices", () => {
   assert.deepEqual(resolveExpressAsStyles("ja-JP-MayuNeural"), ["cheerful", "calm", "sad"]);
-  assert.deepEqual(resolveExpressAsStyles("ja-JP-NanamiNeural"), ["cheerful", "sad", "chat", "customerservice", "whispering"]);
+  assert.deepEqual(resolveExpressAsStyles("ja-JP-NanamiNeural"), [
+    "cheerful",
+    "sad",
+    "chat",
+    "customerservice",
+    "whispering",
+  ]);
   assert.deepEqual(resolveExpressAsStyles("  JA-jp-mayuneural  "), ["cheerful", "calm", "sad"]);
   assert.deepEqual(resolveExpressAsStyles("ja-JP-KeitaNeural"), ["chat"]);
   assert.deepEqual(resolveExpressAsStyles(undefined), EXPRESS_AS_STYLE_PRESETS);

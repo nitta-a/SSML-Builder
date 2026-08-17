@@ -358,11 +358,11 @@ describe("SsmlEditor toolbar menus", () => {
     await user.click(screen.getByRole("button", { name: "Emotion" }));
     const menu = screen.getByRole("menu", { name: "Emotion" });
 
-    expect(within(menu).getAllByRole("menuitem").map((option) => option.textContent)).toEqual([
-      "cheerful",
-      "calm",
-      "sad",
-    ]);
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((option) => option.textContent),
+    ).toEqual(["cheerful", "calm", "sad"]);
   });
 
   it("groups emotion styles into localized menu sections and keeps custom styles in Other", async () => {
