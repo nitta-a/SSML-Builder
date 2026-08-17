@@ -9,7 +9,7 @@ import type { SsmlEditorRef } from "@ssml-builder-js/ssml-editor-react";
 
 type SpeechLanguage = "ja-JP" | "en-US";
 type SpeechGender = "female" | "male";
-type PlaygroundLocale = "ja" | "en";
+type PlaygroundLocale = "ja" | "en" | "ko" | "zh-Hans" | "fr" | "pt-BR" | "it" | "de" | "ru";
 type PlaygroundTheme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "ssml-builder-playground-theme";
@@ -28,16 +28,75 @@ const VOICE_NAMES = {
 const LOCALE_OPTIONS = [
   { value: "ja", label: "日本語" },
   { value: "en", label: "English" },
+  { value: "ko", label: "한국어" },
+  { value: "zh-Hans", label: "简体中文" },
+  { value: "fr", label: "Français" },
+  { value: "pt-BR", label: "Português (Brasil)" },
+  { value: "it", label: "Italiano" },
+  { value: "de", label: "Deutsch" },
+  { value: "ru", label: "Русский" },
 ] as const satisfies ReadonlyArray<{ value: PlaygroundLocale; label: string }>;
 
 const GENDER_OPTIONS = [
-  { value: "female", labels: { ja: "女性", en: "Female" } },
-  { value: "male", labels: { ja: "男性", en: "Male" } },
+  {
+    value: "female",
+    labels: {
+      ja: "女性",
+      en: "Female",
+      ko: "여성",
+      "zh-Hans": "女性",
+      fr: "Féminin",
+      "pt-BR": "Feminino",
+      it: "Femminile",
+      de: "Weiblich",
+      ru: "Женский",
+    },
+  },
+  {
+    value: "male",
+    labels: {
+      ja: "男性",
+      en: "Male",
+      ko: "남성",
+      "zh-Hans": "男性",
+      fr: "Masculin",
+      "pt-BR": "Masculino",
+      it: "Maschile",
+      de: "Männlich",
+      ru: "Мужской",
+    },
+  },
 ] as const;
 
 const LANGUAGE_OPTIONS = [
-  { value: "en-US", labels: { ja: "英語 (en-US)", en: "English (en-US)" } },
-  { value: "ja-JP", labels: { ja: "日本語 (ja-JP)", en: "Japanese (ja-JP)" } },
+  {
+    value: "en-US",
+    labels: {
+      ja: "英語 (en-US)",
+      en: "English (en-US)",
+      ko: "영어 (en-US)",
+      "zh-Hans": "英语 (en-US)",
+      fr: "Anglais (en-US)",
+      "pt-BR": "Inglês (en-US)",
+      it: "Inglese (en-US)",
+      de: "Englisch (en-US)",
+      ru: "Английский (en-US)",
+    },
+  },
+  {
+    value: "ja-JP",
+    labels: {
+      ja: "日本語 (ja-JP)",
+      en: "Japanese (ja-JP)",
+      ko: "일본어 (ja-JP)",
+      "zh-Hans": "日语 (ja-JP)",
+      fr: "Japonais (ja-JP)",
+      "pt-BR": "Japonês (ja-JP)",
+      it: "Giapponese (ja-JP)",
+      de: "Japanisch (ja-JP)",
+      ru: "Японский (ja-JP)",
+    },
+  },
 ] as const;
 
 type PlaygroundCopy = {
@@ -104,6 +163,158 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     generatedSpeechFallback: "Generated speech",
     audioError: (status) => `Audio generation failed (${status}).`,
     synthesisError: "Audio generation failed.",
+  },
+  ko: {
+    localeLabel: "표시 언어",
+    playgroundTitle: "Playground",
+    themeLabel: "다크 모드",
+    introDescription: "아래 샘플 문서를 편집하여 SSML 편집기와 코어 패키지를 함께 확인할 수 있습니다.",
+    speechSettings: "음성 설정",
+    speechLanguage: "음성 언어",
+    speechGender: "성별",
+    voice: "음성",
+    audioPreview: "오디오 미리 듣기",
+    audioDescription: "현재 SSML에서 오디오를 생성하여 브라우저에서 들어볼 수 있습니다.",
+    generateAudio: "오디오 생성",
+    generatingAudio: "오디오 생성 중...",
+    generatedAudio: "생성된 음성 오디오",
+    generatedSsml: "생성된 SSML",
+    ssmlTextTrack: "SSML 텍스트",
+    unsupportedAudio: "브라우저가 오디오 재생을 지원하지 않습니다.",
+    generatedSpeechFallback: "생성된 음성",
+    audioError: (status) => `오디오 생성에 실패했습니다 (${status}).`,
+    synthesisError: "오디오 생성에 실패했습니다.",
+  },
+  "zh-Hans": {
+    localeLabel: "显示语言",
+    playgroundTitle: "Playground",
+    themeLabel: "深色模式",
+    introDescription: "编辑下面的示例文档，以同时查看 SSML 编辑器和核心包。",
+    speechSettings: "语音设置",
+    speechLanguage: "语音语言",
+    speechGender: "性别",
+    voice: "语音",
+    audioPreview: "音频预览",
+    audioDescription: "从当前 SSML 生成音频并在浏览器中播放。",
+    generateAudio: "生成音频",
+    generatingAudio: "正在生成音频...",
+    generatedAudio: "生成的语音音频",
+    generatedSsml: "生成的 SSML",
+    ssmlTextTrack: "SSML 文本",
+    unsupportedAudio: "您的浏览器不支持音频播放。",
+    generatedSpeechFallback: "生成的语音",
+    audioError: (status) => `音频生成失败（${status}）。`,
+    synthesisError: "音频生成失败。",
+  },
+  fr: {
+    localeLabel: "Langue d’affichage",
+    playgroundTitle: "Playground",
+    themeLabel: "Mode sombre",
+    introDescription:
+      "Modifiez le document d’exemple ci-dessous pour vérifier l’éditeur SSML et le package principal ensemble.",
+    speechSettings: "Paramètres vocaux",
+    speechLanguage: "Langue vocale",
+    speechGender: "Genre",
+    voice: "Voix",
+    audioPreview: "Aperçu audio",
+    audioDescription: "Générez de l’audio à partir du SSML actuel et écoutez-le dans le navigateur.",
+    generateAudio: "Générer l’audio",
+    generatingAudio: "Génération de l’audio...",
+    generatedAudio: "Audio vocal généré",
+    generatedSsml: "SSML généré",
+    ssmlTextTrack: "Texte SSML",
+    unsupportedAudio: "Votre navigateur ne prend pas en charge la lecture audio.",
+    generatedSpeechFallback: "Voix générée",
+    audioError: (status) => `Échec de la génération audio (${status}).`,
+    synthesisError: "Échec de la génération audio.",
+  },
+  "pt-BR": {
+    localeLabel: "Idioma de exibição",
+    playgroundTitle: "Playground",
+    themeLabel: "Modo escuro",
+    introDescription:
+      "Edite o documento de exemplo abaixo para verificar o editor SSML e o pacote principal em conjunto.",
+    speechSettings: "Configurações de voz",
+    speechLanguage: "Idioma da voz",
+    speechGender: "Gênero",
+    voice: "Voz",
+    audioPreview: "Prévia do áudio",
+    audioDescription: "Gere áudio a partir do SSML atual e ouça-o no navegador.",
+    generateAudio: "Gerar áudio",
+    generatingAudio: "Gerando áudio...",
+    generatedAudio: "Áudio de fala gerado",
+    generatedSsml: "SSML gerado",
+    ssmlTextTrack: "Texto SSML",
+    unsupportedAudio: "Seu navegador não é compatível com reprodução de áudio.",
+    generatedSpeechFallback: "Fala gerada",
+    audioError: (status) => `Falha ao gerar áudio (${status}).`,
+    synthesisError: "Falha ao gerar áudio.",
+  },
+  it: {
+    localeLabel: "Lingua di visualizzazione",
+    playgroundTitle: "Playground",
+    themeLabel: "Modalità scura",
+    introDescription:
+      "Modifica il documento di esempio qui sotto per verificare insieme l’editor SSML e il pacchetto principale.",
+    speechSettings: "Impostazioni vocali",
+    speechLanguage: "Lingua vocale",
+    speechGender: "Genere",
+    voice: "Voce",
+    audioPreview: "Anteprima audio",
+    audioDescription: "Genera audio dall’SSML corrente e ascoltalo nel browser.",
+    generateAudio: "Genera audio",
+    generatingAudio: "Generazione audio...",
+    generatedAudio: "Audio vocale generato",
+    generatedSsml: "SSML generato",
+    ssmlTextTrack: "Testo SSML",
+    unsupportedAudio: "Il browser non supporta la riproduzione audio.",
+    generatedSpeechFallback: "Voce generata",
+    audioError: (status) => `Generazione audio non riuscita (${status}).`,
+    synthesisError: "Generazione audio non riuscita.",
+  },
+  de: {
+    localeLabel: "Anzeigesprache",
+    playgroundTitle: "Playground",
+    themeLabel: "Dunkelmodus",
+    introDescription:
+      "Bearbeiten Sie das Beispieldokument unten, um den SSML-Editor und das Kernpaket gemeinsam zu prüfen.",
+    speechSettings: "Spracheinstellungen",
+    speechLanguage: "Sprache",
+    speechGender: "Geschlecht",
+    voice: "Stimme",
+    audioPreview: "Audiovorschau",
+    audioDescription: "Erzeugen Sie Audio aus dem aktuellen SSML und hören Sie es im Browser an.",
+    generateAudio: "Audio erzeugen",
+    generatingAudio: "Audio wird erzeugt...",
+    generatedAudio: "Erzeugtes Sprach-Audio",
+    generatedSsml: "Erzeugtes SSML",
+    ssmlTextTrack: "SSML-Text",
+    unsupportedAudio: "Ihr Browser unterstützt keine Audiowiedergabe.",
+    generatedSpeechFallback: "Erzeugte Sprache",
+    audioError: (status) => `Audioerzeugung fehlgeschlagen (${status}).`,
+    synthesisError: "Audioerzeugung fehlgeschlagen.",
+  },
+  ru: {
+    localeLabel: "Язык интерфейса",
+    playgroundTitle: "Playground",
+    themeLabel: "Тёмный режим",
+    introDescription:
+      "Измените расположенный ниже пример документа, чтобы проверить работу редактора SSML и основного пакета вместе.",
+    speechSettings: "Настройки речи",
+    speechLanguage: "Язык речи",
+    speechGender: "Пол",
+    voice: "Голос",
+    audioPreview: "Предпросмотр аудио",
+    audioDescription: "Создайте аудио из текущего SSML и прослушайте его в браузере.",
+    generateAudio: "Создать аудио",
+    generatingAudio: "Создание аудио...",
+    generatedAudio: "Созданное речевое аудио",
+    generatedSsml: "Созданный SSML",
+    ssmlTextTrack: "Текст SSML",
+    unsupportedAudio: "Ваш браузер не поддерживает воспроизведение аудио.",
+    generatedSpeechFallback: "Созданная речь",
+    audioError: (status) => `Не удалось создать аудио (${status}).`,
+    synthesisError: "Не удалось создать аудио.",
   },
 };
 
@@ -252,6 +463,7 @@ export default function Home() {
   const editorRef = useRef<SsmlEditorRef>(null);
   const hasManualThemeRef = useRef(false);
   const copy = PLAYGROUND_COPY[locale];
+  const editorLocale = locale === "ja" ? "ja" : "en";
   const ssml = buildSsml(document);
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
   const currentCaptionTrack = createCaptionTrack(document, copy.generatedSpeechFallback);
@@ -465,7 +677,7 @@ export default function Home() {
         document={document}
         onChange={setDocument}
         onPreviewSelection={previewSelectedAudio}
-        locale={locale}
+        locale={editorLocale}
         theme={theme ?? "system"}
       />
       <section className="audio-generation" aria-labelledby="audio-generation-heading">
