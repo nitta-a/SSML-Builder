@@ -385,8 +385,8 @@ describe("SsmlEditor toolbar menus", () => {
     await user.click(screen.getByRole("button", { name: "Emotion" }));
     const menu = screen.getByRole("menu", { name: "Emotion" });
 
-    expect(within(menu).getByRole("option", { name: "friendly" })).toBeTruthy();
-    expect(within(menu).queryByRole("option", { name: "assistant" })).toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "friendly" })).toBeTruthy();
+    expect(within(menu).queryByRole("menuitem", { name: "assistant" })).toBeNull();
   });
 
   it("intersects custom emotion styles with the active voice styles", async () => {
