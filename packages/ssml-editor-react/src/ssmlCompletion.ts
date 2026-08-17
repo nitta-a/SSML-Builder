@@ -1,9 +1,10 @@
-import type { Monaco } from "@monaco-editor/react";
+import type * as monaco from "monaco-editor";
 // @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
 import { resolveExpressAsStyles, SSML_ATTRIBUTE_PRESETS } from "./constants/ssmlPresets.ts";
 // @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
 import { findSsmlVoiceContext } from "./ssmlContext.ts";
 
+type Monaco = typeof monaco;
 type MonacoLanguages = Monaco["languages"];
 type MonacoCompletionProvider = Parameters<MonacoLanguages["registerCompletionItemProvider"]>[1];
 type MonacoCompletionMethod = NonNullable<MonacoCompletionProvider["provideCompletionItems"]>;
@@ -116,6 +117,7 @@ export function registerSsmlCompletionProvider(
             label: value,
             kind: monaco.languages.CompletionItemKind.Value,
             insertText: value,
+            range,
           })) ?? []),
         ],
       };

@@ -7,7 +7,7 @@
 
 Azure Speech Service で利用できる SSML を、TypeScript のデータ構造から生成・解析し、React の GUI で編集するための npm ワークスペースモノレポです。公開成果物は `ssml-builder-js` という単一の npm パッケージです。
 
-SSML の XML エスケープや Azure Speech 拡張要素に対応したコアライブラリ、Monaco Editor を利用した React コンポーネント、Azure Text-to-Speech API クライアントをサブパスから提供します。
+SSML の XML エスケープや Azure Speech 拡張要素に対応したコアライブラリ、Monaco Editor を利用した React コンポーネント、フレームワーク非依存の Web Component、Azure Text-to-Speech API クライアントをサブパスから提供します。
 
 ## パッケージ構成
 
@@ -16,6 +16,7 @@ SSML の XML エスケープや Azure Speech 拡張要素に対応したコア�
 | `ssml-builder-js` | コア機能と Azure Text-to-Speech クライアント |
 | `ssml-builder-js/core` | SSML の型定義、ドキュメントの生成（`buildSsml`）、XML からの解析（`parseSsml`）、構文検証（`validateSsml`） |
 | `ssml-builder-js/react` | ツールバーと本文の表示エリアを備えた `SsmlEditor` コンポーネント |
+| `ssml-builder-js/elements` | React などに依存しない `<ssml-editor>` Web Component |
 
 `ssml-builder-js` と `ssml-builder-js/core` は同じコア機能を提供します。React エディタは `ssml-builder-js/react` から読み込み、Azure TTS クライアントは `ssml-builder-js` から読み込みます。
 
@@ -33,6 +34,12 @@ React エディタを使用する場合は、React と Monaco Editor のアダ�
 
 ```sh
 npm install ssml-builder-js @monaco-editor/react react react-dom
+```
+
+Web Component を使用する場合は、Monaco Editor もインストールします。
+
+```sh
+npm install ssml-builder-js monaco-editor
 ```
 
 Azure TTS クライアントも `ssml-builder-js` から利用できます。
@@ -195,6 +202,24 @@ export function App() {
 
 「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは `voice` 要素を保持したまま、それ以外の XML 要素を削除して本文を残します。ドキュメントの `version`、`lang`、その他の属性も保持されます。
 
+## `ssml-editor-elements` の利用方法
+
+`ssml-builder-js/elements` は、React などに依存しない `<ssml-editor>` Web Component を登録します。`monaco-editor` を別途インストールし、`value`、`theme`、`readonly` 属性または同名プロパティを使用できます。編集時には `{ value }` を `detail` に持つ `change` イベントが発生します。
+
+```ts
+import "ssml-builder-js/elements";
+import type { SsmlEditorElement } from "ssml-builder-js/elements";
+
+const editor = document.querySelector("ssml-editor") as SsmlEditorElement | null;
+if (editor) {
+  editor.value = '<speak version="1.0">編集する本文</speak>';
+  editor.theme = "vs-dark";
+  editor.addEventListener("change", (event) => {
+    console.log((event as CustomEvent<{ value: string }>).detail.value);
+  });
+}
+```
+
 ## `azure-tts-client` の利用方法
 
 `AzureTtsClient` に Azure Speech のサブスクリプションキーとリージョンを渡し、`synthesize` に SSML を渡します。戻り値は音声データの `ArrayBuffer` です。
@@ -270,7 +295,7 @@ npm test
 
 SSML-Builder is an npm workspace monorepo for generating and parsing SSML supported by Azure Speech Service from TypeScript data structures and editing it in a React GUI. Its published output is a single npm package, `ssml-builder-js`.
 
-It provides a core library with XML escaping and Azure Speech extension support, a React component based on Monaco Editor, and an Azure Text-to-Speech API client through package subpaths.
+It provides a core library with XML escaping and Azure Speech extension support, a React component based on Monaco Editor, a framework-independent Web Component, and an Azure Text-to-Speech API client through package subpaths.
 
 ## Package structure
 
@@ -279,6 +304,7 @@ It provides a core library with XML escaping and Azure Speech extension support,
 | `ssml-builder-js` | Core functionality and the Azure Text-to-Speech client |
 | `ssml-builder-js/core` | SSML type definitions, document generation (`buildSsml`), XML parsing (`parseSsml`), and syntax validation (`validateSsml`) |
 | `ssml-builder-js/react` | The `SsmlEditor` component with a toolbar and text display area |
+| `ssml-builder-js/elements` | The framework-independent `<ssml-editor>` Web Component |
 
 `ssml-builder-js` and `ssml-builder-js/core` provide the same core functionality. Import the React editor from `ssml-builder-js/react`; the Azure TTS client is available from `ssml-builder-js`.
 
@@ -296,6 +322,12 @@ To use the React editor, also install React and the Monaco Editor adapter:
 
 ```sh
 npm install ssml-builder-js @monaco-editor/react react react-dom
+```
+
+To use the Web Component, also install Monaco Editor:
+
+```sh
+npm install ssml-builder-js monaco-editor
 ```
 
 The Azure TTS client is also available from `ssml-builder-js`.
@@ -457,6 +489,24 @@ export function App() {
 The built-in insertion menus are `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, and `mstts:silence`. Their definitions are available through `SSML_INSERTIONS`. Custom insertion definitions can be supplied as an array or an object keyed by ID. Use `createSsmlEditorInsertionDefinition` to create a definition from a tag and one optional attribute; for arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
 
 Click the **Description** button to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button preserves `voice` elements, removes the other XML elements, and leaves the text in place. The document's `version`, `lang`, and other attributes are also preserved.
+
+## Using `ssml-editor-elements`
+
+`ssml-builder-js/elements` registers a framework-independent `<ssml-editor>` Web Component without React. Install `monaco-editor` separately, then use the `value`, `theme`, and `readonly` attributes or properties. Editing dispatches a `change` event whose `detail` is `{ value: string }`.
+
+```ts
+import "ssml-builder-js/elements";
+import type { SsmlEditorElement } from "ssml-builder-js/elements";
+
+const editor = document.querySelector("ssml-editor") as SsmlEditorElement | null;
+if (editor) {
+  editor.value = '<speak version="1.0">Text to edit</speak>';
+  editor.theme = "vs-dark";
+  editor.addEventListener("change", (event) => {
+    console.log((event as CustomEvent<{ value: string }>).detail.value);
+  });
+}
+```
 
 ## Using `azure-tts-client`
 

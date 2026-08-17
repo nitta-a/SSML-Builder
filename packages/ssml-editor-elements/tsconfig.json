@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".."
+  },
+  "include": [
+    "src",
+    "../ssml-editor-react/src/ssmlCompletion.ts",
+    "../ssml-editor-react/src/ssmlHover.ts",
+    "../ssml-editor-react/src/ssmlContext.ts",
+    "../ssml-editor-react/src/locales.ts",
+    "../ssml-editor-react/src/constants/ssmlPresets.ts"
+  ],
+  "references": []
+}
