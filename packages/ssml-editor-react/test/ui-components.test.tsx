@@ -351,6 +351,31 @@ describe("SsmlEditor toolbar menus", () => {
     expect(within(menu).queryByRole("menuitem", { name: "friendly" })).toBeNull();
   });
 
+  it("groups emotion styles into localized menu sections and keeps custom styles in Other", async () => {
+    const user = userEvent.setup();
+    renderEditor({
+      emotionStyles: ["cheerful", "chat", "newscast", "custom"],
+      locale: "en",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Emotion" }));
+    const menu = screen.getByRole("menu", { name: "Emotion" });
+    const groups = within(menu).getAllByRole("group");
+
+    expect(groups.map((group) => group.querySelector("legend")?.textContent)).toEqual([
+      "Emotions / Tone",
+      "Conversations / Scenarios",
+      "Media / Broadcast",
+      "Other",
+    ]);
+    expect(within(menu).getByRole("group", { name: "Emotions / Tone" })).toBe(groups[0]);
+    expect(within(groups[0] as HTMLElement).getByRole("menuitem", { name: "cheerful" })).toBeTruthy();
+    expect(within(groups[1] as HTMLElement).getByRole("menuitem", { name: "chat" })).toBeTruthy();
+    expect(within(groups[2] as HTMLElement).getByRole("menuitem", { name: "newscast" })).toBeTruthy();
+    expect(within(groups[3] as HTMLElement).getByRole("menuitem", { name: "custom" })).toBeTruthy();
+    expect(within(menu).queryByRole("combobox")).toBeNull();
+  });
+
   it("uses an inner Monaco voice instead of the document voice", async () => {
     const user = userEvent.setup();
     const value = '<voice name="en-US-GuyNeural">Hello</voice>';

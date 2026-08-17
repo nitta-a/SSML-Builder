@@ -1,28 +1,68 @@
 import type { ReactElement } from "react";
-import { resolveExpressAsStyles } from "../../constants/ssmlPresets";
+import {
+  getExpressAsStyleCategory,
+  resolveExpressAsStyles,
+  type ExpressAsStyleCategory,
+} from "../../constants/ssmlPresets";
+import { EDITOR_COPY, type EditorCopy } from "../../locales";
 import { InsertionPopovers, type InsertionPopoversProps } from "./InsertionPopovers";
+import type { InsertionOptionGroup } from "./InsertionPopover";
 
 export interface ProsodyPopoversProps extends InsertionPopoversProps {
   voiceName?: string;
 }
 
-export function ProsodyPopovers({ insertions, voiceName, ...props }: ProsodyPopoversProps): ReactElement {
+const CATEGORY_LABEL_KEYS = {
+  emotions: "categoryEmotions",
+  scenarios: "categoryScenarios",
+  media: "categoryMedia",
+  other: "categoryOther",
+} as const satisfies Record<ExpressAsStyleCategory, keyof EditorCopy>;
+
+const CATEGORY_ORDER: readonly ExpressAsStyleCategory[] = ["emotions", "scenarios", "media", "other"];
+
+function isExpressAsInsertion(insertion: ProsodyPopoversProps["insertions"][number]): boolean {
+  return insertion.id === "emotion" && insertion.tagName?.toLowerCase() === "mstts:express-as";
+}
+
+function createOptionGroups(
+  options: ProsodyPopoversProps["insertions"][number]["options"],
+  language: ProsodyPopoversProps["language"],
+): readonly InsertionOptionGroup[] {
+  const t = (key: keyof EditorCopy): string => EDITOR_COPY[language][key];
+
+  return CATEGORY_ORDER.map((category) => ({
+    label: t(CATEGORY_LABEL_KEYS[category]),
+    options: options.filter((option) => getExpressAsStyleCategory(option.value) === category),
+  })).filter((group) => group.options.length > 0);
+}
+
+export function ProsodyPopovers({ insertions, voiceName, language, ...props }: ProsodyPopoversProps): ReactElement {
   const filteredInsertions = insertions.map((insertion) => {
-    if (insertion.id !== "emotion" || insertion.tagName?.toLowerCase() !== "mstts:express-as") {
+    if (!isExpressAsInsertion(insertion)) {
       return insertion;
     }
 
-    const styles = new Set(
+    const availableStyles = new Set(
       resolveExpressAsStyles(
         voiceName,
         insertion.options.map((option) => option.value),
       ),
     );
+    const availableOptions = insertion.options.filter((option) => availableStyles.has(option.value));
+
     return {
       ...insertion,
-      options: insertion.options.filter((option) => styles.has(option.value)),
+      options: availableOptions,
     };
   });
+  const optionGroups = Object.fromEntries(
+    filteredInsertions
+      .filter(isExpressAsInsertion)
+      .map((insertion) => [insertion.id, createOptionGroups(insertion.options, language)]),
+  );
 
-  return <InsertionPopovers {...props} insertions={filteredInsertions} />;
+  return (
+    <InsertionPopovers {...props} language={language} insertions={filteredInsertions} optionGroups={optionGroups} />
+  );
 }

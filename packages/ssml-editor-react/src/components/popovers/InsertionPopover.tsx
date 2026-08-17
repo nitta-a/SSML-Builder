@@ -3,6 +3,11 @@ import { createPortal } from "react-dom";
 import type { SsmlEditorInsertionDefinition, SsmlEditorInsertionOption } from "../../SsmlEditor";
 import { editorStyles as styles } from "../../styles/editorStyles";
 
+export interface InsertionOptionGroup {
+  label: string;
+  options: readonly SsmlEditorInsertionOption[];
+}
+
 export interface InsertionPopoverProps {
   insertion: SsmlEditorInsertionDefinition;
   language: "ja" | "en";
@@ -18,6 +23,7 @@ export interface InsertionPopoverProps {
   onToggle: (trigger: HTMLButtonElement) => void;
   onClose: () => void;
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
+  optionGroups?: readonly InsertionOptionGroup[];
 }
 
 function getInsertionTitle(insertion: SsmlEditorInsertionDefinition, language: "ja" | "en"): string {
@@ -44,7 +50,30 @@ export function InsertionPopover({
   onToggle,
   onClose,
   onApply,
+  optionGroups,
 }: InsertionPopoverProps): ReactElement {
+  const hasOptions = optionGroups
+    ? optionGroups.some((group) => group.options.length > 0)
+    : insertion.options.length > 0;
+  const renderOption = (option: SsmlEditorInsertionOption): ReactElement => (
+    <button
+      key={option.value}
+      type="button"
+      role="menuitem"
+      style={styles.toolbarOption}
+      title={option.descriptions?.[language] ?? insertion.descriptions[language]}
+      disabled={isReadOnly}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => {
+        if (!isReadOnly) {
+          onApply(insertion, option);
+        }
+        onClose();
+      }}
+    >
+      {option.labels[language]}
+    </button>
+  );
   const menu =
     isOpen && menuPosition && typeof document !== "undefined" ? (
       <div
@@ -56,30 +85,19 @@ export function InsertionPopover({
         role="menu"
         aria-label={insertion.labels[language]}
       >
-        {insertion.options.length === 0 ? (
+        {!hasOptions ? (
           <p role="status" style={styles.toolbarEmpty}>
             {emptyOptionsMessage}
           </p>
-        ) : (
-          insertion.options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="menuitem"
-              style={styles.toolbarOption}
-              title={option.descriptions?.[language] ?? insertion.descriptions[language]}
-              disabled={isReadOnly}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                if (!isReadOnly) {
-                  onApply(insertion, option);
-                }
-                onClose();
-              }}
-            >
-              {option.labels[language]}
-            </button>
+        ) : optionGroups ? (
+          optionGroups.map((group) => (
+            <fieldset key={group.label} style={styles.toolbarOptionGroup}>
+              <legend style={styles.toolbarOptionGroupLabel}>{group.label}</legend>
+              {group.options.map(renderOption)}
+            </fieldset>
           ))
+        ) : (
+          insertion.options.map(renderOption)
         )}
       </div>
     ) : null;
