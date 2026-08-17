@@ -66,6 +66,14 @@ cp apps/playground/.env.example apps/playground/.env.local
 npm run dev --workspace playground
 ```
 
+Playground の表示言語は `ja`、`en`、`ko`、`zh-Hans`、`fr`、`pt-BR`、`it`、`de`、
+`ru` から選択できます。音声設定では `en-US`、`ja-JP`、`ko`、`zh-Hans`、`fr`、
+`pt-BR`、`it`、`de`、`ru` の各言語について、女性・男性の音声を選択できます。
+Playground の表示言語が日本語以外の場合、埋め込みエディターの UI は英語になります。
+テーマは OS の設定に追従し、ライト・ダークを手動で切り替えて保存できます。現在の
+SSML 全体または選択部分を Azure Speech で合成してブラウザーで再生でき、音声には
+SSML 本文のキャプションが付きます。生成された SSML は画面下部に表示されます。
+
 ## `ssml-core` の利用方法
 
 `SsmlDocument` は `version`、`lang`、`children` を持つオブジェクトです。`children` には文字列、テキストノード、SSML 要素を入れられます。`children` を使う形式が推奨され、旧形式の `content` プロパティも `buildSsml` の入力として利用できます。
@@ -124,7 +132,7 @@ const parsed = parseSsml(ssml);
 
 `SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`showDecorations` が有効な場合、`break` と `prosody` のタグに間やピッチ変化を示すインラインバッジが表示され、Monaco のインライン装飾も有効になります。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体、選択範囲、または現在行の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
 
-`<mstts:express-as>` の `style` 属性補完と標準の感情メニューは、カーソルまたは選択範囲を囲む最内の `<voice name="...">` が対応するスタイルだけを表示します。登録済みでスタイル非対応の音声では候補がないことを表示し、音声が未指定または未登録の場合は従来の全候補へフォールバックします。`emotionStyles` を指定した場合、感情メニューではその値と登録済み音声の対応スタイルの共通部分を使用します。
+`<mstts:express-as>` の `style` 属性補完と標準の感情メニューは、カーソルまたは選択範囲を囲む最内の `<voice name="...">` が対応するスタイルだけを表示します。音声名が未指定の場合は全候補を表示し、登録済みでスタイル非対応の音声や未登録の音声では候補がないことを表示します。`emotionStyles` を指定した場合、感情メニューではその値と登録済み音声の対応スタイルの共通部分を使用します。
 
 ```tsx
 import { useState } from "react";
@@ -320,6 +328,15 @@ cp apps/playground/.env.example apps/playground/.env.local
 npm run dev --workspace playground
 ```
 
+The playground UI can be displayed in `ja`, `en`, `ko`, `zh-Hans`, `fr`, `pt-BR`, `it`,
+`de`, or `ru`. Speech settings provide female and male voices for `en-US`, `ja-JP`,
+`ko`, `zh-Hans`, `fr`, `pt-BR`, `it`, `de`, and `ru`. The embedded editor supports
+Japanese and English UI, so non-Japanese playground locales use the English editor UI.
+The theme follows the operating system preference until a light or dark mode is selected
+manually, and the manual choice is stored in the browser. You can synthesize the full
+SSML document or the selected text and play it in the browser with an SSML caption track;
+the generated SSML is shown below the editor.
+
 ## Using `ssml-core`
 
 `SsmlDocument` is an object with `version`, `lang`, and `children` properties. `children` can contain strings, text nodes, and SSML elements. The `children` form is recommended; the legacy `content` property is also accepted as input by `buildSsml`.
@@ -378,7 +395,7 @@ Typed representations are available for elements such as `voice`, `prosody`, `br
 
 `SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Selecting text displays a floating action bar with the character count and preview action. When `showDecorations` is enabled, inline badges for pause and pitch changes are rendered next to `break` and `prosody` tags, and Monaco inline decorations are enabled. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full, selected, or current-line SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English.
 
-Completion for the `<mstts:express-as>` `style` attribute and the built-in Emotion menu only show styles supported by the innermost `<voice name="...">` around the cursor or selection. A registered voice with no styles displays an empty-state message, while a missing or unregistered voice falls back to all legacy candidates. When `emotionStyles` is supplied, the Emotion menu uses its intersection with the registered voice's supported styles.
+Completion for the `<mstts:express-as>` `style` attribute and the built-in Emotion menu only show styles supported by the innermost `<voice name="...">` around the cursor or selection. When no voice name is available, all candidates are shown; a registered voice without supported styles or an explicitly unregistered voice displays an empty-state message. When `emotionStyles` is supplied, the Emotion menu uses its intersection with the registered voice's supported styles.
 
 ```tsx
 import { useState } from "react";
