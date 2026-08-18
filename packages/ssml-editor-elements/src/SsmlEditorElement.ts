@@ -1,6 +1,12 @@
 import type * as monaco from "monaco-editor";
 import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
+import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
 import { clearSsmlDocument } from "../../ssml-editor-react/src/clearSsmlDocument";
+import {
+  getEditableRegion,
+  getEditableText,
+  updateEditableText,
+} from "../../ssml-editor-react/src/editableSsml";
 import { formatXmlFragment } from "../../ssml-editor-react/src/formatXml";
 import { registerSsmlCompletionProvider } from "../../ssml-editor-react/src/ssmlCompletion";
 import { findActiveSsmlTags, findSsmlVoiceContext } from "../../ssml-editor-react/src/ssmlContext";
@@ -302,11 +308,12 @@ export class SsmlEditorElement extends HTMLElementBase {
   private suppressChangeEvent = false;
   private initializationToken = 0;
   private valueState: string | undefined;
+  private documentState: SsmlDocument | null = null;
   private decorationsVisible = false;
   private helpOpen = false;
 
   get value(): string {
-    return this.editor?.getValue() ?? this.valueState ?? this.getAttribute("value") ?? "";
+    return this.valueState ?? this.getAttribute("value") ?? "";
   }
 
   set value(value: string) {
@@ -342,6 +349,16 @@ export class SsmlEditorElement extends HTMLElementBase {
     this.setAttribute("locale", locale);
   }
 
+  private prepareDocument(value: string): string {
+    try {
+      this.documentState = parseSsml(value);
+      return getEditableText(this.documentState);
+    } catch {
+      this.documentState = null;
+      return value;
+    }
+  }
+
   connectedCallback(): void {
     if (this.editor || this.root) {
       return;
@@ -368,10 +385,11 @@ export class SsmlEditorElement extends HTMLElementBase {
       this.valueState = newValue ?? "";
       if (this.editor) {
         const value = newValue ?? "";
-        if (this.editor.getValue() !== value) {
+        const editableValue = this.prepareDocument(value);
+        if (this.editor.getValue() !== editableValue) {
           this.suppressChangeEvent = true;
           try {
-            this.editor.setValue(value);
+            this.editor.setValue(editableValue);
           } finally {
             this.suppressChangeEvent = false;
           }
@@ -678,10 +696,16 @@ export class SsmlEditorElement extends HTMLElementBase {
 
     const model = this.model;
     const selection = this.editor?.getSelection();
-    const voiceName =
+    const voiceContext =
       model && selection
-        ? findSsmlVoiceContext(model.getValue(), model.getOffsetAt(selection.getStartPosition()))?.voiceName
+        ? findSsmlVoiceContext(model.getValue(), model.getOffsetAt(selection.getStartPosition()))
         : undefined;
+    const voiceName =
+      voiceContext === undefined
+        ? this.documentState
+          ? getEditableRegion(this.documentState).voiceName
+          : undefined
+        : voiceContext.voiceName;
     const availableStyles = new Set(
       resolveExpressAsStyles(
         voiceName,
@@ -744,13 +768,15 @@ export class SsmlEditorElement extends HTMLElementBase {
       this.editor.trigger("ssml-toolbar", id, null);
       this.editor.focus();
     } else if (id === "clearAll") {
-      try {
-        this.replaceEditorValue(buildSsml(clearSsmlDocument(parseSsml(this.editor.getValue()))));
-      } catch {
-        return;
+      if (this.documentState) {
+        this.replaceDocument(clearSsmlDocument(this.documentState));
       }
     } else if (id === "format") {
-      this.replaceEditorValue(formatXmlFragment(this.editor.getValue()));
+      if (this.documentState) {
+        this.replaceDocument(updateEditableText(this.documentState, formatXmlFragment(this.editor.getValue())));
+      } else {
+        this.replaceEditorValue(formatXmlFragment(this.editor.getValue()));
+      }
     }
   }
 
@@ -807,6 +833,45 @@ export class SsmlEditorElement extends HTMLElementBase {
     ]);
     editor.pushUndoStop();
     editor.focus();
+  }
+
+  private replaceDocument(document: SsmlDocument): void {
+    const editor = this.editor;
+    const model = editor?.getModel();
+    const editableValue = getEditableText(document);
+    const fullValue = buildSsml(document);
+    this.documentState = document;
+    this.valueState = fullValue;
+
+    if (!editor || !model || editor.getValue() === editableValue) {
+      this.updateActiveButtons();
+      this.dispatchChange(fullValue);
+      return;
+    }
+
+    editor.pushUndoStop();
+    editor.executeEdits("ssml-editor-toolbar", [
+      {
+        range: model.getFullModelRange(),
+        text: editableValue,
+        forceMoveMarkers: true,
+      },
+    ]);
+    editor.pushUndoStop();
+    editor.focus();
+  }
+
+  private dispatchChange(value: string): void {
+    if (this.suppressChangeEvent) {
+      return;
+    }
+    this.dispatchEvent(
+      new CustomEvent<SsmlEditorChangeDetail>("change", {
+        detail: { value },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private updateDecorations(): void {
@@ -907,7 +972,7 @@ export class SsmlEditorElement extends HTMLElementBase {
       return;
     }
 
-    const model = monacoModule.editor.createModel(this.value, "xml");
+    const model = monacoModule.editor.createModel(this.prepareDocument(this.value), "xml");
     const editor = monacoModule.editor.create(container, {
       model,
       theme: this.theme,
@@ -929,21 +994,19 @@ export class SsmlEditorElement extends HTMLElementBase {
     this.editor = editor;
     this.contentDisposable = editor.onDidChangeModelContent(() => {
       const value = editor.getValue();
-      this.valueState = value;
-      this.updateActiveButtons();
-      if (!this.suppressChangeEvent) {
-        this.dispatchEvent(
-          new CustomEvent<SsmlEditorChangeDetail>("change", {
-            detail: { value },
-            bubbles: true,
-            composed: true,
-          }),
-        );
+      let nextValue = value;
+      if (this.documentState) {
+        this.documentState = updateEditableText(this.documentState, value);
+        nextValue = buildSsml(this.documentState);
       }
+      this.valueState = nextValue;
+      this.updateActiveButtons();
+      this.dispatchChange(nextValue);
     });
     this.cursorDisposable = editor.onDidChangeCursorPosition(() => this.updateActiveButtons());
     this.completionDisposable = registerSsmlCompletionProvider(monacoModule, {
       model,
+      getOuterVoiceName: () => (this.documentState ? getEditableRegion(this.documentState).voiceName : undefined),
     });
     this.hoverDisposable = monacoModule.languages.registerHoverProvider("xml", {
       provideHover: (hoverModel, position) => {

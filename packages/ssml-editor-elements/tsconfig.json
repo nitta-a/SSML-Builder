@@ -7,6 +7,7 @@
   "include": [
     "src",
     "../ssml-editor-react/src/clearSsmlDocument.ts",
+    "../ssml-editor-react/src/editableSsml.ts",
     "../ssml-editor-react/src/formatXml.ts",
     "../ssml-editor-react/src/ssmlInsertion.ts",
     "../ssml-editor-react/src/ssmlCompletion.ts",
