@@ -655,8 +655,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (editorMode === "web-component") {
+      return;
+    }
     setEditorValue(buildSsml(document));
-  }, [document]);
+  }, [document, editorMode]);
 
   useEffect(() => {
     const editor = webComponentRef.current;

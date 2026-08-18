@@ -153,7 +153,7 @@ const STYLE_CSS = `
 [data-ssml-editor] .ssml-editor-switch-track[aria-checked="true"] .ssml-editor-switch-thumb {
   transform: translateX(1.25rem);
 }
-[data-ssml-editor] .ssml-editor-toolbar-menu {
+[data-ssml-editor].ssml-editor-toolbar-menu {
   position: fixed;
   z-index: 9999;
   display: grid;
