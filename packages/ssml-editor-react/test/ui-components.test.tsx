@@ -295,7 +295,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe("SsmlEditor toolbar menus", () => {
+describe("editable SSML utilities", () => {
   it("keeps speak and voice wrappers outside the editable text", () => {
     const document = {
       type: "speak" as const,
@@ -324,7 +324,9 @@ describe("SsmlEditor toolbar menus", () => {
       ],
     });
   });
+});
 
+describe("SsmlEditor toolbar menus", () => {
   it("highlights prosody buttons while the cursor is inside a prosody element", () => {
     const value = '<prosody rate="slow">Hello</prosody> outside';
     monacoState.setValue(value);
