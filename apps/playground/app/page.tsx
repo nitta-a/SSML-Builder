@@ -238,6 +238,7 @@ type PlaygroundCopy = {
   playgroundTitle: string;
   themeLabel: string;
   editorMode: string;
+  webComponentEditor: string;
   introDescription: string;
   speechSettings: string;
   speechLanguage: string;
@@ -262,6 +263,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "ダークモード",
     editorMode: "エディターモード",
+    webComponentEditor: "SSML Web Component エディター",
     introDescription: "以下のサンプルドキュメントを編集して、SSML エディターとコアパッケージを確認できます。",
     speechSettings: "音声設定",
     speechLanguage: "音声言語",
@@ -284,6 +286,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "Dark mode",
     editorMode: "Editor mode",
+    webComponentEditor: "SSML Web Component editor",
     introDescription: "Edit the sample document below to verify the SSML editor and core package together.",
     speechSettings: "Speech settings",
     speechLanguage: "Language",
@@ -306,6 +309,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "다크 모드",
     editorMode: "편집기 모드",
+    webComponentEditor: "SSML Web Component 편집기",
     introDescription: "아래 샘플 문서를 편집하여 SSML 편집기와 코어 패키지를 함께 확인할 수 있습니다.",
     speechSettings: "음성 설정",
     speechLanguage: "음성 언어",
@@ -328,6 +332,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "深色模式",
     editorMode: "编辑器模式",
+    webComponentEditor: "SSML Web Component 编辑器",
     introDescription: "编辑下面的示例文档，以同时查看 SSML 编辑器和核心包。",
     speechSettings: "语音设置",
     speechLanguage: "语音语言",
@@ -350,6 +355,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "Mode sombre",
     editorMode: "Mode de l’éditeur",
+    webComponentEditor: "Éditeur SSML Web Component",
     introDescription:
       "Modifiez le document d’exemple ci-dessous pour vérifier l’éditeur SSML et le package principal ensemble.",
     speechSettings: "Paramètres vocaux",
@@ -373,6 +379,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "Modo escuro",
     editorMode: "Modo do editor",
+    webComponentEditor: "Editor SSML Web Component",
     introDescription:
       "Edite o documento de exemplo abaixo para verificar o editor SSML e o pacote principal em conjunto.",
     speechSettings: "Configurações de voz",
@@ -396,6 +403,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "Modalità scura",
     editorMode: "Modalità editor",
+    webComponentEditor: "Editor SSML Web Component",
     introDescription:
       "Modifica il documento di esempio qui sotto per verificare insieme l’editor SSML e il pacchetto principale.",
     speechSettings: "Impostazioni vocali",
@@ -419,6 +427,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "Dunkelmodus",
     editorMode: "Editormodus",
+    webComponentEditor: "SSML-Web-Component-Editor",
     introDescription:
       "Bearbeiten Sie das Beispieldokument unten, um den SSML-Editor und das Kernpaket gemeinsam zu prüfen.",
     speechSettings: "Spracheinstellungen",
@@ -442,6 +451,7 @@ const PLAYGROUND_COPY: Readonly<Record<PlaygroundLocale, PlaygroundCopy>> = {
     playgroundTitle: "Playground",
     themeLabel: "Тёмный режим",
     editorMode: "Режим редактора",
+    webComponentEditor: "Редактор SSML Web Component",
     introDescription:
       "Измените расположенный ниже пример документа, чтобы проверить работу редактора SSML и основного пакета вместе.",
     speechSettings: "Настройки речи",
@@ -879,7 +889,7 @@ export default function Home() {
           theme={theme ?? "system"}
         />
       ) : (
-        <section className="web-component-editor" aria-label="SSML Web Component editor">
+        <section className="web-component-editor" aria-label={copy.webComponentEditor}>
           <ssml-editor
             ref={webComponentRef}
             value={editorValue}

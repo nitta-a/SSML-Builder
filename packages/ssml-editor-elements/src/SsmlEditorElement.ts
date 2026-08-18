@@ -790,13 +790,21 @@ export class SsmlEditorElement extends HTMLElementBase {
   }
 
   private replaceEditorValue(value: string): void {
-    if (!this.editor || this.editor.getValue() === value) {
+    const editor = this.editor;
+    const model = editor?.getModel();
+    if (!editor || !model || editor.getValue() === value) {
       return;
     }
-    this.editor.pushUndoStop();
-    this.editor.setValue(value);
-    this.editor.pushUndoStop();
-    this.editor.focus();
+    editor.pushUndoStop();
+    editor.executeEdits("ssml-editor-toolbar", [
+      {
+        range: model.getFullModelRange(),
+        text: value,
+        forceMoveMarkers: true,
+      },
+    ]);
+    editor.pushUndoStop();
+    editor.focus();
   }
 
   private updateDecorations(): void {
