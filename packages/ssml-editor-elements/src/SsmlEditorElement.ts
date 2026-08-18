@@ -39,6 +39,8 @@ const STYLE_CSS = `
   --ssml-editor-active-bg: #dbeafe;
   --ssml-editor-active-border: #2563eb;
   --ssml-editor-preview-bg: #f3f4f6;
+}
+section[data-ssml-editor] {
   display: grid;
   grid-template-rows: auto minmax(8rem, 1fr);
   gap: 0.75rem;
