@@ -6,11 +6,16 @@
   },
   "include": [
     "src",
+    "../ssml-editor-react/src/clearSsmlDocument.ts",
+    "../ssml-editor-react/src/editableSsml.ts",
+    "../ssml-editor-react/src/formatXml.ts",
+    "../ssml-editor-react/src/ssmlInsertion.ts",
     "../ssml-editor-react/src/ssmlCompletion.ts",
     "../ssml-editor-react/src/ssmlHover.ts",
     "../ssml-editor-react/src/ssmlContext.ts",
     "../ssml-editor-react/src/locales.ts",
-    "../ssml-editor-react/src/constants/ssmlPresets.ts"
+    "../ssml-editor-react/src/constants/ssmlPresets.ts",
+    "../ssml-editor-react/src/ssmlInsertions.ts"
   ],
   "references": []
 }

@@ -4,6 +4,7 @@ import { useEffect, useRef, type ComponentProps } from "react";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getEditableText, updateEditableText } from "../src/editableSsml";
 
 const monacoState = vi.hoisted(() => {
   let value = "Hello world";
@@ -292,6 +293,37 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+});
+
+describe("editable SSML utilities", () => {
+  it("keeps speak and voice wrappers outside the editable text", () => {
+    const document = {
+      type: "speak" as const,
+      version: "1.0",
+      lang: "en-US",
+      children: [
+        {
+          type: "voice" as const,
+          name: "en-US-JennyNeural",
+          attributes: { "data-source": "test" },
+          children: ["Hello"],
+        },
+      ],
+    };
+
+    expect(getEditableText(document)).toBe("Hello");
+    expect(updateEditableText(document, "Updated")).toEqual({
+      ...document,
+      children: [
+        {
+          type: "voice",
+          name: "en-US-JennyNeural",
+          attributes: { "data-source": "test" },
+          children: ["Updated"],
+        },
+      ],
+    });
+  });
 });
 
 describe("SsmlEditor toolbar menus", () => {

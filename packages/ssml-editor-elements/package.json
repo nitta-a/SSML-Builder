@@ -26,5 +26,8 @@
   },
   "peerDependencies": {
     "monaco-editor": "^0.56.0"
+  },
+  "dependencies": {
+    "@ssml-builder-js/ssml-core": "*"
   }
 }
