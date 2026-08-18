@@ -1,11 +1,5 @@
 import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
-import type {
-  ProsodyElement,
-  SsmlDocument,
-  SsmlElement,
-  SsmlNode,
-  VoiceElement,
-} from "@ssml-builder-js/ssml-core";
+import type { ProsodyElement, SsmlDocument, SsmlElement, SsmlNode, VoiceElement } from "@ssml-builder-js/ssml-core";
 import { INTRINSICALLY_EMPTY_ELEMENTS } from "./formatXml";
 
 interface EditableStartTag {

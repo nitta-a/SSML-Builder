@@ -2,11 +2,7 @@ import type * as monaco from "monaco-editor";
 import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
 import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
 import { clearSsmlDocument } from "../../ssml-editor-react/src/clearSsmlDocument";
-import {
-  getEditableRegion,
-  getEditableText,
-  updateEditableText,
-} from "../../ssml-editor-react/src/editableSsml";
+import { getEditableRegion, getEditableText, updateEditableText } from "../../ssml-editor-react/src/editableSsml";
 import { formatXmlFragment } from "../../ssml-editor-react/src/formatXml";
 import { registerSsmlCompletionProvider } from "../../ssml-editor-react/src/ssmlCompletion";
 import { findActiveSsmlTags, findSsmlVoiceContext } from "../../ssml-editor-react/src/ssmlContext";
