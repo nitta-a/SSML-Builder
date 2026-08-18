@@ -1,5 +1,41 @@
 # playground
 
+## 2.2.0
+
+### Minor Changes
+
+- e124614: ---
+
+  "@ssml-builder-js/ssml-editor-elements": minor
+  "@ssml-builder-js/ssml-editor-react": minor
+  "@ssml-builder-js/ssml-core": minor
+  "@ssml-builder-js/azure-tts-client": minor
+  "playground": minor
+
+  ***
+
+  - **Web Components サポート (`@ssml-builder-js/ssml-editor-elements`) の追加**
+    - フレームワーク非依存で利用可能な `<ssml-editor>` カスタム要素（Custom Element）パッケージを新設。
+    - ルートパッケージからのエクスポート（`ssml-builder-js/elements`）および Playground での React / Web Components 切り替え動作環境を整備。
+  - **多言語音声モデル（Voice）ごとの感情スタイル動的フィルタリングの拡充**
+    - 日本語（`ja-JP`）、英語（`en-US`）、中国語（`zh-CN`）、韓国語、欧州言語等の Neural 音声モデルに対応する発話スタイル一覧を公式仕様に合わせて網羅。
+    - 感情非対応の音声モデルに対する disabled 表示・フォールバック処理を実装。
+  - **スタイル選択 UI の `<optgroup>` カテゴリ分類**
+    - `ProsodyPopovers` 内のスタイル選択肢を「感情・トーン（Emotions）」「会話・シナリオ（Scenarios）」「メディア・報道（Media）」にグループ化し、視認性と操作性を向上。
+  - **ツールバーのアクティブタグ状態表示 (Active State Feedback)**
+
+    - エディタ内のカーソル位置（キャレット）を囲む SSML タグをリアルタイムに検知し、対応するツールバーボタン（Prosody, Style 等）をハイライト表示する機能を追加。
+
+  - モノレポ各パッケージのビルド設定（tsup）および型定義エクスポート（dts）を最適化。
+
+### Patch Changes
+
+- Updated dependencies [e124614]
+  - @ssml-builder-js/azure-tts-client@2.2.0
+  - @ssml-builder-js/ssml-core@2.2.0
+  - @ssml-builder-js/ssml-editor-elements@2.2.0
+  - @ssml-builder-js/ssml-editor-react@2.2.0
+
 ## 2.1.0
 
 ### Patch Changes
