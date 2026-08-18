@@ -1,5 +1,5 @@
 import type { DetailedHTMLProps, HTMLAttributes } from "react";
-import type { SsmlEditorElement, SsmlEditorTheme } from "@ssml-builder-js/ssml-editor-elements";
+import type { SsmlEditorElement, SsmlEditorLocale, SsmlEditorTheme } from "@ssml-builder-js/ssml-editor-elements";
 
 declare module "react" {
   namespace JSX {
@@ -8,6 +8,10 @@ declare module "react" {
         value?: string;
         theme?: SsmlEditorTheme;
         readonly?: boolean;
+        locale?: SsmlEditorLocale;
+        "show-toolbar"?: boolean;
+        "show-toolbar-labels"?: boolean;
+        "show-decorations"?: boolean;
       };
     }
   }

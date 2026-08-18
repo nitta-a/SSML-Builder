@@ -880,7 +880,12 @@ export default function Home() {
         />
       ) : (
         <section className="web-component-editor" aria-label="SSML Web Component editor">
-          <ssml-editor ref={webComponentRef} value={editorValue} theme={theme === "dark" ? "vs-dark" : "light"} />
+          <ssml-editor
+            ref={webComponentRef}
+            value={editorValue}
+            theme={theme === "dark" ? "vs-dark" : "light"}
+            locale={editorLocale}
+          />
         </section>
       )}
       <section className="audio-generation" aria-labelledby="audio-generation-heading">

@@ -204,7 +204,7 @@ export function App() {
 
 ## `ssml-editor-elements` の利用方法
 
-`ssml-builder-js/elements` は、React などに依存しない `<ssml-editor>` Web Component を登録します。`monaco-editor` を別途インストールし、`value`、`theme`、`readonly` 属性または同名プロパティを使用できます。編集時には `{ value }` を `detail` に持つ `change` イベントが発生します。
+`ssml-builder-js/elements` は、React などに依存しない `<ssml-editor>` Web Component を登録します。`monaco-editor` を別途インストールし、`value`、`theme`、`readonly` 属性または同名プロパティを使用できます。React エディターと同じ SSML ツールバーと説明表示も利用でき、`locale`、`show-toolbar`、`show-toolbar-labels`、`show-decorations` で表示を調整できます。編集時には `{ value }` を `detail` に持つ `change` イベントが発生します。
 
 ```ts
 import "ssml-builder-js/elements";
@@ -214,6 +214,7 @@ const editor = document.querySelector("ssml-editor") as SsmlEditorElement | null
 if (editor) {
   editor.value = '<speak version="1.0">編集する本文</speak>';
   editor.theme = "vs-dark";
+  editor.locale = "ja";
   editor.addEventListener("change", (event) => {
     console.log((event as CustomEvent<{ value: string }>).detail.value);
   });
@@ -492,7 +493,7 @@ Click the **Description** button to see descriptions of each control, button, an
 
 ## Using `ssml-editor-elements`
 
-`ssml-builder-js/elements` registers a framework-independent `<ssml-editor>` Web Component without React. Install `monaco-editor` separately, then use the `value`, `theme`, and `readonly` attributes or properties. Editing dispatches a `change` event whose `detail` is `{ value: string }`.
+`ssml-builder-js/elements` registers a framework-independent `<ssml-editor>` Web Component without React. Install `monaco-editor` separately, then use the `value`, `theme`, and `readonly` attributes or properties. The component includes the same SSML toolbar and help display as the React editor; use `locale`, `show-toolbar`, `show-toolbar-labels`, and `show-decorations` to customize it. Editing dispatches a `change` event whose `detail` is `{ value: string }`.
 
 ```ts
 import "ssml-builder-js/elements";
@@ -502,6 +503,7 @@ const editor = document.querySelector("ssml-editor") as SsmlEditorElement | null
 if (editor) {
   editor.value = '<speak version="1.0">Text to edit</speak>';
   editor.theme = "vs-dark";
+  editor.locale = "en";
   editor.addEventListener("change", (event) => {
     console.log((event as CustomEvent<{ value: string }>).detail.value);
   });
