@@ -2,6 +2,11 @@ export interface SsmlVoiceContext {
   voiceName?: string;
 }
 
+export interface SsmlTagRange {
+  start: number;
+  end: number;
+}
+
 interface OpenElement {
   name: string;
   voiceName?: string;
@@ -30,6 +35,40 @@ function findTagEnd(source: string, start: number, limit: number): number {
 
 function getVoiceName(tag: string): string | undefined {
   return tag.match(/\bname\s*=\s*(["'])([\s\S]*?)\1/i)?.[2];
+}
+
+function escapeXmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/'/g, "&apos;");
+}
+
+export function updateTagAttribute(
+  text: string,
+  tagRange: SsmlTagRange,
+  attributeName: string,
+  newValue: string,
+): string {
+  const start = Math.max(0, Math.min(tagRange.start, text.length));
+  const end = Math.max(start, Math.min(tagRange.end, text.length));
+  const tag = text.slice(start, end);
+  const escapedAttributeName = attributeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const attributePattern = new RegExp(`(\\b${escapedAttributeName}\\s*=\\s*)(["'])([\\s\\S]*?)\\2`, "i");
+  const escapedValue = escapeXmlAttribute(newValue);
+  const match = tag.match(attributePattern);
+
+  if (match?.index !== undefined) {
+    const valueStart = match.index + match[0].indexOf(match[2]) + 1;
+    const valueEnd = valueStart + (match[3]?.length ?? 0);
+    return `${text.slice(0, start)}${tag.slice(0, valueStart)}${escapedValue}${tag.slice(valueEnd)}${text.slice(end)}`;
+  }
+
+  const insertionIndex = tag.endsWith("/>") ? tag.length - 2 : tag.length - 1;
+  const attribute = ` ${attributeName}="${escapedValue}"`;
+  return `${text.slice(0, start)}${tag.slice(0, insertionIndex)}${attribute}${tag.slice(insertionIndex)}${text.slice(end)}`;
 }
 
 function closeElement(stack: OpenElement[], name: string): void {
