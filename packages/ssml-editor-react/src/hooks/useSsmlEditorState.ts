@@ -56,6 +56,7 @@ interface PendingCodeLensAttribute {
   insertionId: "rate" | "pitch" | "break";
   attributeName: "rate" | "pitch" | "time";
   tagRange: { start: number; end: number };
+  modelVersionId: number;
 }
 
 const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
@@ -457,7 +458,7 @@ export function useSsmlEditorState({
 
       if (pending?.insertionId === insertion.id) {
         const model = editor.getModel();
-        if (model) {
+        if (model && model.getVersionId() === pending.modelVersionId) {
           const source = model.getValue();
           const updated = updateTagAttribute(source, pending.tagRange, pending.attributeName, option.value);
           const start = model.getPositionAt(pending.tagRange.start);
@@ -478,12 +479,15 @@ export function useSsmlEditorState({
           editor.focus();
         }
         pendingCodeLensAttributeRef.current = null;
+        if (!model || model.getVersionId() !== pending.modelVersionId) {
+          closePopover();
+        }
         return;
       }
 
       applySsmlInsertion(editor, insertion, option);
     },
-    [],
+    [closePopover],
   );
   const handleInsertBreak = useCallback(
     (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption): void => {
@@ -572,6 +576,7 @@ export function useSsmlEditorState({
         insertionId: action.insertionId,
         attributeName: action.attributeName,
         tagRange: action.tagRange,
+        modelVersionId: model.getVersionId(),
       };
       const start = model.getPositionAt(action.tagRange.start);
       const visiblePosition = editor.getScrolledVisiblePosition(start);
