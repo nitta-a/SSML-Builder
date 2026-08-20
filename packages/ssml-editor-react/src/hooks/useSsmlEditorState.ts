@@ -584,6 +584,7 @@ export function useSsmlEditorState({
         tagRange: action.tagRange,
         modelVersionId: model.getVersionId(),
       };
+      activePopoverTriggerRef.current = null;
       const start = model.getPositionAt(action.tagRange.start);
       const visiblePosition = editor.getScrolledVisiblePosition(start);
       setPopoverVoiceName(getEffectiveVoiceName(editor, draftDocumentRef.current));
