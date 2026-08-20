@@ -460,7 +460,13 @@ export function useSsmlEditorState({
         const model = editor.getModel();
         if (model && model.getVersionId() === pending.modelVersionId) {
           const source = model.getValue();
-          const updated = updateTagAttribute(source, pending.tagRange, pending.attributeName, option.value);
+          const tagText = source.slice(pending.tagRange.start, pending.tagRange.end);
+          const updatedTag = updateTagAttribute(
+            tagText,
+            { start: 0, end: tagText.length },
+            pending.attributeName,
+            option.value,
+          );
           const start = model.getPositionAt(pending.tagRange.start);
           const end = model.getPositionAt(pending.tagRange.end);
           editor.pushUndoStop();
@@ -472,7 +478,7 @@ export function useSsmlEditorState({
                 endLineNumber: end.lineNumber,
                 endColumn: end.column,
               },
-              text: updated.slice(pending.tagRange.start, pending.tagRange.end),
+              text: updatedTag,
             },
           ]);
           editor.pushUndoStop();
