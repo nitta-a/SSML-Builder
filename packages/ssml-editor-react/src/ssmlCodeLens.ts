@@ -1,5 +1,5 @@
 import type { Monaco } from "@monaco-editor/react";
-import type { MonacoEditor, MonacoModel } from "./ssmlDiagnostics";
+import type { MonacoEditor } from "./ssmlDiagnostics";
 import type { SsmlTagRange } from "./ssmlContext";
 
 export type SsmlCodeLensAction =
@@ -47,7 +47,7 @@ function getAttributeValue(tag: string, attributeName: string): string | undefin
   return tag.match(new RegExp(`\\b${escapedName}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i"))?.[2];
 }
 
-function getTagRange(model: MonacoModel, start: number, end: number): SsmlTagRange {
+function getTagRange(start: number, end: number): SsmlTagRange {
   return { start, end };
 }
 
@@ -57,10 +57,36 @@ function getElementEnd(source: string, tagName: string, tagEnd: number): number 
     return tagEnd + 1;
   }
 
-  const closingPattern = new RegExp(`<\\/\\s*${tagName}\\s*>`, "gi");
-  closingPattern.lastIndex = tagEnd + 1;
-  const closingMatch = closingPattern.exec(source);
-  return closingMatch ? closingMatch.index + closingMatch[0].length : tagEnd + 1;
+  let depth = 1;
+  let index = tagEnd + 1;
+  while (index < source.length) {
+    const nextStart = source.indexOf("<", index);
+    if (nextStart === -1) {
+      break;
+    }
+    if (source.startsWith("<!--", nextStart)) {
+      index = source.indexOf("-->", nextStart + 4);
+      index = index === -1 ? source.length : index + 3;
+      continue;
+    }
+    const nextEnd = findTagEnd(source, nextStart);
+    if (nextEnd === -1) {
+      break;
+    }
+    const nextTag = source.slice(nextStart, nextEnd + 1);
+    const closingMatch = nextTag.match(/^<\s*\/\s*([A-Za-z_][A-Za-z0-9_.:-]*)/);
+    const openingMatch = nextTag.match(/^<\s*([A-Za-z_][A-Za-z0-9_.:-]*)/);
+    if (closingMatch?.[1]?.toLowerCase() === tagName) {
+      depth -= 1;
+      if (depth === 0) {
+        return nextEnd + 1;
+      }
+    } else if (openingMatch?.[1]?.toLowerCase() === tagName && !/\/\s*>$/.test(nextTag)) {
+      depth += 1;
+    }
+    index = nextEnd + 1;
+  }
+  return tagEnd + 1;
 }
 
 function createLens(
@@ -93,21 +119,33 @@ export function registerSsmlCodeLens(
   onOpenPopover: SsmlCodeLensCallback,
 ): ReturnType<Monaco["languages"]["registerCodeLensProvider"]> {
   const provider: MonacoCodeLensProvider = {
-    provideCodeLenses(model) {
+    provideCodeLenses(model: MonacoCodeLensModel) {
       const source = model.getValue();
       const lenses: MonacoCodeLens[] = [];
-      const tagPattern = /<(prosody|break)\b/gi;
+      let index = 0;
 
-      for (const match of source.matchAll(tagPattern)) {
-        const tagStart = match.index ?? 0;
+      while (index < source.length) {
+        const tagStart = source.indexOf("<", index);
+        if (tagStart === -1) {
+          break;
+        }
+        if (source.startsWith("<!--", tagStart)) {
+          index = source.indexOf("-->", tagStart + 4);
+          index = index === -1 ? source.length : index + 3;
+          continue;
+        }
         const tagEnd = findTagEnd(source, tagStart);
-        const tagName = match[1]?.toLowerCase();
-        if (tagEnd === -1 || !tagName) {
+        if (tagEnd === -1) {
+          break;
+        }
+        const tag = source.slice(tagStart, tagEnd + 1);
+        const tagName = tag.match(/^<\s*(prosody|break)\b/i)?.[1]?.toLowerCase();
+        index = tagEnd + 1;
+        if (!tagName) {
           continue;
         }
 
-        const tagRange = getTagRange(model, tagStart, tagEnd + 1);
-        const tag = source.slice(tagStart, tagEnd + 1);
+        const tagRange = getTagRange(tagStart, tagEnd + 1);
         const elementEnd = getElementEnd(source, tagName, tagEnd);
         const elementRange = { start: tagStart, end: elementEnd };
 

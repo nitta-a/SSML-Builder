@@ -329,6 +329,7 @@ export function useSsmlEditorState({
   }, [showDecorations]);
 
   const closePopover = useCallback((restoreFocus = false): void => {
+    pendingCodeLensAttributeRef.current = null;
     setOpenPopoverId(null);
     setPopoverVoiceName(undefined);
     setPopoverPosition(null);
@@ -577,9 +578,7 @@ export function useSsmlEditorState({
       setPopoverVoiceName(getEffectiveVoiceName(editor, draftDocumentRef.current));
       setOpenPopoverId(action.insertionId);
       setPopoverPosition(
-        visiblePosition
-          ? { top: visiblePosition.top + visiblePosition.height + 4, left: visiblePosition.left }
-          : null,
+        visiblePosition ? { top: visiblePosition.top + visiblePosition.height + 4, left: visiblePosition.left } : null,
       );
       return;
     }
@@ -600,7 +599,7 @@ export function useSsmlEditorState({
         ? [{ range: toEditorRange(action.tagRange), text: "" }]
         : (() => {
             const elementText = source.slice(action.elementRange.start, action.elementRange.end);
-            const closingOffset = elementText.search(new RegExp(`<\\/\\s*prosody\\s*>`, "i"));
+            const closingOffset = elementText.search(/<\/\s*prosody\s*>/i);
             const closingStart =
               closingOffset === -1 ? action.elementRange.end : action.elementRange.start + closingOffset;
             const closingEnd =

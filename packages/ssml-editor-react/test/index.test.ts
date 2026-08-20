@@ -6,9 +6,10 @@ import { clearSsmlDocument } from "../src/clearSsmlDocument.ts";
 import { EXPRESS_AS_STYLE_PRESETS, resolveExpressAsStyles } from "../src/constants/ssmlPresets.ts";
 import { formatXml } from "../src/formatXml.ts";
 import { registerSsmlCompletionProvider } from "../src/ssmlCompletion.ts";
-import { findActiveSsmlTags, findSsmlVoiceContext } from "../src/ssmlContext.ts";
+import { findActiveSsmlTags, findSsmlVoiceContext, updateTagAttribute } from "../src/ssmlContext.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
 import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
+import { registerSsmlCodeLens } from "../src/ssmlCodeLens.ts";
 
 type CompletionProvider = Parameters<Monaco["languages"]["registerCompletionItemProvider"]>[1];
 type CompletionMethod = NonNullable<CompletionProvider["provideCompletionItems"]>;
@@ -77,6 +78,53 @@ test("provides attribute values from the active SSML tag and attribute", () => {
     suggestions.some((suggestion) => suggestion.label === "break"),
     false,
   );
+});
+
+test("generates CodeLens actions for prosody and break tags", () => {
+  let provider: Parameters<Monaco["languages"]["registerCodeLensProvider"]>[1] | undefined;
+  let action: { run: (...args: unknown[]) => void } | undefined;
+  const monaco = {
+    languages: {
+      registerCodeLensProvider: (_language: string, nextProvider: typeof provider) => {
+        provider = nextProvider;
+        return { dispose() {} };
+      },
+    },
+  } as unknown as Monaco;
+  const editor = {
+    addAction: (nextAction: typeof action) => {
+      action = nextAction;
+      return { dispose() {} };
+    },
+  } as never;
+
+  const source = '<prosody rate="+10%" pitch="high">Hello</prosody><break time="500ms"/>';
+  registerSsmlCodeLens(monaco, editor, () => undefined);
+  const model = {
+    getValue: () => source,
+    getPositionAt: (offset: number) => ({ lineNumber: 1, column: offset + 1 }),
+  };
+  const result = provider?.provideCodeLenses?.(model as never);
+  assert.ok(result && !(result instanceof Promise));
+  assert.deepEqual(
+    result.lenses.map((lens) => lens.command?.title),
+    [
+      "⚡ Rate: +10% (Click to edit)",
+      "⚡ Pitch: high (Click to edit)",
+      "Unwrap",
+      "⚡ Time: 500ms (Click to edit)",
+      "Delete",
+    ],
+  );
+  assert.ok(action);
+});
+
+test("updates only a tag attribute without breaking XML", () => {
+  const source = '<prosody rate="+10%" pitch="high">Hello &amp; goodbye</prosody>';
+  const tagEnd = source.indexOf(">") + 1;
+  const updated = updateTagAttribute(source, { start: 0, end: tagEnd }, "rate", "x-fast");
+
+  assert.equal(updated, '<prosody rate="x-fast" pitch="high">Hello &amp; goodbye</prosody>');
 });
 
 test("supports single-quoted and case-insensitive attribute contexts", () => {

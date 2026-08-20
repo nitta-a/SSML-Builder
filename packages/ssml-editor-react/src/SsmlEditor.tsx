@@ -910,6 +910,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     getCurrentLineSsml,
     getFullSsml,
     getOuterVoiceName,
+    handleCodeLensAction,
     openPopoverId,
     popoverVoiceName,
     popoverPosition,
