@@ -367,14 +367,44 @@ export function useSsmlEditorState({
 
     const updatePopoverPosition = (): void => {
       const trigger = activePopoverTriggerRef.current;
-      if (!trigger) {
+      if (trigger) {
+        const triggerBounds = trigger.getBoundingClientRect();
+        setPopoverPosition({
+          top: triggerBounds.bottom + 4,
+          left: triggerBounds.left,
+        });
         return;
       }
 
-      const triggerBounds = trigger.getBoundingClientRect();
+      const pending = pendingCodeLensAttributeRef.current;
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      if (!pending || !editor || !model) {
+        return;
+      }
+
+      const position = model.getPositionAt(pending.tagRange.start);
+      const visiblePosition = editor.getScrolledVisiblePosition(position);
+      const editorElement = editor.getDomNode();
+      if (!visiblePosition || !editorElement) {
+        return;
+      }
+
+      const editorBounds = editorElement.getBoundingClientRect();
+      const menu = activePopoverMenuRef.current;
+      const margin = 8;
       setPopoverPosition({
-        top: triggerBounds.bottom + 4,
-        left: triggerBounds.left,
+        top: Math.max(
+          margin,
+          Math.min(
+            editorBounds.top + visiblePosition.top + visiblePosition.height + 4,
+            window.innerHeight - (menu?.offsetHeight ?? 0) - margin,
+          ),
+        ),
+        left: Math.max(
+          margin,
+          Math.min(editorBounds.left + visiblePosition.left, window.innerWidth - (menu?.offsetWidth ?? 0) - margin),
+        ),
       });
     };
     const handlePointerDown = (event: PointerEvent): void => {
@@ -585,13 +615,9 @@ export function useSsmlEditorState({
         modelVersionId: model.getVersionId(),
       };
       activePopoverTriggerRef.current = null;
-      const start = model.getPositionAt(action.tagRange.start);
-      const visiblePosition = editor.getScrolledVisiblePosition(start);
       setPopoverVoiceName(getEffectiveVoiceName(editor, draftDocumentRef.current));
       setOpenPopoverId(action.insertionId);
-      setPopoverPosition(
-        visiblePosition ? { top: visiblePosition.top + visiblePosition.height + 4, left: visiblePosition.left } : null,
-      );
+      setPopoverPosition(null);
       return;
     }
 
