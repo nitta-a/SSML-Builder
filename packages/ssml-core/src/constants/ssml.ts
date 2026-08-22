@@ -51,6 +51,7 @@ export const SSML_ATTRS = {
   STYLE: "style",
   STYLE_DEGREE: "styledegree",
   STYLE_DEGREE_CAMEL: "styleDegree",
+  STYLE_DEGREE_HYPHEN: "style-degree",
   ROLE: "role",
   INTERPRET_AS: "interpret-as",
   FORMAT: "format",

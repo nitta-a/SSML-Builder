@@ -19,8 +19,9 @@ import { clearSsmlDocument } from "../clearSsmlDocument";
 import { formatXmlFragment } from "../formatXml";
 import { getEditableRegion, getEditableText, updateEditableText } from "../editableSsml";
 import { createSsmlInsertionEdit } from "../ssmlInsertion";
-import { findSsmlVoiceContext } from "../ssmlContext";
+import { findSsmlVoiceContext, updateTagAttribute } from "../ssmlContext";
 import type { MonacoEditor, SsmlSyntaxError } from "../ssmlDiagnostics";
+import type { SsmlCodeLensAction } from "../ssmlCodeLens";
 import { SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "../constants/ui";
 
 const TIMING_INSERTION_TAGS = new Set(["break", "mstts:silence"]);
@@ -49,6 +50,13 @@ export interface UseSsmlEditorStateOptions {
   onSelectionChange?: (info: SelectionInfo) => void;
   onPreviewSelection?: (ssml: string) => void;
   injectTheme?: () => void;
+}
+
+interface PendingCodeLensAttribute {
+  insertionId: "rate" | "pitch" | "break";
+  attributeName: "rate" | "pitch" | "time";
+  tagRange: { start: number; end: number };
+  modelVersionId: number;
 }
 
 const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
@@ -291,6 +299,7 @@ export function useSsmlEditorState({
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [popoverVoiceName, setPopoverVoiceName] = useState<string | undefined>(undefined);
   const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null);
+  const pendingCodeLensAttributeRef = useRef<PendingCodeLensAttribute | null>(null);
   const helpPanelId = useId();
   const draftDocumentRef = useRef(document);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -321,6 +330,7 @@ export function useSsmlEditorState({
   }, [showDecorations]);
 
   const closePopover = useCallback((restoreFocus = false): void => {
+    pendingCodeLensAttributeRef.current = null;
     setOpenPopoverId(null);
     setPopoverVoiceName(undefined);
     setPopoverPosition(null);
@@ -330,6 +340,7 @@ export function useSsmlEditorState({
   }, []);
 
   const togglePopover = useCallback((id: string, trigger: HTMLButtonElement): void => {
+    pendingCodeLensAttributeRef.current = null;
     setOpenPopoverId((currentId) => {
       if (currentId === id) {
         setPopoverVoiceName(undefined);
@@ -356,14 +367,44 @@ export function useSsmlEditorState({
 
     const updatePopoverPosition = (): void => {
       const trigger = activePopoverTriggerRef.current;
-      if (!trigger) {
+      if (trigger) {
+        const triggerBounds = trigger.getBoundingClientRect();
+        setPopoverPosition({
+          top: triggerBounds.bottom + 4,
+          left: triggerBounds.left,
+        });
         return;
       }
 
-      const triggerBounds = trigger.getBoundingClientRect();
+      const pending = pendingCodeLensAttributeRef.current;
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      if (!pending || !editor || !model) {
+        return;
+      }
+
+      const position = model.getPositionAt(pending.tagRange.start);
+      const visiblePosition = editor.getScrolledVisiblePosition(position);
+      const editorElement = editor.getDomNode();
+      if (!visiblePosition || !editorElement) {
+        return;
+      }
+
+      const editorBounds = editorElement.getBoundingClientRect();
+      const menu = activePopoverMenuRef.current;
+      const margin = 8;
       setPopoverPosition({
-        top: triggerBounds.bottom + 4,
-        left: triggerBounds.left,
+        top: Math.max(
+          margin,
+          Math.min(
+            editorBounds.top + visiblePosition.top + visiblePosition.height + 4,
+            window.innerHeight - (menu?.offsetHeight ?? 0) - margin,
+          ),
+        ),
+        left: Math.max(
+          margin,
+          Math.min(editorBounds.left + visiblePosition.left, window.innerWidth - (menu?.offsetWidth ?? 0) - margin),
+        ),
       });
     };
     const handlePointerDown = (event: PointerEvent): void => {
@@ -439,11 +480,50 @@ export function useSsmlEditorState({
 
   const handleInsert = useCallback(
     (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption): void => {
-      if (editorRef.current) {
-        applySsmlInsertion(editorRef.current, insertion, option);
+      const editor = editorRef.current;
+      const pending = pendingCodeLensAttributeRef.current;
+      if (!editor) {
+        return;
       }
+
+      if (pending?.insertionId === insertion.id) {
+        const model = editor.getModel();
+        if (model && model.getVersionId() === pending.modelVersionId) {
+          const source = model.getValue();
+          const tagText = source.slice(pending.tagRange.start, pending.tagRange.end);
+          const updatedTag = updateTagAttribute(
+            tagText,
+            { start: 0, end: tagText.length },
+            pending.attributeName,
+            option.value,
+          );
+          const start = model.getPositionAt(pending.tagRange.start);
+          const end = model.getPositionAt(pending.tagRange.end);
+          editor.pushUndoStop();
+          editor.executeEdits("ssml-code-lens", [
+            {
+              range: {
+                startLineNumber: start.lineNumber,
+                startColumn: start.column,
+                endLineNumber: end.lineNumber,
+                endColumn: end.column,
+              },
+              text: updatedTag,
+            },
+          ]);
+          editor.pushUndoStop();
+          editor.focus();
+        }
+        pendingCodeLensAttributeRef.current = null;
+        if (!model || model.getVersionId() !== pending.modelVersionId) {
+          closePopover();
+        }
+        return;
+      }
+
+      applySsmlInsertion(editor, insertion, option);
     },
-    [],
+    [closePopover],
   );
   const handleInsertBreak = useCallback(
     (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption): void => {
@@ -520,6 +600,66 @@ export function useSsmlEditorState({
   );
   const getOuterVoiceName = useCallback(() => getEditableRegion(draftDocumentRef.current).voiceName, []);
 
+  const handleCodeLensAction = useCallback((action: SsmlCodeLensAction): void => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!editor || !model) {
+      return;
+    }
+
+    if (action.type === "attribute") {
+      pendingCodeLensAttributeRef.current = {
+        insertionId: action.insertionId,
+        attributeName: action.attributeName,
+        tagRange: action.tagRange,
+        modelVersionId: model.getVersionId(),
+      };
+      activePopoverTriggerRef.current = null;
+      setPopoverVoiceName(getEffectiveVoiceName(editor, draftDocumentRef.current));
+      setOpenPopoverId(action.insertionId);
+      setPopoverPosition(null);
+      return;
+    }
+
+    const source = model.getValue();
+    const toEditorRange = (range: { start: number; end: number }) => {
+      const start = model.getPositionAt(range.start);
+      const end = model.getPositionAt(range.end);
+      return {
+        startLineNumber: start.lineNumber,
+        startColumn: start.column,
+        endLineNumber: end.lineNumber,
+        endColumn: end.column,
+      };
+    };
+    const edits =
+      action.type === "delete"
+        ? [{ range: toEditorRange(action.tagRange), text: "" }]
+        : (() => {
+            const elementText = source.slice(action.elementRange.start, action.elementRange.end);
+            const closingOffset = elementText.search(/<\/\s*prosody\s*>/i);
+            const closingStart =
+              closingOffset === -1 ? action.elementRange.end : action.elementRange.start + closingOffset;
+            const closingEnd =
+              closingOffset === -1
+                ? action.elementRange.end
+                : source.indexOf(">", closingStart) === -1
+                  ? action.elementRange.end
+                  : source.indexOf(">", closingStart) + 1;
+            return [
+              { range: toEditorRange(action.tagRange), text: "" },
+              { range: toEditorRange({ start: closingStart, end: closingEnd }), text: "" },
+            ];
+          })();
+    editor.pushUndoStop();
+    editor.executeEdits("ssml-code-lens", edits);
+    editor.pushUndoStop();
+    pendingCodeLensAttributeRef.current = null;
+    setOpenPopoverId(null);
+    setPopoverPosition(null);
+    editor.focus();
+  }, []);
+
   return {
     editorRef,
     draftDocument,
@@ -552,6 +692,7 @@ export function useSsmlEditorState({
     getCurrentLineSsml: getCurrentLineSsmlValue,
     getFullSsml,
     getOuterVoiceName,
+    handleCodeLensAction,
     openPopoverId,
     popoverVoiceName,
     popoverPosition,

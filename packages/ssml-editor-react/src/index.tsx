@@ -44,3 +44,7 @@ export {
   createSsmlEditorInsertionDefinition,
   SSML_INSERTIONS,
 } from "./SsmlEditor";
+export { registerSsmlCodeLens } from "./ssmlCodeLens";
+export type { SsmlCodeLensAction, SsmlCodeLensCallback } from "./ssmlCodeLens";
+export { updateTagAttribute } from "./ssmlContext";
+export type { SsmlTagRange } from "./ssmlContext";

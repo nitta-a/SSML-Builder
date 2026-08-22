@@ -127,12 +127,14 @@ const monacoState = vi.hoisted(() => {
     setSelection: vi.fn(),
     focus: vi.fn(),
     trigger: vi.fn(),
+    addAction: vi.fn(disposable),
   };
   const monaco = {
     languages: {
       registerHoverProvider: vi.fn(disposable),
       registerCompletionItemProvider: vi.fn(disposable),
       registerCodeActionProvider: vi.fn(disposable),
+      registerCodeLensProvider: vi.fn(disposable),
       CompletionItemKind: {
         Snippet: 27,
         Value: 18,
@@ -142,6 +144,7 @@ const monacoState = vi.hoisted(() => {
       },
     },
     editor: {
+      registerCommand: vi.fn(disposable),
       setModelMarkers: vi.fn(),
     },
     MarkerSeverity: {
@@ -165,10 +168,13 @@ const monacoState = vi.hoisted(() => {
         editor.setSelection,
         editor.focus,
         editor.trigger,
+        editor.addAction,
         model.deltaDecorations,
         monaco.languages.registerHoverProvider,
         monaco.languages.registerCompletionItemProvider,
         monaco.languages.registerCodeActionProvider,
+        monaco.languages.registerCodeLensProvider,
+        monaco.editor.registerCommand,
         monaco.editor.setModelMarkers,
       ]) {
         mock.mockClear();
@@ -327,6 +333,15 @@ describe("editable SSML utilities", () => {
 });
 
 describe("SsmlEditor toolbar menus", () => {
+  it("registers a Monaco command for CodeLens actions", () => {
+    renderEditor();
+
+    expect(monacoState.monaco.editor.registerCommand).toHaveBeenCalledWith(
+      "ssml-editor.codeLens",
+      expect.any(Function),
+    );
+  });
+
   it("highlights prosody buttons while the cursor is inside a prosody element", () => {
     const value = '<prosody rate="slow">Hello</prosody> outside';
     monacoState.setValue(value);
@@ -618,8 +633,12 @@ describe("SsmlEditor props", () => {
 
   it("disables automatic bracket closing for SSML completion", () => {
     renderEditor();
-
     expect(screen.getByTestId("monaco-editor").getAttribute("data-auto-closing-brackets")).toBe("never");
+  });
+
+  it("allows CodeLens quick controls to be disabled", () => {
+    renderEditor({ enableCodeLens: false });
+    expect(monacoState.monaco.languages.registerCodeLensProvider).not.toHaveBeenCalled();
   });
 
   it("does not render the toolbar when showToolbar is false", () => {

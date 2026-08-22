@@ -644,6 +644,8 @@ export interface SsmlEditorProps {
   showToolbarLabels?: boolean;
   /** Whether inline SSML decorations are displayed. The toolbar switch can change this at runtime. */
   showDecorations?: boolean;
+  /** Whether SSML CodeLens quick controls are displayed. */
+  enableCodeLens?: boolean;
   /** Controls which editor action buttons are displayed. Unspecified buttons are shown. */
   buttonVisibility?: SsmlEditorButtonVisibility;
   /** Monaco editor settings. */
@@ -762,6 +764,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     showToolbarIcons = true,
     showToolbarLabels = false,
     showDecorations = false,
+    enableCodeLens = true,
     buttonVisibility,
     editorOptions,
     settings,
@@ -907,6 +910,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     getCurrentLineSsml,
     getFullSsml,
     getOuterVoiceName,
+    handleCodeLensAction,
     openPopoverId,
     popoverVoiceName,
     popoverPosition,
@@ -933,6 +937,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     onSelectionOverlayChange: refreshSelectionOverlay,
     onActiveTagsChange: updateActiveTags,
     onSyntaxErrorChange: setSyntaxError,
+    enableCodeLens,
+    onOpenPopover: handleCodeLensAction,
   });
 
   useImperativeHandle(

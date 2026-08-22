@@ -10,6 +10,7 @@ import {
 } from "../ssmlDiagnostics";
 import { registerSsmlCompletionProvider } from "../ssmlCompletion";
 import { registerSsmlCodeActions } from "../ssmlCodeAction";
+import { registerSsmlCodeLens, type SsmlCodeLensCallback } from "../ssmlCodeLens";
 import { findSsmlHoverTarget, formatSsmlHover } from "../ssmlHover";
 import { findActiveSsmlTags } from "../ssmlContext";
 import type { MonacoEditorRef } from "./useSsmlEditorState";
@@ -20,6 +21,7 @@ type MonacoContentDisposable = ReturnType<MonacoEditor["onDidChangeModelContent"
 type MonacoCursorPositionDisposable = ReturnType<MonacoEditor["onDidChangeCursorPosition"]>;
 type MonacoCompletionDisposable = ReturnType<MonacoLanguages["registerCompletionItemProvider"]>;
 type MonacoCodeActionDisposable = ReturnType<MonacoLanguages["registerCodeActionProvider"]>;
+type MonacoCodeLensDisposable = ReturnType<MonacoLanguages["registerCodeLensProvider"]>;
 type MonacoHoverProvider = Parameters<MonacoLanguages["registerHoverProvider"]>[1];
 type MonacoHoverModel = Parameters<MonacoHoverProvider["provideHover"]>[0];
 type MonacoHoverPosition = Parameters<MonacoHoverProvider["provideHover"]>[1];
@@ -39,7 +41,9 @@ export interface UseSsmlMonacoOptions {
   language: SsmlEditorLanguage;
   text: string;
   decorationsVisible: boolean;
+  enableCodeLens: boolean;
   getOuterVoiceName: () => string | undefined;
+  onOpenPopover: SsmlCodeLensCallback;
   onSelectionOverlayChange: (editor: MonacoEditor, notify: boolean) => void;
   onActiveTagsChange: (tags: ReadonlySet<string>) => void;
   onSyntaxErrorChange: (error: SsmlSyntaxError | null) => void;
@@ -173,7 +177,9 @@ export function useSsmlMonaco({
   language,
   text,
   decorationsVisible,
+  enableCodeLens,
   getOuterVoiceName,
+  onOpenPopover,
   onSelectionOverlayChange,
   onActiveTagsChange,
   onSyntaxErrorChange,
@@ -183,6 +189,7 @@ export function useSsmlMonaco({
   const monacoRef = useRef<Monaco | null>(null);
   const completionProviderRef = useRef<MonacoCompletionDisposable | null>(null);
   const codeActionProviderRef = useRef<MonacoCodeActionDisposable | null>(null);
+  const codeLensProviderRef = useRef<MonacoCodeLensDisposable | null>(null);
   const releaseHoverProviderRef = useRef<(() => void) | null>(null);
   const selectionChangeRef = useRef<MonacoDisposable | null>(null);
   const cursorPositionChangeRef = useRef<MonacoCursorPositionDisposable | null>(null);
@@ -192,17 +199,21 @@ export function useSsmlMonaco({
   const inlineDecorationIdsRef = useRef<string[]>([]);
   const languageRef = useRef(language);
   const decorationsVisibleRef = useRef(decorationsVisible);
+  const enableCodeLensRef = useRef(enableCodeLens);
   const getOuterVoiceNameRef = useRef(getOuterVoiceName);
   const onSelectionOverlayChangeRef = useRef(onSelectionOverlayChange);
   const onActiveTagsChangeRef = useRef(onActiveTagsChange);
   const onSyntaxErrorChangeRef = useRef(onSyntaxErrorChange);
+  const onOpenPopoverRef = useRef(onOpenPopover);
 
   languageRef.current = language;
   decorationsVisibleRef.current = decorationsVisible;
+  enableCodeLensRef.current = enableCodeLens;
   getOuterVoiceNameRef.current = getOuterVoiceName;
   onSelectionOverlayChangeRef.current = onSelectionOverlayChange;
   onActiveTagsChangeRef.current = onActiveTagsChange;
   onSyntaxErrorChangeRef.current = onSyntaxErrorChange;
+  onOpenPopoverRef.current = onOpenPopover;
 
   const runSsmlDiagnostics = useCallback((editor: MonacoEditor, monaco: Monaco): void => {
     const model = editor.getModel();
@@ -262,6 +273,8 @@ export function useSsmlMonaco({
     completionProviderRef.current = null;
     codeActionProviderRef.current?.dispose();
     codeActionProviderRef.current = null;
+    codeLensProviderRef.current?.dispose();
+    codeLensProviderRef.current = null;
     for (const disposable of selectionLayoutDisposablesRef.current) {
       disposable.dispose();
     }
@@ -307,6 +320,11 @@ export function useSsmlMonaco({
         model: editor.getModel(),
       });
       codeActionProviderRef.current = registerSsmlCodeActions(monaco);
+      if (enableCodeLensRef.current) {
+        codeLensProviderRef.current = registerSsmlCodeLens(monaco, editor, (action) =>
+          onOpenPopoverRef.current(action),
+        );
+      }
       releaseHoverProviderRef.current = acquireSsmlHoverProvider(monaco, languageRef.current);
       runSsmlDiagnostics(editor, monaco);
       const model = editor.getModel();
@@ -324,6 +342,19 @@ export function useSsmlMonaco({
     },
     [disposeMonacoResources, editorRef, runSsmlDiagnostics, scheduleSsmlDiagnostics, syncActiveTags],
   );
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) {
+      return;
+    }
+
+    codeLensProviderRef.current?.dispose();
+    codeLensProviderRef.current = enableCodeLens
+      ? registerSsmlCodeLens(monaco, editor, (action) => onOpenPopoverRef.current(action))
+      : null;
+  }, [editorRef, enableCodeLens]);
 
   useEffect(() => {
     const monaco = monacoRef.current;
