@@ -144,6 +144,7 @@ const monacoState = vi.hoisted(() => {
       },
     },
     editor: {
+      registerCommand: vi.fn(disposable),
       setModelMarkers: vi.fn(),
     },
     MarkerSeverity: {
@@ -173,6 +174,7 @@ const monacoState = vi.hoisted(() => {
         monaco.languages.registerCompletionItemProvider,
         monaco.languages.registerCodeActionProvider,
         monaco.languages.registerCodeLensProvider,
+        monaco.editor.registerCommand,
         monaco.editor.setModelMarkers,
       ]) {
         mock.mockClear();
@@ -331,6 +333,15 @@ describe("editable SSML utilities", () => {
 });
 
 describe("SsmlEditor toolbar menus", () => {
+  it("registers a Monaco command for CodeLens actions", () => {
+    renderEditor();
+
+    expect(monacoState.monaco.editor.registerCommand).toHaveBeenCalledWith(
+      "ssml-editor.codeLens",
+      expect.any(Function),
+    );
+  });
+
   it("highlights prosody buttons while the cursor is inside a prosody element", () => {
     const value = '<prosody rate="slow">Hello</prosody> outside';
     monacoState.setValue(value);

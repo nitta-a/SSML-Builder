@@ -445,7 +445,12 @@ function convertElement(node: XmlElementNode): SsmlElement {
     case SSML_TAGS.MSTTS_EXPRESS_AS: {
       const element: ExpressAsElement = { type: node.name };
       const style = readAttribute(attributes, SSML_ATTRS.STYLE);
-      const styleDegree = readAttribute(attributes, SSML_ATTRS.STYLE_DEGREE, SSML_ATTRS.STYLE_DEGREE_CAMEL);
+      const styleDegree = readAttribute(
+        attributes,
+        SSML_ATTRS.STYLE_DEGREE,
+        SSML_ATTRS.STYLE_DEGREE_CAMEL,
+        SSML_ATTRS.STYLE_DEGREE_HYPHEN,
+      );
       const role = readAttribute(attributes, SSML_ATTRS.ROLE);
       if (style !== undefined) element.style = style;
       if (styleDegree !== undefined) element.styleDegree = styleDegree;

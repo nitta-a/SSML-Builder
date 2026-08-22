@@ -82,7 +82,8 @@ test("provides attribute values from the active SSML tag and attribute", () => {
 
 test("generates CodeLens actions for prosody and break tags", () => {
   let provider: Parameters<Monaco["languages"]["registerCodeLensProvider"]>[1] | undefined;
-  let action: { run: (...args: unknown[]) => void } | undefined;
+  let commandId: string | undefined;
+  let commandHandler: ((accessor: unknown, ...args: unknown[]) => void) | undefined;
   const monaco = {
     languages: {
       registerCodeLensProvider: (_language: string, nextProvider: typeof provider) => {
@@ -90,14 +91,17 @@ test("generates CodeLens actions for prosody and break tags", () => {
         return { dispose() {} };
       },
     },
+    editor: {
+      registerCommand: (id: string, handler: typeof commandHandler) => {
+        commandId = id;
+        commandHandler = handler;
+        return { dispose() {} };
+      },
+    },
   } as unknown as Monaco;
   const editor = {
-    addAction: (nextAction: typeof action) => {
-      action = nextAction;
-      return { dispose() {} };
-    },
+    addAction: () => ({ dispose() {} }),
   } as never;
-
   const source = '<prosody rate="+10%" pitch="high">Hello</prosody><break time="500ms"/>';
   registerSsmlCodeLens(monaco, editor, () => undefined);
   const model = {
@@ -116,7 +120,8 @@ test("generates CodeLens actions for prosody and break tags", () => {
       "Delete",
     ],
   );
-  assert.ok(action);
+  assert.equal(commandId, "ssml-editor.codeLens");
+  assert.equal(typeof commandHandler, "function");
 });
 
 test("updates only a tag attribute without breaking XML", () => {

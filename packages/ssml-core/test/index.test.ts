@@ -165,6 +165,36 @@ test("parseSsml converts nested XML into an SSML document", () => {
   );
 });
 
+test("parseSsml accepts style-degree aliases for express-as", () => {
+  const expected = {
+    type: SSML_TAGS.SPEAK,
+    version: DEFAULT_SSML_VERSION,
+    lang: DEFAULT_SSML_LANGUAGE,
+    children: [
+      {
+        type: "mstts:express-as",
+        style: "cheerful",
+        styleDegree: "1.5",
+        children: ["Hello"],
+      },
+    ],
+  };
+
+  assert.deepEqual(
+    parseSsml(
+      `<${SSML_TAGS.SPEAK} ${SSML_ATTRS.VERSION}="${DEFAULT_SSML_VERSION}" ${SSML_ATTRS.XML_LANG}="${DEFAULT_SSML_LANGUAGE}"><mstts:express-as style="cheerful" style-degree="1.5">Hello</mstts:express-as></${SSML_TAGS.SPEAK}>`,
+    ),
+    expected,
+  );
+
+  assert.deepEqual(
+    parseSsml(
+      `<${SSML_TAGS.SPEAK} ${SSML_ATTRS.VERSION}="${DEFAULT_SSML_VERSION}" ${SSML_ATTRS.XML_LANG}="${DEFAULT_SSML_LANGUAGE}"><mstts:express-as style="cheerful" styleDegree="1.5">Hello</mstts:express-as></${SSML_TAGS.SPEAK}>`,
+    ),
+    expected,
+  );
+});
+
 test("parseSsml decodes text, CDATA, and custom elements", () => {
   assert.deepEqual(
     parseSsml(

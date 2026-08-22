@@ -194,20 +194,32 @@ export function registerSsmlCodeLens(
   };
 
   const disposable = monaco.languages.registerCodeLensProvider("xml", provider);
-  const actionDisposable = editor.addAction({
-    id: CODE_LENS_COMMAND,
-    label: "SSML CodeLens",
-    run: (_editor, ...args: unknown[]) => {
-      const action = args[0];
-      if (action && typeof action === "object" && "type" in action) {
-        onOpenPopover(action as SsmlCodeLensAction);
-      }
-    },
-  });
+  const commandHandler = (_accessor: unknown, ...args: unknown[]) => {
+    const action = args[0];
+    if (action && typeof action === "object" && "type" in action) {
+      onOpenPopover(action as SsmlCodeLensAction);
+    }
+  };
+
+  const commandDisposable =
+    typeof monaco.editor?.registerCommand === "function"
+      ? monaco.editor.registerCommand(CODE_LENS_COMMAND, commandHandler)
+      : typeof monaco.registerCommand === "function"
+        ? monaco.registerCommand(CODE_LENS_COMMAND, commandHandler)
+        : editor.addAction({
+            id: CODE_LENS_COMMAND,
+            label: "SSML CodeLens",
+            run: (_editor, ...args: unknown[]) => {
+              const action = args[0];
+              if (action && typeof action === "object" && "type" in action) {
+                onOpenPopover(action as SsmlCodeLensAction);
+              }
+            },
+          });
 
   return {
     dispose: () => {
-      actionDisposable.dispose();
+      commandDisposable.dispose();
       disposable.dispose();
     },
   };
