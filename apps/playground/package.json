@@ -1,6 +1,6 @@
 {
   "name": "playground",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@monaco-editor/react": "4.7.0",
-    "@ssml-builder-js/azure-tts-client": "^2.2.0",
+    "@ssml-builder-js/azure-tts-client": "^2.3.0",
     "@ssml-builder-js/ssml-core": "*",
     "@ssml-builder-js/ssml-editor-elements": "*",
     "@ssml-builder-js/ssml-editor-react": "*",
