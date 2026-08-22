@@ -1,5 +1,15 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.3.0
+
+### Minor Changes
+
+- deecde6: Add CodeLens quick controls for editing and managing SSML prosody and break tags.
+
+### Patch Changes
+
+- @ssml-builder-js/ssml-core@2.3.0
+
 ## 2.2.0
 
 ### Minor Changes
