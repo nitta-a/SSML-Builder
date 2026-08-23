@@ -101,7 +101,7 @@ export function applyMacroPreset(
     return false;
   }
 
-  const replacement = template.replace(MACRO_TEXT_PLACEHOLDER, selectedText);
+  const replacement = template.replace(MACRO_TEXT_PLACEHOLDER, () => selectedText);
   const startOffset = model.getOffsetAt(selection.getStartPosition());
   const selectedStartOffset = startOffset + placeholderOffset;
   const selectedEndOffset = selectedStartOffset + selectedText.length;
