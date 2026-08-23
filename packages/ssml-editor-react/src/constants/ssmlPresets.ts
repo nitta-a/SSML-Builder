@@ -28,6 +28,16 @@ export const SSML_PRESETS: readonly SsmlPreset[] = [
   },
 ] as const;
 
+export const MACRO_PRESETS = {
+  announcementStrong: '<prosody rate="+5%" volume="loud"><emphasis level="strong">${text}</emphasis></prosody>',
+  slowPolite: '<prosody rate="-15%" pitch="-5%">${text}</prosody>',
+  fastCheerful: '<prosody rate="+20%" pitch="+5%">${text}</prosody>',
+  questioningHighPitch: '<prosody pitch="+15%">${text}</prosody>',
+  pauseSpeak: '<break time="500ms" />${text}',
+} as const;
+
+export type MacroPresetKey = keyof typeof MACRO_PRESETS;
+
 export const BREAK_TIME_PRESETS = ["500ms", "1s", "2s", "3s"] as const;
 export const BREAK_STRENGTH_PRESETS = ["none", "x-weak", "weak", "medium", "strong", "x-strong"] as const;
 

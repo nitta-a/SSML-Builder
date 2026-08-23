@@ -18,7 +18,7 @@ import type {
 import { clearSsmlDocument } from "../clearSsmlDocument";
 import { formatXmlFragment } from "../formatXml";
 import { getEditableRegion, getEditableText, updateEditableText } from "../editableSsml";
-import { createSsmlInsertionEdit } from "../ssmlInsertion";
+import { applyMacroPreset, createSsmlInsertionEdit } from "../ssmlInsertion";
 import { findSsmlVoiceContext, updateTagAttribute } from "../ssmlContext";
 import type { MonacoEditor, SsmlSyntaxError } from "../ssmlDiagnostics";
 import type { SsmlCodeLensAction } from "../ssmlCodeLens";
@@ -549,6 +549,12 @@ export function useSsmlEditorState({
     },
     [handleInsert],
   );
+  const handleMacroPreset = useCallback((presetKey: string): void => {
+    const editor = editorRef.current;
+    if (editor) {
+      applyMacroPreset(editor, undefined, presetKey);
+    }
+  }, []);
 
   const handleClear = useCallback((): void => {
     commit(clearSsmlDocument(draftDocumentRef.current));
@@ -680,6 +686,7 @@ export function useSsmlEditorState({
     handleInsertBreak,
     handleInsertProsody,
     handleInsertText,
+    handleMacroPreset,
     handleClear,
     handleFormat,
     handleUndo,

@@ -2,6 +2,14 @@ export type SsmlEditorLocale = "ja" | "en";
 export type SsmlEditorLanguage = SsmlEditorLocale;
 export type SsmlEditorLocalizedText = Readonly<Record<SsmlEditorLocale, string>>;
 
+export interface MacroPresetCopy {
+  announcementStrong: string;
+  slowPolite: string;
+  fastCheerful: string;
+  questioningHighPitch: string;
+  pauseSpeak: string;
+}
+
 export interface EditorCopy {
   editorAriaLabel: string;
   toolbarAriaLabel: string;
@@ -32,6 +40,9 @@ export interface EditorCopy {
   categoryScenarios: string;
   categoryMedia: string;
   categoryOther: string;
+  presets: string;
+  presetsTitle: string;
+  macroPresets: MacroPresetCopy;
 }
 
 export interface InlineBadgeCopy {
@@ -91,6 +102,15 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     categoryScenarios: "会話・シナリオ",
     categoryMedia: "メディア・ナレーション",
     categoryOther: "その他",
+    presets: "プリセット",
+    presetsTitle: "複合演出プリセットを適用",
+    macroPresets: {
+      announcementStrong: "アナウンス・重要強調",
+      slowPolite: "ゆっくり・丁寧",
+      fastCheerful: "早口・軽快",
+      questioningHighPitch: "問いかけ・語尾上げ",
+      pauseSpeak: "一呼吸置く",
+    },
   },
   en: {
     editorAriaLabel: "SSML editor",
@@ -122,6 +142,15 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     categoryScenarios: "Conversations / Scenarios",
     categoryMedia: "Media / Broadcast",
     categoryOther: "Other",
+    presets: "Presets",
+    presetsTitle: "Apply a combined speech preset",
+    macroPresets: {
+      announcementStrong: "Announcement / Strong",
+      slowPolite: "Slow & Polite",
+      fastCheerful: "Fast & Cheerful",
+      questioningHighPitch: "Questioning / High Pitch",
+      pauseSpeak: "Pause & Speak",
+    },
   },
 };
 

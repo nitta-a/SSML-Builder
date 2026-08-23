@@ -1,5 +1,7 @@
 // @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
 import { SSML_INSERTION_MODES } from "./constants/ui.ts";
+import type * as monaco from "monaco-editor";
+import { MACRO_PRESETS, type MacroPresetKey } from "./constants/ssmlPresets.ts";
 
 export type SsmlInsertionMode = (typeof SSML_INSERTION_MODES)[keyof typeof SSML_INSERTION_MODES];
 
@@ -54,6 +56,49 @@ export function createSsmlInsertionEdit(
       replacement: `${template.prefix}${selectedText}${template.suffix}${trailingLineBreak}`,
       selectionOffset: template.prefix.length,
     };
+  }
+
+  export function applyMacroPreset(
+    editor: monaco.editor.IStandaloneCodeEditor,
+    _monaco: unknown,
+    presetKey: string,
+  ): boolean {
+    if (!(presetKey in MACRO_PRESETS)) {
+      return false;
+    }
+
+    const model = editor.getModel();
+    const selection = editor.getSelection();
+    if (!model || !selection) {
+      return false;
+    }
+
+    const template = MACRO_PRESETS[presetKey as MacroPresetKey];
+    const selectedText = selection.isEmpty() ? "text" : model.getValueInRange(selection);
+    const placeholderOffset = template.indexOf("${text}");
+    const replacement = template.replace("${text}", selectedText);
+    const startOffset = model.getOffsetAt(selection.getStartPosition());
+    const endOffset = startOffset + replacement.length;
+    const selectedStartOffset = startOffset + placeholderOffset;
+    const selectedEndOffset = selectedStartOffset + selectedText.length;
+
+    editor.pushUndoStop();
+    const applied = editor.executeEdits("ssml-macro", [{ range: selection, text: replacement }]);
+    editor.pushUndoStop();
+    if (!applied) {
+      return false;
+    }
+
+    const selectedStart = model.getPositionAt(selectedStartOffset);
+    const selectedEnd = model.getPositionAt(selectedEndOffset);
+    editor.setSelection({
+      selectionStartLineNumber: selectedStart.lineNumber,
+      selectionStartColumn: selectedStart.column,
+      positionLineNumber: selectedEnd.lineNumber,
+      positionColumn: selectedEnd.column,
+    });
+    editor.focus();
+    return true;
   }
 
   const followingLineBreak = getLineBreakAt(source, endOffset);

@@ -24,6 +24,7 @@ export type SsmlEditorButton =
   | "clearAll"
   | "format"
   | "decorations"
+  | "presets"
   | (string & {});
 
 export type SsmlEditorButtonVisibility = Readonly<Partial<Record<string, boolean>>>;
