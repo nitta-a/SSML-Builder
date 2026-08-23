@@ -1109,7 +1109,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       () => (
         <MacroPopover
           key="presets"
-          language={language}
           labels={copy.macroPresets}
           isDarkTheme={isDarkTheme}
           showToolbarIcons={showToolbarIcons}

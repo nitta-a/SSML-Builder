@@ -29,7 +29,8 @@ function createOptionGroups(
   options: ProsodyPopoversProps["insertions"][number]["options"],
   language: ProsodyPopoversProps["language"],
 ): readonly InsertionOptionGroup[] {
-  const t = (key: keyof EditorCopy): string => EDITOR_COPY[language][key];
+  const t = (key: "categoryEmotions" | "categoryScenarios" | "categoryMedia" | "categoryOther"): string =>
+    EDITOR_COPY[language][key];
 
   return CATEGORY_ORDER.map((category) => ({
     label: t(CATEGORY_LABEL_KEYS[category]),

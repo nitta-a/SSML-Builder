@@ -527,6 +527,25 @@ describe("SsmlEditor toolbar menus", () => {
     expect(screen.queryByRole("menu", { name: "Break" })).toBeNull();
   });
 
+  for (const [label, expected] of [
+    ["Announcement / Strong", '<prosody rate="+5%" volume="loud"><emphasis level="strong">world</emphasis></prosody>'],
+    ["Slow & Polite", '<prosody rate="-15%" pitch="-5%">world</prosody>'],
+    ["Fast & Cheerful", '<prosody rate="+20%" pitch="+5%">world</prosody>'],
+    ["Questioning / High Pitch", '<prosody pitch="+15%">world</prosody>'],
+    ["Pause & Speak", '<break time="500ms" />world'],
+  ] as const) {
+    it(`applies the ${label} macro to selected text`, async () => {
+      const user = userEvent.setup();
+      monacoState.setSelectionOffsets(6, 11);
+      renderEditor({ locale: "en" });
+
+      await user.click(screen.getByRole("button", { name: "Presets" }));
+      await user.click(within(screen.getByRole("menu", { name: "Presets" })).getByRole("menuitem", { name: label }));
+
+      expect(monacoState.editor.executeEdits.mock.calls[0]?.[1][0].text).toBe(expected);
+    });
+  }
+
   it("wraps selected text when a wrapping tag option is clicked", async () => {
     const user = userEvent.setup();
     monacoState.setSelectionOffsets(6, 11);

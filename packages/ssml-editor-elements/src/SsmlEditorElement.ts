@@ -7,7 +7,10 @@ import { formatXmlFragment } from "../../ssml-editor-react/src/formatXml";
 import { registerSsmlCompletionProvider } from "../../ssml-editor-react/src/ssmlCompletion";
 import { findActiveSsmlTags, findSsmlVoiceContext } from "../../ssml-editor-react/src/ssmlContext";
 import { findSsmlHoverTarget, formatSsmlHover } from "../../ssml-editor-react/src/ssmlHover";
-import { applyMacroPreset as applyMacroPresetToEditor, createSsmlInsertionEdit } from "../../ssml-editor-react/src/ssmlInsertion";
+import {
+  applyMacroPreset as applyMacroPresetToEditor,
+  createSsmlInsertionEdit,
+} from "../../ssml-editor-react/src/ssmlInsertion";
 import {
   DEFAULT_INSERTION_GROUPS,
   SSML_INSERTIONS,
@@ -588,81 +591,6 @@ export class SsmlEditorElement extends HTMLElementBase {
       wrapper.append(document.createTextNode(copy.decorations));
     }
 
-    private createMacroPresetButton(): HTMLElement {
-      const copy = EDITOR_COPY[this.locale];
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "ssml-editor-toolbar-button";
-      button.dataset.ssmlEditorButton = "presets";
-      button.setAttribute("aria-label", copy.presets);
-      button.setAttribute("aria-haspopup", "menu");
-      button.setAttribute("aria-expanded", "false");
-      button.title = copy.presetsTitle;
-      const icon = document.createElement("span");
-      icon.className = "ssml-editor-toolbar-icon";
-      icon.setAttribute("aria-hidden", "true");
-      icon.textContent = "✨";
-      button.append(icon);
-      if (this.hasAttribute("show-toolbar-labels")) {
-        button.append(document.createTextNode(copy.presets));
-      }
-      const chevron = document.createElement("span");
-      chevron.className = "ssml-editor-toolbar-chevron";
-      chevron.setAttribute("aria-hidden", "true");
-      chevron.textContent = "▾";
-      button.append(chevron);
-      button.addEventListener("click", () => this.toggleMacroPresetMenu(button));
-      this.toolbarButtons.set("presets", button);
-      const wrapper = document.createElement("div");
-      wrapper.className = "ssml-editor-toolbar-dropdown";
-      wrapper.append(button);
-      return wrapper;
-    }
-
-    private toggleMacroPresetMenu(trigger: HTMLButtonElement): void {
-      if (this.openMenuTrigger === trigger) {
-        this.closeMenu();
-        return;
-      }
-
-      this.closeMenu();
-      const menu = document.createElement("div");
-      menu.className = "ssml-editor-toolbar-menu";
-      menu.dataset.ssmlEditor = "";
-      menu.dataset.theme = isDarkTheme(this.theme) ? "dark" : "light";
-      menu.id = "ssml-editor-elements-menu-presets";
-      menu.setAttribute("role", "menu");
-      menu.setAttribute("aria-label", EDITOR_COPY[this.locale].presets);
-      menu.addEventListener("pointerdown", (event) => event.stopPropagation());
-
-      const labels = EDITOR_COPY[this.locale].macroPresets;
-      for (const presetKey of Object.keys(MACRO_PRESETS) as MacroPresetKey[]) {
-        const option = document.createElement("button");
-        option.type = "button";
-        option.className = "ssml-editor-toolbar-option";
-        option.setAttribute("role", "menuitem");
-        option.title = labels[presetKey];
-        option.textContent = labels[presetKey];
-        option.disabled = this.readonly;
-        option.addEventListener("click", () => {
-          if (!this.readonly) {
-            this.applyMacroPreset(presetKey);
-          }
-          this.closeMenu(true);
-        });
-        option.addEventListener("mousedown", (event) => event.preventDefault());
-        menu.append(option);
-      }
-
-      document.body.append(menu);
-      const position = getMenuPosition(trigger, menu);
-      menu.style.top = `${position.top}px`;
-      menu.style.left = `${position.left}px`;
-      trigger.setAttribute("aria-expanded", "true");
-      trigger.setAttribute("aria-controls", menu.id);
-      this.openMenu = menu;
-      this.openMenuTrigger = trigger;
-    }
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ssml-editor-switch-track";
@@ -677,6 +605,82 @@ export class SsmlEditorElement extends HTMLElementBase {
     this.toolbarButtons.set("decorations", button);
     this.updateDecorations();
     return wrapper;
+  }
+
+  private createMacroPresetButton(): HTMLElement {
+    const copy = EDITOR_COPY[this.locale];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ssml-editor-toolbar-button";
+    button.dataset.ssmlEditorButton = "presets";
+    button.setAttribute("aria-label", copy.presets);
+    button.setAttribute("aria-haspopup", "menu");
+    button.setAttribute("aria-expanded", "false");
+    button.title = copy.presetsTitle;
+    const icon = document.createElement("span");
+    icon.className = "ssml-editor-toolbar-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "✨";
+    button.append(icon);
+    if (this.hasAttribute("show-toolbar-labels")) {
+      button.append(document.createTextNode(copy.presets));
+    }
+    const chevron = document.createElement("span");
+    chevron.className = "ssml-editor-toolbar-chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    chevron.textContent = "▾";
+    button.append(chevron);
+    button.addEventListener("click", () => this.toggleMacroPresetMenu(button));
+    this.toolbarButtons.set("presets", button);
+    const wrapper = document.createElement("div");
+    wrapper.className = "ssml-editor-toolbar-dropdown";
+    wrapper.append(button);
+    return wrapper;
+  }
+
+  private toggleMacroPresetMenu(trigger: HTMLButtonElement): void {
+    if (this.openMenuTrigger === trigger) {
+      this.closeMenu();
+      return;
+    }
+
+    this.closeMenu();
+    const menu = document.createElement("div");
+    menu.className = "ssml-editor-toolbar-menu";
+    menu.dataset.ssmlEditor = "";
+    menu.dataset.theme = isDarkTheme(this.theme) ? "dark" : "light";
+    menu.id = "ssml-editor-elements-menu-presets";
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", EDITOR_COPY[this.locale].presets);
+    menu.addEventListener("pointerdown", (event) => event.stopPropagation());
+
+    const labels = EDITOR_COPY[this.locale].macroPresets;
+    for (const presetKey of Object.keys(MACRO_PRESETS) as MacroPresetKey[]) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "ssml-editor-toolbar-option";
+      option.setAttribute("role", "menuitem");
+      option.title = labels[presetKey];
+      option.textContent = labels[presetKey];
+      option.disabled = this.readonly;
+      option.addEventListener("click", () => {
+        if (!this.readonly) {
+          this.applyMacroPreset(presetKey);
+        }
+        this.closeMenu(true);
+      });
+      option.addEventListener("mousedown", (event) => event.preventDefault());
+      menu.append(option);
+    }
+
+    document.body.append(menu);
+    const position = getMenuPosition(trigger, menu);
+    menu.style.top = `${position.top}px`;
+    menu.style.left = `${position.left}px`;
+    trigger.setAttribute("aria-expanded", "true");
+    trigger.setAttribute("aria-controls", menu.id);
+    this.openMenu = menu;
+    this.openMenuTrigger = trigger;
   }
 
   private createInsertionButton(insertion: SsmlEditorInsertionDefinition): HTMLElement {

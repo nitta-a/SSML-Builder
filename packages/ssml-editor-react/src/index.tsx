@@ -51,3 +51,4 @@ export { registerSsmlCodeLens } from "./ssmlCodeLens";
 export type { SsmlCodeLensAction, SsmlCodeLensCallback } from "./ssmlCodeLens";
 export { updateTagAttribute } from "./ssmlContext";
 export type { SsmlTagRange } from "./ssmlContext";
+export { applyMacroPreset } from "./ssmlInsertion";

@@ -5,7 +5,6 @@ import type { MacroPresetCopy } from "../../locales";
 import { editorStyles as styles } from "../../styles/editorStyles";
 
 export interface MacroPopoverProps {
-  language: "ja" | "en";
   labels: MacroPresetCopy;
   isDarkTheme: boolean;
   showToolbarIcons: boolean;
@@ -25,7 +24,6 @@ export interface MacroPopoverProps {
 const PRESET_KEYS = Object.keys(MACRO_PRESETS) as MacroPresetKey[];
 
 export function MacroPopover({
-  language,
   labels,
   isDarkTheme,
   showToolbarIcons,
