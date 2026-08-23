@@ -201,7 +201,7 @@ export function App() {
 
 標準の挿入メニューには `break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence` が含まれます。これらの定義は `SSML_INSERTIONS` から参照できます。カスタム挿入定義は配列または ID をキーにしたオブジェクトで指定でき、`createSsmlEditorInsertionDefinition` でタグ名と任意の 1 属性を持つ定義を作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
 
-`MACRO_PRESETS` には、アナウンス、丁寧な読み上げ、軽快な読み上げ、問いかけ、一呼吸置く演出のテンプレートが含まれます。`applyMacroPreset` を直接呼び出す場合は、エディター、Monaco インスタンス、プリセットキーを渡してください。
+`MACRO_PRESETS` には、アナウンス、丁寧な読み上げ、軽快な読み上げ、問いかけ、一呼吸置く演出のテンプレートが含まれます。
 
 「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは `voice` 要素を保持したまま、それ以外の XML 要素を削除して本文を残します。ドキュメントの `version`、`lang`、その他の属性も保持されます。
 
@@ -493,7 +493,7 @@ export function App() {
 
 The built-in insertion menus are `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, and `mstts:silence`. Their definitions are available through `SSML_INSERTIONS`. Custom insertion definitions can be supplied as an array or an object keyed by ID. Use `createSsmlEditorInsertionDefinition` to create a definition from a tag and one optional attribute; for arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
 
-`MACRO_PRESETS` contains language- and voice-independent templates for announcements, polite, cheerful, questioning, and pause-and-speak effects. Call `applyMacroPreset` with an editor, Monaco instance, and preset key to apply one directly.
+`MACRO_PRESETS` contains language- and voice-independent templates for announcements, polite, cheerful, questioning, and pause-and-speak effects.
 
 Click the **Description** button to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button preserves `voice` elements, removes the other XML elements, and leaves the text in place. The document's `version`, `lang`, and other attributes are also preserved.
 
