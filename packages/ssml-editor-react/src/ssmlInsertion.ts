@@ -97,6 +97,10 @@ export function applyMacroPreset(
   const template = MACRO_PRESETS[presetKey as MacroPresetKey];
   const selectedText = selection.isEmpty() ? "text" : model.getValueInRange(selection);
   const placeholderOffset = template.indexOf(MACRO_TEXT_PLACEHOLDER);
+  if (placeholderOffset < 0) {
+    return false;
+  }
+
   const replacement = template.replace(MACRO_TEXT_PLACEHOLDER, selectedText);
   const startOffset = model.getOffsetAt(selection.getStartPosition());
   const selectedStartOffset = startOffset + placeholderOffset;
