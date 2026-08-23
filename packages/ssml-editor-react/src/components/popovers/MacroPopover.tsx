@@ -60,9 +60,7 @@ export function MacroPopover({
             disabled={isReadOnly}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
-              if (!isReadOnly) {
-                onApply(presetKey);
-              }
+              onApply(presetKey);
               onClose();
             }}
           >
