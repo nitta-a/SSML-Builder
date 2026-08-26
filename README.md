@@ -202,7 +202,7 @@ Azure Speech は `<audio>` の URL を取得するため、任意の URL をそ�
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`enableCodeLens`（デフォルトは `true`）が有効な場合、`prosody` と `break` タグの上に属性編集やタグ操作の CodeLens が表示されます。`showDecorations` が有効な場合、`break` と `prosody` のタグに間やピッチ変化を示すインラインバッジが表示され、Monaco のインライン装飾も有効になります。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体、選択範囲、または現在行の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
+`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`enableCodeLens`（デフォルトは `true`）が有効な場合、`prosody` と `break` タグの上に属性編集やタグ操作の CodeLens が表示されます。`showDecorations` が有効な場合、`break` と `prosody` のタグに間やピッチ変化を示すインラインバッジが表示され、Monaco のインライン装飾も有効になります。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体、選択範囲、または現在行の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。標準 SSML タグを組み合わせた複合演出は、ツールバーの「プリセット」から選択範囲またはカーソル位置へ適用できます。
 
 `<mstts:express-as>` の `style` 属性補完と標準の感情メニューは、カーソルまたは選択範囲を囲む最内の `<voice name="...">` が対応するスタイルだけを表示します。音声名が未指定の場合は全候補を表示し、登録済みでスタイル非対応の音声や未登録の音声では候補がないことを表示します。`emotionStyles` を指定した場合、感情メニューではその値と登録済み音声の対応スタイルの共通部分を使用します。
 
@@ -248,7 +248,7 @@ export function App() {
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
 - `showDecorations`: 本文中のインライン装飾（バッジや Inlay Hints）の表示（デフォルトは `false`）。ツールバーの「装飾」スイッチで表示・非表示を切り替えられます
 - `enableCodeLens`: `prosody` と `break` タグの CodeLens クイックコントローラーを表示するか（デフォルトは `true`）
-- `buttonVisibility`: ツールバーボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`undo`、`redo`、`clearAll`、`format`、`decorations`、カスタム挿入 ID を指定でき、未指定のボタンは表示されます
+- `buttonVisibility`: ツールバーボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`presets`、`undo`、`redo`、`clearAll`、`format`、`decorations`、カスタム挿入 ID を指定でき、未指定のボタンは表示されます
 - `editorOptions` / `settings`: Monaco の設定。`height`、`minHeight`、`readOnly`、`theme`（`system` / `light` / `dark`）、`fontSize`、`wordWrap`、`lineNumbers`、`minimap`、`automaticLayout` を指定できます。これらは同名のトップレベル props でも指定できます
 - `loadingFallback`: Monaco の読み込み中に表示する React ノード
 - `toolbarOrder`: ツールバー全体のボタン ID の表示順。指定されていないボタンは後ろに続きます
@@ -266,11 +266,13 @@ export function App() {
 
 標準の挿入メニューには `break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence` が含まれます。これらの定義は `SSML_INSERTIONS` から参照できます。カスタム挿入定義は配列または ID をキーにしたオブジェクトで指定でき、`createSsmlEditorInsertionDefinition` でタグ名と任意の 1 属性を持つ定義を作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
 
+`MACRO_PRESETS` には、アナウンス、丁寧な読み上げ、軽快な読み上げ、問いかけ、一呼吸置く演出のテンプレートが含まれます。
+
 「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは `voice` 要素を保持したまま、それ以外の XML 要素を削除して本文を残します。ドキュメントの `version`、`lang`、その他の属性も保持されます。
 
 ## `ssml-editor-elements` の利用方法
 
-`ssml-builder-js/elements` は、React などに依存しない `<ssml-editor>` Web Component を登録します。`monaco-editor` を別途インストールし、`value`、`theme`、`readonly` 属性または同名プロパティを使用できます。React エディターと同じ SSML ツールバーと説明表示も利用でき、`locale`、`show-toolbar`、`show-toolbar-labels`、`show-decorations` で表示を調整できます。編集時には `{ value }` を `detail` に持つ `change` イベントが発生します。
+`ssml-builder-js/elements` は、React などに依存しない `<ssml-editor>` Web Component を登録します。`monaco-editor` を別途インストールし、`value`、`theme`、`readonly` 属性または同名プロパティを使用できます。React エディターと同じ SSML ツールバーと説明表示も利用でき、`locale`、`show-toolbar`、`show-toolbar-labels`、`show-decorations` で表示を調整できます。`applyMacroPreset(presetKey)` メソッドで複合演出プリセットを適用できます。編集時には `{ value }` を `detail` に持つ `change` イベントが発生します。
 
 ```ts
 import "ssml-builder-js/elements";
@@ -606,7 +608,7 @@ Azure Speech fetches `<audio>` URLs, so a server that accepts arbitrary user-pro
 
 ## Using `ssml-editor-react`
 
-`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Selecting text displays a floating action bar with the character count and preview action. When `enableCodeLens` is enabled (the default), CodeLens quick controls for editing and unwrapping `prosody` tags and editing or deleting `break` tags are shown above those tags. When `showDecorations` is enabled, inline badges for pause and pitch changes are rendered next to `break` and `prosody` tags, and Monaco inline decorations are enabled. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full, selected, or current-line SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English.
+`SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Selecting text displays a floating action bar with the character count and preview action. When `enableCodeLens` is enabled (the default), CodeLens quick controls for editing and unwrapping `prosody` tags and editing or deleting `break` tags are shown above those tags. When `showDecorations` is enabled, inline badges for pause and pitch changes are rendered next to `break` and `prosody` tags, and Monaco inline decorations are enabled. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full, selected, or current-line SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English. Standard SSML macro presets are available from the **Presets** toolbar menu and apply to the selection or cursor position.
 
 Completion for the `<mstts:express-as>` `style` attribute and the built-in Emotion menu only show styles supported by the innermost `<voice name="...">` around the cursor or selection. When no voice name is available, all candidates are shown; a registered voice without supported styles or an explicitly unregistered voice displays an empty-state message. When `emotionStyles` is supplied, the Emotion menu uses its intersection with the registered voice's supported styles.
 
@@ -652,7 +654,7 @@ export function App() {
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
 - `showDecorations`: Whether inline decorations such as badges and inlay hints are shown in the text (defaults to `false`); use the **Decorations** toolbar switch to toggle them at runtime
 - `enableCodeLens`: Whether CodeLens quick controls for `prosody` and `break` tags are shown (defaults to `true`)
-- `buttonVisibility`: Per-toolbar-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, `undo`, `redo`, `clearAll`, `format`, `decorations`, and custom insertion IDs; unspecified buttons are shown
+- `buttonVisibility`: Per-toolbar-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, `presets`, `undo`, `redo`, `clearAll`, `format`, `decorations`, and custom insertion IDs; unspecified buttons are shown
 - `editorOptions` / `settings`: Monaco settings for `height`, `minHeight`, `readOnly`, `theme` (`system` / `light` / `dark`), `fontSize`, `wordWrap`, `lineNumbers`, `minimap`, and `automaticLayout`. The same settings can also be supplied as top-level props
 - `loadingFallback`: A React node displayed while Monaco is loading
 - `toolbarOrder`: Display order for all toolbar button IDs; unlisted buttons follow
@@ -670,11 +672,13 @@ export function App() {
 
 The built-in insertion menus are `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, and `mstts:silence`. Their definitions are available through `SSML_INSERTIONS`. Custom insertion definitions can be supplied as an array or an object keyed by ID. Use `createSsmlEditorInsertionDefinition` to create a definition from a tag and one optional attribute; for arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
 
+`MACRO_PRESETS` contains language- and voice-independent templates for announcements, polite, cheerful, questioning, and pause-and-speak effects.
+
 Click the **Description** button to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button preserves `voice` elements, removes the other XML elements, and leaves the text in place. The document's `version`, `lang`, and other attributes are also preserved.
 
 ## Using `ssml-editor-elements`
 
-`ssml-builder-js/elements` registers a framework-independent `<ssml-editor>` Web Component without React. Install `monaco-editor` separately, then use the `value`, `theme`, and `readonly` attributes or properties. The component includes the same SSML toolbar and help display as the React editor; use `locale`, `show-toolbar`, `show-toolbar-labels`, and `show-decorations` to customize it. Editing dispatches a `change` event whose `detail` is `{ value: string }`.
+`ssml-builder-js/elements` registers a framework-independent `<ssml-editor>` Web Component without React. Install `monaco-editor` separately, then use the `value`, `theme`, and `readonly` attributes or properties. The component includes the same SSML toolbar and help display as the React editor; use `locale`, `show-toolbar`, `show-toolbar-labels`, and `show-decorations` to customize it. Call `applyMacroPreset(presetKey)` on the element to apply a macro preset. Editing dispatches a `change` event whose `detail` is `{ value: string }`.
 
 ```ts
 import "ssml-builder-js/elements";

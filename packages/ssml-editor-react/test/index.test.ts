@@ -3,12 +3,12 @@ import test from "node:test";
 import type { Monaco } from "@monaco-editor/react";
 import { isSsmlEditorButtonVisible, type SsmlEditorButtonVisibility } from "../src/buttonVisibility.ts";
 import { clearSsmlDocument } from "../src/clearSsmlDocument.ts";
-import { EXPRESS_AS_STYLE_PRESETS, resolveExpressAsStyles } from "../src/constants/ssmlPresets.ts";
+import { EXPRESS_AS_STYLE_PRESETS, MACRO_PRESETS, resolveExpressAsStyles } from "../src/constants/ssmlPresets.ts";
 import { formatXml } from "../src/formatXml.ts";
 import { registerSsmlCompletionProvider } from "../src/ssmlCompletion.ts";
 import { findActiveSsmlTags, findSsmlVoiceContext, updateTagAttribute } from "../src/ssmlContext.ts";
 import { SSML_TAG_DEFINITIONS, findSsmlHoverTarget, formatSsmlHover, getSsmlTagDefinition } from "../src/ssmlHover.ts";
-import { createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
+import { applyMacroPreset, createSsmlInsertionEdit } from "../src/ssmlInsertion.ts";
 import { registerSsmlCodeLens } from "../src/ssmlCodeLens.ts";
 
 type CompletionProvider = Parameters<Monaco["languages"]["registerCompletionItemProvider"]>[1];
@@ -393,6 +393,35 @@ test("uses the model line ending for wrapped insertion edits", () => {
       selectionOffset: '<prosody rate="slow">'.length,
     },
   );
+});
+
+test("applies every macro preset to the selected text", () => {
+  for (const [presetKey, template] of Object.entries(MACRO_PRESETS)) {
+    let replacement = "";
+    const model = {
+      getValueInRange: () => "Hello",
+      getOffsetAt: () => 0,
+      getPositionAt: (offset: number) => ({ lineNumber: 1, column: offset + 1 }),
+    };
+    const selection = {
+      getStartPosition: () => ({ lineNumber: 1, column: 1 }),
+      isEmpty: () => false,
+    };
+    const editor = {
+      getModel: () => model,
+      getSelection: () => selection,
+      pushUndoStop: () => {},
+      executeEdits: (_source: string, edits: Array<{ text: string }>) => {
+        replacement = edits[0]?.text ?? "";
+        return true;
+      },
+      setSelection: () => {},
+      focus: () => {},
+    };
+
+    assert.equal(applyMacroPreset(editor as never, {}, presetKey), true);
+    assert.equal(replacement, template.replace(/\$\{text\}/, "Hello"));
+  }
 });
 
 test("does not duplicate an existing line ending after wrapped insertion", () => {

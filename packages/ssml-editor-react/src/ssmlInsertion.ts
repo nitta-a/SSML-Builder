@@ -1,5 +1,10 @@
 // @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
 import { SSML_INSERTION_MODES } from "./constants/ui.ts";
+import type * as monaco from "monaco-editor";
+// @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
+import { MACRO_PRESETS, type MacroPresetKey } from "./constants/ssmlPresets.ts";
+
+const MACRO_TEXT_PLACEHOLDER = `\${text}`;
 
 export type SsmlInsertionMode = (typeof SSML_INSERTION_MODES)[keyof typeof SSML_INSERTION_MODES];
 
@@ -72,4 +77,50 @@ export function createSsmlInsertionEdit(
       trailingLineBreak.length +
       (selectedText.length === 0 && trailingLineBreak === "" ? followingLineBreak.length : 0),
   };
+}
+
+export function applyMacroPreset(
+  editor: monaco.editor.IStandaloneCodeEditor,
+  _monaco: unknown,
+  presetKey: string,
+): boolean {
+  if (!(presetKey in MACRO_PRESETS)) {
+    return false;
+  }
+
+  const model = editor.getModel();
+  const selection = editor.getSelection();
+  if (!model || !selection) {
+    return false;
+  }
+
+  const template = MACRO_PRESETS[presetKey as MacroPresetKey];
+  const selectedText = selection.isEmpty() ? "text" : model.getValueInRange(selection);
+  const placeholderOffset = template.indexOf(MACRO_TEXT_PLACEHOLDER);
+  if (placeholderOffset < 0) {
+    return false;
+  }
+
+  const replacement = template.replace(MACRO_TEXT_PLACEHOLDER, () => selectedText);
+  const startOffset = model.getOffsetAt(selection.getStartPosition());
+  const selectedStartOffset = startOffset + placeholderOffset;
+  const selectedEndOffset = selectedStartOffset + selectedText.length;
+
+  editor.pushUndoStop();
+  const applied = editor.executeEdits("ssml-macro", [{ range: selection, text: replacement }]);
+  editor.pushUndoStop();
+  if (!applied) {
+    return false;
+  }
+
+  const selectedStart = model.getPositionAt(selectedStartOffset);
+  const selectedEnd = model.getPositionAt(selectedEndOffset);
+  editor.setSelection({
+    selectionStartLineNumber: selectedStart.lineNumber,
+    selectionStartColumn: selectedStart.column,
+    positionLineNumber: selectedEnd.lineNumber,
+    positionColumn: selectedEnd.column,
+  });
+  editor.focus();
+  return true;
 }

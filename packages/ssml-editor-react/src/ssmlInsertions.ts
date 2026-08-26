@@ -362,6 +362,10 @@ export function createDefaultToolbarGroups(
       buttonIds: ["clearAll", "format", "decorations"],
     },
     {
+      id: "presets",
+      buttonIds: ["presets"],
+    },
+    {
       id: "help",
       buttonIds: ["help"],
     },

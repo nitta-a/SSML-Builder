@@ -33,6 +33,7 @@ export { EDITOR_COPY, INLINE_BADGE_COPY, SSML_HOVER_COPY } from "./locales";
 export type {
   EditorCopy,
   InlineBadgeCopy,
+  MacroPresetCopy,
   SsmlEditorLanguage,
   SsmlEditorLocale,
   SsmlEditorLocalizedText,
@@ -40,6 +41,8 @@ export type {
   SsmlHoverParameterCopy,
   SsmlHoverTagCopy,
 } from "./locales";
+export { MACRO_PRESETS } from "./constants/ssmlPresets";
+export type { MacroPresetKey } from "./constants/ssmlPresets";
 export {
   createSsmlEditorInsertionDefinition,
   SSML_INSERTIONS,

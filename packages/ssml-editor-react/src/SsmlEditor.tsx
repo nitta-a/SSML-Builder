@@ -35,6 +35,7 @@ import { ProsodyPopovers } from "./components/popovers/ProsodyPopovers";
 import { TextPopovers } from "./components/popovers/TextPopovers";
 import { TimingPopovers } from "./components/popovers/TimingPopovers";
 import { InsertionPopover } from "./components/popovers/InsertionPopover";
+import { MacroPopover } from "./components/popovers/MacroPopover";
 import { useSsmlEditorState } from "./hooks/useSsmlEditorState";
 import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
 import { editorStyles as styles } from "./styles/editorStyles";
@@ -845,12 +846,13 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     })
     .filter(({ insertions }) => insertions.length > 0);
   const ungroupedInsertions = visibleInsertions.filter((insertion) => !groupedInsertionIds.has(insertion.id));
-  const toolbarActionIds = ["undo", "redo", "clearAll", "format", "decorations", "help"] as const;
+  const toolbarActionIds = ["undo", "redo", "clearAll", "format", "decorations", "presets", "help"] as const;
   const defaultToolbarOrder = [
     "undo",
     "redo",
     ...visibleInsertionGroups.flatMap(({ insertions }) => insertions.map((insertion) => insertion.id)),
     ...ungroupedInsertions.map((insertion) => insertion.id),
+    "presets",
     "clearAll",
     "format",
     "decorations",
@@ -898,6 +900,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     handleInsertBreak,
     handleInsertProsody,
     handleInsertText,
+    handleMacroPreset,
     handleClear,
     handleFormat,
     handleUndo,
@@ -1099,6 +1102,28 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
           )}
           {showToolbarText && <span>{copy.format}</span>}
         </button>
+      ),
+    ],
+    [
+      "presets",
+      () => (
+        <MacroPopover
+          key="presets"
+          labels={copy.macroPresets}
+          isDarkTheme={isDarkTheme}
+          showToolbarIcons={showToolbarIcons}
+          showToolbarText={showToolbarText}
+          toolbarButtonStyle={toolbarButtonStyle}
+          isReadOnly={isReadOnly}
+          isOpen={isPopoverOpen("presets")}
+          menuPosition={popoverPosition}
+          menuRef={setPopoverMenuRef}
+          onToggle={(trigger) => togglePopover("presets", trigger)}
+          onClose={closePopover}
+          onApply={handleMacroPreset}
+          presetsLabel={copy.presets}
+          presetsTitle={copy.presetsTitle}
+        />
       ),
     ],
     [
