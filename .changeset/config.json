@@ -6,7 +6,8 @@
       "playground",
       "@ssml-builder-js/ssml-editor-react",
       "@ssml-builder-js/ssml-core",
-      "@ssml-builder-js/azure-tts-client"
+      "@ssml-builder-js/azure-tts-client",
+      "@ssml-builder-js/ssml-editor-elements"
     ]
   ],
   "access": "public",

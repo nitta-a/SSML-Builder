@@ -102,6 +102,19 @@ test("synthesize sends SSML to the regional Azure endpoint", async (t) => {
   assert.strictEqual(audio, mockAudio);
 });
 
+test("synthesize falls back when endpoint is an empty string", async (t) => {
+  const mockAudio = new ArrayBuffer(1);
+  const speechSdkMock = installSpeechSdkMock(t, mockAudio);
+
+  await new AzureTtsClient({
+    endpoint: "  ",
+    subscriptionKey: "subscription-key",
+    region: "japaneast",
+  }).synthesize("<speak>Hello</speak>");
+
+  assert.equal(speechSdkMock.endpoint?.href, "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1");
+});
+
 test("synthesize reports Speech SDK synthesis errors", async (t) => {
   const errorDetails = "The SSML is invalid.";
   installSpeechSdkErrorMock(t, errorDetails);

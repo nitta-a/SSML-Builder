@@ -3,7 +3,8 @@ import { DEFAULT_OUTPUT_FORMAT, resolveOutputFormat } from "./outputFormats.ts";
 import type { TtsConfig } from "./types.ts";
 
 export function resolveEndpoint(config: TtsConfig): string {
-  return config.endpoint.replace(/\{region\}/g, encodeURIComponent(config.region));
+  const endpoint = config.endpoint?.trim() || "https://{region}.tts.speech.microsoft.com/cognitiveservices/v1";
+  return endpoint.replace(/\{region\}/g, encodeURIComponent(config.region));
 }
 
 export function createSpeechConfig(config: TtsConfig): SpeechConfig {

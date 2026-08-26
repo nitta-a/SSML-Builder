@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
+import { buildSsml, extractSsmlText, mapSsmlTextNodes, parseSsml } from "@ssml-builder-js/ssml-core";
 import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
 import type { SsmlNode } from "@ssml-builder-js/ssml-core";
 import { defineSsmlEditorElement } from "@ssml-builder-js/ssml-editor-elements";
@@ -615,6 +615,9 @@ export default function Home() {
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioCaptionTrack, setAudioCaptionTrack] = useState<string | null>(null);
   const [audioCaptionLanguage, setAudioCaptionLanguage] = useState<string | null>(null);
+  const [translationPrefix, setTranslationPrefix] = useState("Translated: ");
+  const [translatedSsml, setTranslatedSsml] = useState<string | null>(null);
+  const [isMappingText, setIsMappingText] = useState(false);
   const audioUrlRef = useRef<string | null>(null);
   const editorRef = useRef<SsmlEditorRef>(null);
   const webComponentRef = useRef<SsmlEditorElement>(null);
@@ -622,6 +625,13 @@ export default function Home() {
   const copy = PLAYGROUND_COPY[locale];
   const editorLocale = locale === "ja" ? "ja" : "en";
   const ssml = editorMode === "web-component" ? editorValue : buildSsml(document);
+  const extractedText = (() => {
+    try {
+      return extractSsmlText(ssml);
+    } catch {
+      return [];
+    }
+  })();
   const selectedVoice = VOICE_NAMES[selectedLanguage][selectedGender];
   const currentCaptionTrack =
     editorMode === "web-component"
@@ -767,6 +777,16 @@ export default function Home() {
     void synthesizeAudio(ssml, currentCaptionTrack, document.lang);
   };
 
+  const mapTextNodes = async (): Promise<void> => {
+    setIsMappingText(true);
+    try {
+      const mapped = await mapSsmlTextNodes(ssml, (text) => (text.trim() ? `${translationPrefix}${text}` : text));
+      setTranslatedSsml(mapped);
+    } finally {
+      setIsMappingText(false);
+    }
+  };
+
   const previewSelectedAudio = (): void => {
     const selectedSsml = editorRef.current?.getSelectedSsml();
     if (!selectedSsml) {
@@ -901,6 +921,32 @@ export default function Home() {
           />
         </section>
       )}
+      <section className="translation-demo" aria-labelledby="translation-demo-heading">
+        <h2 id="translation-demo-heading">Text-node translation demo</h2>
+        <p>Transform text nodes while preserving SSML tags, attributes, and nesting.</p>
+        <div className="settings-fields">
+          <label className="setting-field" htmlFor="translation-prefix">
+            <span>Text transform prefix</span>
+            <input
+              id="translation-prefix"
+              value={translationPrefix}
+              onChange={(event) => setTranslationPrefix(event.target.value)}
+            />
+          </label>
+          <div className="setting-field">
+            <span>Extracted text nodes</span>
+            <code>{extractedText.join(" | ") || "(none)"}</code>
+          </div>
+        </div>
+        <button type="button" onClick={() => void mapTextNodes()} disabled={isMappingText}>
+          {isMappingText ? "Mapping text nodes..." : "Apply text-node transform"}
+        </button>
+        {translatedSsml ? (
+          <pre>
+            <code>{translatedSsml}</code>
+          </pre>
+        ) : null}
+      </section>
       <section className="audio-generation" aria-labelledby="audio-generation-heading">
         <h2 id="audio-generation-heading">{copy.audioPreview}</h2>
         <p>{copy.audioDescription}</p>

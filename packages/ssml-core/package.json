@@ -1,8 +1,17 @@
 {
   "name": "@ssml-builder-js/ssml-core",
-  "private": true,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Core SSML building utilities",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nitta-a/SSML-Builder.git",
+    "directory": "packages/ssml-core"
+  },
+  "bugs": {
+    "url": "https://github.com/nitta-a/SSML-Builder/issues"
+  },
+  "homepage": "https://github.com/nitta-a/SSML-Builder#ssml-core",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",

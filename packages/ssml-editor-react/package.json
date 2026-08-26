@@ -1,8 +1,17 @@
 {
   "name": "@ssml-builder-js/ssml-editor-react",
-  "private": true,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "React-based SSML editor component",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nitta-a/SSML-Builder.git",
+    "directory": "packages/ssml-editor-react"
+  },
+  "bugs": {
+    "url": "https://github.com/nitta-a/SSML-Builder/issues"
+  },
+  "homepage": "https://github.com/nitta-a/SSML-Builder#ssml-editor-react",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -34,8 +43,8 @@
   },
   "peerDependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react": ">=18.2.0 <20",
+    "react-dom": ">=18.2.0 <20"
   },
   "peerDependenciesMeta": {
     "@monaco-editor/react": {
@@ -43,6 +52,6 @@
     }
   },
   "dependencies": {
-    "@ssml-builder-js/ssml-core": "*"
+    "@ssml-builder-js/ssml-core": "^2.4.0"
   }
 }

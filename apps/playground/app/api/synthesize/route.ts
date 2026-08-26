@@ -1,5 +1,5 @@
 import { AzureTtsClient, AzureTtsError } from "@ssml-builder-js/azure-tts-client";
-import { validateSsml } from "@ssml-builder-js/ssml-core";
+import { validateAzureSsml, validateSsml } from "@ssml-builder-js/ssml-core";
 
 export const runtime = "nodejs";
 
@@ -7,7 +7,7 @@ const AUDIO_CONTENT_TYPE = "audio/mpeg";
 const MAX_LOGGED_RESPONSE_BODY_LENGTH = 4096;
 const subscriptionKey = process.env.AZURE_SPEECH_KEY;
 const region = process.env.AZURE_SPEECH_REGION;
-const endpoint = process.env.AZURE_SPEECH_ENDPOINT || "";
+const endpoint = process.env.AZURE_SPEECH_ENDPOINT?.trim() || undefined;
 
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
@@ -66,6 +66,10 @@ export async function POST(request: Request): Promise<Response> {
   const validationError = validateSsml(ssml);
   if (validationError) {
     return errorResponse(`Invalid SSML: ${validationError.message}`, 400);
+  }
+  const semanticDiagnostics = validateAzureSsml(ssml).filter((diagnostic) => diagnostic.severity === "error");
+  if (semanticDiagnostics.length > 0) {
+    return errorResponse(`Invalid Azure SSML: ${semanticDiagnostics[0].message}`, 400);
   }
   if (!subscriptionKey || !region) {
     return errorResponse("Azure Speech is not configured.", 503);

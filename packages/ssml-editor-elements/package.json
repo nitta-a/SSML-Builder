@@ -1,8 +1,17 @@
 {
   "name": "@ssml-builder-js/ssml-editor-elements",
-  "private": true,
-  "version": "2.2.0",
+  "version": "2.4.0",
   "description": "Framework-independent SSML editor custom element",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nitta-a/SSML-Builder.git",
+    "directory": "packages/ssml-editor-elements"
+  },
+  "bugs": {
+    "url": "https://github.com/nitta-a/SSML-Builder/issues"
+  },
+  "homepage": "https://github.com/nitta-a/SSML-Builder#ssml-editor-elements",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -28,6 +37,6 @@
     "monaco-editor": "^0.56.0"
   },
   "dependencies": {
-    "@ssml-builder-js/ssml-core": "*"
+    "@ssml-builder-js/ssml-core": "^2.4.0"
   }
 }

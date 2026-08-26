@@ -14,6 +14,17 @@ test("replaces and URL-encodes every endpoint region placeholder", () => {
   );
 });
 
+test("falls back to the regional endpoint for empty endpoint values", () => {
+  assert.equal(
+    resolveEndpoint({
+      endpoint: "   ",
+      subscriptionKey: "subscription-key",
+      region: "japaneast",
+    }),
+    "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1",
+  );
+});
+
 test("creates Speech SDK configuration with the default format", () => {
   const speechConfig = createSpeechConfig({
     endpoint: "https://speech.example.test/cognitiveservices/v1",

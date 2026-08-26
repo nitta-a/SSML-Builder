@@ -132,8 +132,13 @@ const parsed = parseSsml(ssml);
 | `buildPartialSsml(text, context?)` / `buildPartialSsml({ text, ...context })` | 言語、音声、プロソディなどのコンテキスト付きで部分テキストから最小の SSML を生成 |
 | `parseSsml(xml)` | `<speak>` XML を `SsmlDocument` に変換 |
 | `validateSsml(xml)` | SSML の構文エラーを `{ message, position }` または `null` で返す |
+| `extractSsmlText(xml)` | タグを除いた全テキストノードを文書順に抽出 |
+| `mapSsmlTextNodes(xml, transform)` | タグ構造を維持したままテキストノードだけを同期・非同期変換 |
+| `validateAzureSsml(xml, options?)` | Azure Speech 向けの意味検証結果を Diagnostic 配列で返す |
 
 `voice`、`prosody`、`break`、`express-as`、`say-as`、`phoneme`、`audio`、`lang`、`mark` などの要素を型付きで表現できます。`type: "custom"` と `name` を指定すれば、未定義の XML 要素や追加属性も扱えます。`mstts:` 要素を含むドキュメントを生成すると、必要な Azure Speech 名前空間が自動的に追加されます。
+
+翻訳などで本文だけを置き換える場合は、`mapSsmlTextNodes` に変換関数を渡します。変換関数には直近の親タグと祖先タグの `path` が渡され、戻り値は `string` または `Promise<string>` を指定できます。`validateAzureSsml` は音声、属性値、音声スタイル、文字数、`audio` URL/オリジンを検証します。
 
 ## `ssml-editor-react` の利用方法
 
@@ -252,6 +257,7 @@ const audio = await synthesizeSpeech(ssml, {
 ```
 
 内部では Microsoft Cognitive Services Speech SDK の `SpeechSynthesizer` を使用します。`AzureTtsClient` の `endpoint` を省略すると `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` が使用されます。上の Playground の例では `.env.example` に合わせて WebSocket エンドポイントを明示しています。独自エンドポイントに `{region}` を含めた場合は、設定したリージョンに置き換えられます。
+`endpoint` に空文字または空白文字列を指定した場合も、リージョンの既定エンドポイントへフォールバックします。`logger` オプションには `debug`、`info`、`warn`、`error` を持つロガーを注入できます。省略時はクライアントからログを出力しません。
 `outputFormat` には Speech SDK がサポートする出力形式を指定できます。省略時は `audio-16khz-128kbitrate-mono-mp3` が使用されます。
 
 Speech SDK の合成エラーでは `AzureTtsSdkError`（`AzureTtsError` のサブクラス）がスローされ、`errorDetails` から SDK のエラー詳細を確認できます。SDK が HTTP ステータスやリクエスト ID を公開しないため、SDK 経由のエラーでは `status` は `0`、`statusText` は `"Speech SDK"`、`requestId` は `null` です。Playground のサーバー側ログにもこれらの情報とリージョン、SSML の文字数が出力されます。ログに出力するエラー詳細は 4,096 文字までに制限されます。サブスクリプションキーや SSML 本文自体はログに出力されません。
@@ -422,8 +428,13 @@ The main `buildSsml` and `parseSsml` signatures are:
 | `buildPartialSsml(text, context?)` / `buildPartialSsml({ text, ...context })` | Builds minimal playable SSML for partial text with language, voice, and prosody context |
 | `parseSsml(xml)` | Converts a `<speak>` XML document into an `SsmlDocument` |
 | `validateSsml(xml)` | Returns `{ message, position }` for a syntax error, or `null` |
+| `extractSsmlText(xml)` | Extracts all text nodes in document order |
+| `mapSsmlTextNodes(xml, transform)` | Transforms only text nodes while preserving the XML structure; supports sync and async transforms |
+| `validateAzureSsml(xml, options?)` | Returns Azure Speech semantic-validation diagnostics |
 
 Typed representations are available for elements such as `voice`, `prosody`, `break`, `express-as`, `say-as`, `phoneme`, `audio`, `lang`, and `mark`. Use `type: "custom"` and `name` to handle undefined XML elements or additional attributes. When a document contains `mstts:` elements, the required Azure Speech namespace is added automatically.
+
+Use `mapSsmlTextNodes` to replace translatable content without changing tags, attributes, or nesting. The transform receives the immediate parent tag and ancestor `path`, and may return a `string` or a `Promise<string>`. `validateAzureSsml` checks Azure-specific voice, attribute, style, length, and `audio` URL/origin rules.
 
 ## Using `ssml-editor-react`
 
@@ -542,6 +553,7 @@ const audio = await synthesizeSpeech(ssml, {
 ```
 
 Internally, the client uses the Microsoft Cognitive Services Speech SDK's `SpeechSynthesizer`. If `endpoint` is omitted from `AzureTtsClient`, `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` is used. The Playground example explicitly uses the WebSocket endpoint from `.env.example`. If a custom endpoint contains `{region}`, it is replaced with the configured region.
+Empty or whitespace-only `endpoint` values also fall back to the regional endpoint. Pass a `logger` with optional `debug`, `info`, `warn`, and `error` methods to receive client diagnostics; when omitted, the client is silent.
 Set `outputFormat` to a format supported by the Speech SDK. If omitted, `audio-16khz-128kbitrate-mono-mp3` is used.
 
 Speech SDK synthesis errors throw `AzureTtsSdkError` (a subclass of `AzureTtsError`); its `errorDetails` field contains the SDK error details. Because the SDK does not expose HTTP status or request IDs, SDK errors use `0` for `status`, `"Speech SDK"` for `statusText`, and `null` for `requestId`. The playground's server-side logs include these fields along with the region and SSML character count. Logged error details are limited to 4,096 characters. The subscription key and SSML content itself are not written to logs.

@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.4.0
+
+### Minor Changes
+
+- Add SSML text-node translation helpers and Azure semantic validation, improve Azure TTS endpoint and logger handling, support React 18 peer dependencies, and complete independent package publishing metadata.
+
 ## 2.3.0
 
 ## 2.2.0
