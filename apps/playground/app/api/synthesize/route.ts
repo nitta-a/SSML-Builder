@@ -76,7 +76,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const opt = { subscriptionKey, region, endpoint };
+    const opt = { endpoint, region, signal: request.signal, subscriptionKey, timeoutMs: 15_000 };
     const client = new AzureTtsClient(opt);
     const audio = await client.synthesize(ssml);
 

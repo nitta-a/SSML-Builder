@@ -1,5 +1,16 @@
 # playground
 
+## 2.5.0
+
+### Patch Changes
+
+- Update the playground and workspace package references for v2.5.0.
+- Updated dependencies
+  - @ssml-builder-js/ssml-core@2.5.0
+  - @ssml-builder-js/azure-tts-client@2.5.0
+  - @ssml-builder-js/ssml-editor-react@2.5.0
+  - @ssml-builder-js/ssml-editor-elements@2.5.0
+
 ## 2.4.0
 
 ### Minor Changes

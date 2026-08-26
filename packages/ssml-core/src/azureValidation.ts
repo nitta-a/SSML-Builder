@@ -9,16 +9,24 @@ export interface SsmlDiagnostic {
   severity: SsmlDiagnosticSeverity;
 }
 
-export interface AzureSsmlValidationOptions {
+export interface AzureValidationOptions {
   allowedAudioOrigins?: readonly string[];
+  allowExternalAudio?: boolean;
   allowHttpAudio?: boolean;
+  customVoiceStyleMap?: Record<string, readonly string[]>;
   maxLength?: number;
+  unknownVoicePolicy?: "error" | "warn" | "ignore";
+  validateNestedVoices?: boolean;
 }
+
+/** @deprecated Use AzureValidationOptions instead. */
+export type AzureSsmlValidationOptions = AzureValidationOptions;
 
 interface ElementToken {
   attributes: Map<string, string>;
   end: number;
   name: string;
+  parentVoiceName?: string;
   start: number;
   selfClosing: boolean;
 }
@@ -168,6 +176,7 @@ function findTagEnd(source: string, start: number): number {
 
 function tokenizeElements(source: string): ElementToken[] {
   const tokens: ElementToken[] = [];
+  const openElements: Array<{ name: string; voiceName?: string }> = [];
   let index = 0;
   while (index < source.length) {
     const start = source.indexOf("<", index);
@@ -189,8 +198,13 @@ function tokenizeElements(source: string): ElementToken[] {
     }
     const end = findTagEnd(source, start + 1);
     const raw = source.slice(start, end + 1);
+    if (raw.startsWith("</")) {
+      openElements.pop();
+      index = end + 1;
+      continue;
+    }
     const nameMatch = /^<\s*([A-Za-z_][A-Za-z0-9_.:-]*)/.exec(raw);
-    if (!nameMatch?.[1] || raw.startsWith("</")) {
+    if (!nameMatch?.[1]) {
       index = end + 1;
       continue;
     }
@@ -200,7 +214,15 @@ function tokenizeElements(source: string): ElementToken[] {
     for (const match of attributeSource.matchAll(attributePattern)) {
       attributes.set(match[1].toLowerCase(), decodeAttribute(match[3]));
     }
-    tokens.push({ attributes, end, name: nameMatch[1], selfClosing: /\/\s*>$/.test(raw), start });
+    const selfClosing = /\/\s*>$/.test(raw);
+    const parentVoiceName = [...openElements].reverse().find((element) => element.voiceName)?.voiceName;
+    tokens.push({ attributes, end, name: nameMatch[1], parentVoiceName, selfClosing, start });
+    if (!selfClosing) {
+      openElements.push({
+        name: nameMatch[1],
+        voiceName: nameMatch[1].toLowerCase() === "voice" ? attributes.get("name") : parentVoiceName,
+      });
+    }
     index = end + 1;
   }
   return tokens;
@@ -226,12 +248,33 @@ function attr(token: ElementToken, name: string): string | undefined {
   return token.attributes.get(name.toLowerCase());
 }
 
+function normalizeVoiceStyleMap(
+  customVoiceStyleMap: Record<string, readonly string[]> | undefined,
+): ReadonlyMap<string, readonly string[]> {
+  const map = new Map<string, readonly string[]>(
+    Object.entries(EXPRESS_AS_STYLES).map(([voiceName, styles]) => [voiceName.toLowerCase(), styles]),
+  );
+  for (const [voiceName, styles] of Object.entries(customVoiceStyleMap ?? {})) {
+    map.set(
+      voiceName.toLowerCase(),
+      styles.map((style) => style.toLowerCase()),
+    );
+  }
+  return map;
+}
+
+function diagnosticSeverity(policy: AzureValidationOptions["unknownVoicePolicy"]): SsmlDiagnosticSeverity | undefined {
+  if (policy === "ignore") return undefined;
+  return policy === "error" ? "error" : "warning";
+}
+
 function validateElement(
   token: ElementToken,
   source: string,
   diagnostics: SsmlDiagnostic[],
   voiceName: string | undefined,
-  options: AzureSsmlValidationOptions,
+  options: AzureValidationOptions,
+  voiceStyleMap: ReadonlyMap<string, readonly string[]>,
 ): void {
   const name = token.name.toLowerCase();
   if (name === "voice" && !attr(token, "name")?.trim())
@@ -274,9 +317,24 @@ function validateElement(
     const role = attr(token, "role");
     if (role && !ALLOWED_ROLES.has(role))
       addDiagnostic(diagnostics, source, token.start, `Unsupported <mstts:express-as role> value "${role}".`);
-    const supportedStyles = voiceName ? EXPRESS_AS_STYLES[voiceName.toLowerCase()] : undefined;
-    if (style && supportedStyles && !supportedStyles.includes(style.toLowerCase()))
-      addDiagnostic(diagnostics, source, token.start, `Style "${style}" is not supported by voice "${voiceName}".`);
+    const supportedStyles = voiceName ? voiceStyleMap.get(voiceName.toLowerCase()) : undefined;
+    const severity = diagnosticSeverity(options.unknownVoicePolicy ?? "warn");
+    if (style && supportedStyles && !supportedStyles.includes(style.toLowerCase()) && severity)
+      addDiagnostic(
+        diagnostics,
+        source,
+        token.start,
+        `Unknown style "${style}" is not supported by voice "${voiceName}" according to the configured voice style map.`,
+        severity,
+      );
+    if (style && voiceName && !supportedStyles && severity)
+      addDiagnostic(
+        diagnostics,
+        source,
+        token.start,
+        `Unknown style "${style}" cannot be verified because voice "${voiceName}" is not registered in the voice style map.`,
+        severity,
+      );
   }
   if (name === "say-as" || name === "sayas") {
     const interpretAs = attr(token, "interpret-as");
@@ -336,11 +394,19 @@ function validateElement(
         addDiagnostic(diagnostics, source, token.start, "<audio src> must use HTTPS.");
       if (options.allowedAudioOrigins && !options.allowedAudioOrigins.includes(parsed.origin))
         addDiagnostic(diagnostics, source, token.start, `<audio src> origin "${parsed.origin}" is not allowed.`);
+      else if (!options.allowExternalAudio)
+        addDiagnostic(
+          diagnostics,
+          source,
+          token.start,
+          `<audio src> external origin "${parsed.origin}" is blocked by default; set allowExternalAudio to true or provide allowedAudioOrigins.`,
+          "error",
+        );
     }
   }
 }
 
-export function validateAzureSsml(ssml: string, options: AzureSsmlValidationOptions = {}): SsmlDiagnostic[] {
+export function validateAzureSsml(ssml: string, options: AzureValidationOptions = {}): SsmlDiagnostic[] {
   const diagnostics: SsmlDiagnostic[] = [];
   if (typeof ssml !== "string") {
     return [{ line: 1, column: 1, message: "SSML input must be a string", severity: "error" }];
@@ -367,6 +433,23 @@ export function validateAzureSsml(ssml: string, options: AzureSsmlValidationOpti
       "Azure SSML requires at least one <voice> element under <speak>.",
     );
   const voiceName = voices[0] ? attr(voices[0], "name") : undefined;
-  for (const token of tokens) validateElement(token, ssml, diagnostics, voiceName, options);
+  const voiceStyleMap = normalizeVoiceStyleMap(options.customVoiceStyleMap);
+  const policySeverity = diagnosticSeverity(options.unknownVoicePolicy ?? "warn");
+  const voicesToValidate = options.validateNestedVoices === false ? voices.slice(0, 1) : voices;
+  for (const token of voicesToValidate) {
+    const name = attr(token, "name")?.trim();
+    if (name && !voiceStyleMap.has(name.toLowerCase()) && policySeverity)
+      addDiagnostic(
+        diagnostics,
+        ssml,
+        token.start,
+        `Unknown voice "${name}" is not registered in the voice style map.`,
+        policySeverity,
+      );
+  }
+  for (const token of tokens) {
+    const tokenVoiceName = options.validateNestedVoices === false ? voiceName : token.parentVoiceName;
+    validateElement(token, ssml, diagnostics, tokenVoiceName, options, voiceStyleMap);
+  }
   return diagnostics;
 }

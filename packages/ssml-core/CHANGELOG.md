@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.5.0
+
+### Minor Changes
+
+- Add configurable voice/style validation policies, nested voice validation, external-audio protection, and contextual text-node mapping filters.
+
 ## 2.4.0
 
 ### Minor Changes

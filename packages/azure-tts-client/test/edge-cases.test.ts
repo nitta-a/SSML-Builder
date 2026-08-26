@@ -76,3 +76,46 @@ test("AzureTtsClient reports Speech SDK callback failures", async (t) => {
     },
   );
 });
+
+test("synthesizeSpeech aborts a timed-out synthesis and closes resources", async (t) => {
+  const originalFromEndpoint = SpeechSDK.SpeechConfig.fromEndpoint;
+  let closeCount = 0;
+  t.mock.method(SpeechSDK.SpeechConfig, "fromEndpoint", (endpoint, subscriptionKey) =>
+    originalFromEndpoint(endpoint, String(subscriptionKey)),
+  );
+  t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "speakSsmlAsync", () => {});
+  t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "close", () => {
+    closeCount += 1;
+  });
+
+  await assert.rejects(
+    synthesizeSpeech("<speak>Hello</speak>", {
+      endpoint: "https://speech.example.test/cognitiveservices/v1",
+      subscriptionKey: "subscription-key",
+      region: "japaneast",
+      timeoutMs: 10,
+    }),
+    /timed out after 10 ms/,
+  );
+  assert.equal(closeCount, 1);
+});
+
+test("synthesizeSpeech can be cancelled with an AbortSignal", async (t) => {
+  const originalFromEndpoint = SpeechSDK.SpeechConfig.fromEndpoint;
+  const controller = new AbortController();
+  t.mock.method(SpeechSDK.SpeechConfig, "fromEndpoint", (endpoint, subscriptionKey) =>
+    originalFromEndpoint(endpoint, String(subscriptionKey)),
+  );
+  t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "speakSsmlAsync", () => {});
+  t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "close", () => {});
+
+  const promise = synthesizeSpeech("<speak>Hello</speak>", {
+    endpoint: "https://speech.example.test/cognitiveservices/v1",
+    subscriptionKey: "subscription-key",
+    region: "japaneast",
+    signal: controller.signal,
+  });
+  controller.abort();
+
+  await assert.rejects(promise, /cancelled/);
+});

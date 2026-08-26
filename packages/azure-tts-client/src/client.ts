@@ -11,11 +11,11 @@ export class AzureTtsClient {
   }
 
   async synthesize(ssml: string): Promise<ArrayBuffer> {
-    const { region, subscriptionKey, outputFormat } = this.#options;
+    const { region, subscriptionKey, outputFormat, signal, timeoutMs } = this.#options;
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     this.#options.logger?.debug?.("Using Azure TTS endpoint:", endpoint);
 
-    const config = { endpoint, region, subscriptionKey, outputFormat };
+    const config = { endpoint, region, subscriptionKey, outputFormat, signal, timeoutMs };
     return synthesizeSpeech(ssml, config);
   }
 }

@@ -1,4 +1,6 @@
 export interface TtsConfig {
+  signal?: AbortSignal;
+  timeoutMs?: number;
   endpoint?: string;
   subscriptionKey: string;
   region: string;
@@ -13,6 +15,8 @@ export interface AzureTtsLogger {
 }
 
 export interface AzureTtsClientOptions {
+  signal?: AbortSignal;
+  timeoutMs?: number;
   subscriptionKey: string;
   region: string;
   endpoint?: string;

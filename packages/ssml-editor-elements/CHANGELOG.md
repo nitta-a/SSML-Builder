@@ -1,5 +1,13 @@
 # @ssml-builder-js/ssml-editor-elements
 
+## 2.5.0
+
+### Patch Changes
+
+- Update the package version for the v2.5.0 workspace release.
+- Updated dependencies
+  - @ssml-builder-js/ssml-core@2.5.0
+
 ## 2.4.0
 
 ### Minor Changes

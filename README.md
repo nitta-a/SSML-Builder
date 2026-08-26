@@ -36,6 +36,8 @@ React エディタを使用する場合は、React と Monaco Editor のアダ�
 npm install ssml-builder-js @monaco-editor/react react react-dom
 ```
 
+ルートパッケージの React peer dependency は `>=18.2.0 <20` です。React 18.3.1 を使う Next.js の Pages Router / App Router アプリでは、この範囲に一致するため依存関係警告は発生しません。Monaco を使う `SsmlEditor` はクライアントコンポーネントとして配置してください。
+
 Web Component を使用する場合は、Monaco Editor もインストールします。
 
 ```sh
@@ -133,12 +135,34 @@ const parsed = parseSsml(ssml);
 | `parseSsml(xml)` | `<speak>` XML を `SsmlDocument` に変換 |
 | `validateSsml(xml)` | SSML の構文エラーを `{ message, position }` または `null` で返す |
 | `extractSsmlText(xml)` | タグを除いた全テキストノードを文書順に抽出 |
-| `mapSsmlTextNodes(xml, transform)` | タグ構造を維持したままテキストノードだけを同期・非同期変換 |
+| `mapSsmlTextNodes(xml, transform, options?)` | タグ構造を維持したままテキストノードだけを同期・非同期変換。スキップタグとコンテキストフィルターに対応 |
 | `validateAzureSsml(xml, options?)` | Azure Speech 向けの意味検証結果を Diagnostic 配列で返す |
 
 `voice`、`prosody`、`break`、`express-as`、`say-as`、`phoneme`、`audio`、`lang`、`mark` などの要素を型付きで表現できます。`type: "custom"` と `name` を指定すれば、未定義の XML 要素や追加属性も扱えます。`mstts:` 要素を含むドキュメントを生成すると、必要な Azure Speech 名前空間が自動的に追加されます。
 
 翻訳などで本文だけを置き換える場合は、`mapSsmlTextNodes` に変換関数を渡します。変換関数には直近の親タグと祖先タグの `path` が渡され、戻り値は `string` または `Promise<string>` を指定できます。`validateAzureSsml` は音声、属性値、音声スタイル、文字数、`audio` URL/オリジンを検証します。
+
+`mapSsmlTextNodes` の第 3 引数で、翻訳対象外タグとコンテキストフィルターを指定できます。デフォルトでは `phoneme`、`say-as`、`sub` の本文を変換しません。`filter` には `parentTag`、`parentAttributes`、`ancestorTags`、`path` が渡されます。
+
+```ts
+const translated = await mapSsmlTextNodes(ssml, translate, {
+  skipTags: ["phoneme", "say-as", "sub", "custom-no-translate"],
+  filter: ({ parentAttributes, ancestorTags }) =>
+    ancestorTags.includes("voice") && parentAttributes["xml:lang"] !== "ja-JP",
+});
+```
+
+`validateAzureSsml` は `AzureValidationOptions` で音声・スタイルの定義を追加できます。`unknownVoicePolicy` のデフォルトは `"warn"`、`validateNestedVoices` のデフォルトは `true` です。`audio` の外部 URL はデフォルトで拒否されるため、利用する場合は `allowedAudioOrigins` に許可するオリジンを列挙するか、構成を理解した上で `allowExternalAudio: true` を指定してください。
+
+```ts
+const diagnostics = validateAzureSsml(ssml, {
+  customVoiceStyleMap: { "my-custom-voice": ["narration"] },
+  unknownVoicePolicy: "error", // "error" | "warn" | "ignore"
+  allowedAudioOrigins: ["https://cdn.example.com"],
+});
+```
+
+Azure Speech は `<audio>` の URL を取得するため、任意の URL をそのまま受け付けるサーバーは SSRF の踏み台になり得ます。ユーザー入力の SSML を合成する場合は、HTTPS、許可オリジン、リダイレクト先、応答サイズをサーバー側でも制限し、`allowExternalAudio` だけで無制限に許可しないでください。
 
 ## `ssml-editor-react` の利用方法
 
@@ -243,6 +267,17 @@ const audio = await client.synthesize(ssml);
 // audio は audio/mpeg の ArrayBuffer
 ```
 
+帯域幅を抑える場合は `audio-24khz-48kbitrate-mono-mp3` または `audio-16khz-32kbitrate-mono-mp3` を指定できます。
+
+```ts
+const client = new AzureTtsClient({
+  subscriptionKey: process.env.AZURE_SPEECH_KEY!,
+  region: process.env.AZURE_SPEECH_REGION!,
+  outputFormat: "audio-24khz-48kbitrate-mono-mp3",
+  timeoutMs: 15_000,
+});
+```
+
 低レベルの `synthesizeSpeech` 関数も利用できます。この関数では `TtsConfig` の
 `endpoint`、`subscriptionKey`、`region` を指定します。
 
@@ -259,6 +294,45 @@ const audio = await synthesizeSpeech(ssml, {
 内部では Microsoft Cognitive Services Speech SDK の `SpeechSynthesizer` を使用します。`AzureTtsClient` の `endpoint` を省略すると `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` が使用されます。上の Playground の例では `.env.example` に合わせて WebSocket エンドポイントを明示しています。独自エンドポイントに `{region}` を含めた場合は、設定したリージョンに置き換えられます。
 `endpoint` に空文字または空白文字列を指定した場合も、リージョンの既定エンドポイントへフォールバックします。`logger` オプションには `debug`、`info`、`warn`、`error` を持つロガーを注入できます。省略時はクライアントからログを出力しません。
 `outputFormat` には Speech SDK がサポートする出力形式を指定できます。省略時は `audio-16khz-128kbitrate-mono-mp3` が使用されます。
+`timeoutMs` は合成を打ち切る時間（ミリ秒）、`signal` はクライアント切断などによるキャンセル用の `AbortSignal` です。リトライする場合は、タイムアウトや一時的な SDK エラーだけを対象にし、同じ `AbortSignal` を渡して指数バックオフを使用してください。
+
+Next.js Route Handler ではキーをブラウザへ渡さず、サーバー側で検証・合成します。
+
+```ts
+// app/api/synthesize/route.ts
+import { AzureTtsClient, AzureTtsError } from "@ssml-builder-js/azure-tts-client";
+import { validateAzureSsml, validateSsml } from "@ssml-builder-js/ssml-core";
+
+export const runtime = "nodejs";
+
+export async function POST(request: Request) {
+  const body = (await request.json()) as { ssml?: unknown };
+  if (typeof body.ssml !== "string" || validateSsml(body.ssml))
+    return Response.json({ error: "Invalid SSML" }, { status: 400 });
+  if (validateAzureSsml(body.ssml).some(({ severity }) => severity === "error"))
+    return Response.json({ error: "Invalid Azure SSML" }, { status: 400 });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  request.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  try {
+    const audio = await new AzureTtsClient({
+      subscriptionKey: process.env.AZURE_SPEECH_KEY!,
+      region: process.env.AZURE_SPEECH_REGION!,
+      signal: controller.signal,
+      outputFormat: "audio-24khz-48kbitrate-mono-mp3",
+    }).synthesize(body.ssml);
+    return new Response(new Uint8Array(audio), { headers: { "Content-Type": "audio/mpeg" } });
+  } catch (error) {
+    const status = error instanceof AzureTtsError && error.status === 0 ? 504 : 502;
+    return Response.json({ error: "Speech synthesis failed" }, { status });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+```
+
+リトライを追加する場合は、`AzureTtsSdkError` の内容をログへ出しすぎず、SSML 本文とサブスクリプションキーをログへ書かないでください。外部 `audio` を使う場合も、上記の許可オリジン検証を合成前に実施してください。
 
 Speech SDK の合成エラーでは `AzureTtsSdkError`（`AzureTtsError` のサブクラス）がスローされ、`errorDetails` から SDK のエラー詳細を確認できます。SDK が HTTP ステータスやリクエスト ID を公開しないため、SDK 経由のエラーでは `status` は `0`、`statusText` は `"Speech SDK"`、`requestId` は `null` です。Playground のサーバー側ログにもこれらの情報とリージョン、SSML の文字数が出力されます。ログに出力するエラー詳細は 4,096 文字までに制限されます。サブスクリプションキーや SSML 本文自体はログに出力されません。
 
@@ -331,6 +405,8 @@ To use the React editor, also install React and the Monaco Editor adapter:
 ```sh
 npm install ssml-builder-js @monaco-editor/react react react-dom
 ```
+
+The root package accepts React `>=18.2.0 <20` as a peer dependency. Next.js applications using React 18.3.1 work with both the Pages Router and App Router without a peer-dependency range warning. Place the Monaco-based `SsmlEditor` in a client component.
 
 To use the Web Component, also install Monaco Editor:
 
@@ -429,12 +505,32 @@ The main `buildSsml` and `parseSsml` signatures are:
 | `parseSsml(xml)` | Converts a `<speak>` XML document into an `SsmlDocument` |
 | `validateSsml(xml)` | Returns `{ message, position }` for a syntax error, or `null` |
 | `extractSsmlText(xml)` | Extracts all text nodes in document order |
-| `mapSsmlTextNodes(xml, transform)` | Transforms only text nodes while preserving the XML structure; supports sync and async transforms |
+| `mapSsmlTextNodes(xml, transform, options?)` | Transforms only text nodes while preserving the XML structure; supports sync/async transforms, skipped tags, and context filters |
 | `validateAzureSsml(xml, options?)` | Returns Azure Speech semantic-validation diagnostics |
 
 Typed representations are available for elements such as `voice`, `prosody`, `break`, `express-as`, `say-as`, `phoneme`, `audio`, `lang`, and `mark`. Use `type: "custom"` and `name` to handle undefined XML elements or additional attributes. When a document contains `mstts:` elements, the required Azure Speech namespace is added automatically.
 
-Use `mapSsmlTextNodes` to replace translatable content without changing tags, attributes, or nesting. The transform receives the immediate parent tag and ancestor `path`, and may return a `string` or a `Promise<string>`. `validateAzureSsml` checks Azure-specific voice, attribute, style, length, and `audio` URL/origin rules.
+Use `mapSsmlTextNodes` to replace translatable content without changing tags, attributes, or nesting. The transform receives the immediate parent tag and ancestor `path`, and may return a `string` or a `Promise<string>`. The third argument supports `skipTags` and a `filter` callback; `phoneme`, `say-as`, and `sub` are skipped by default. The callback receives `parentTag`, decoded `parentAttributes`, `ancestorTags`, and `path`.
+
+```ts
+const translated = await mapSsmlTextNodes(ssml, translate, {
+  skipTags: ["phoneme", "say-as", "sub", "custom-no-translate"],
+  filter: ({ parentAttributes, ancestorTags }) =>
+    ancestorTags.includes("voice") && parentAttributes["xml:lang"] !== "en-US",
+});
+```
+
+`validateAzureSsml` accepts `AzureValidationOptions` for extending the voice/style map. `unknownVoicePolicy` defaults to `"warn"` and `validateNestedVoices` defaults to `true`. External `<audio>` URLs are blocked by default; provide `allowedAudioOrigins` or explicitly set `allowExternalAudio: true` only when the deployment is configured to control those requests.
+
+```ts
+const diagnostics = validateAzureSsml(ssml, {
+  customVoiceStyleMap: { "my-custom-voice": ["narration"] },
+  unknownVoicePolicy: "error", // "error" | "warn" | "ignore"
+  allowedAudioOrigins: ["https://cdn.example.com"],
+});
+```
+
+Azure Speech fetches `<audio>` URLs, so a server that accepts arbitrary user-provided SSML can become an SSRF proxy. For untrusted SSML, enforce HTTPS, an origin allowlist, redirect policy, and response-size limits on the server; do not treat `allowExternalAudio` as a substitute for those controls.
 
 ## Using `ssml-editor-react`
 
@@ -539,6 +635,17 @@ const audio = await client.synthesize(ssml);
 // audio is an audio/mpeg ArrayBuffer
 ```
 
+For lower bandwidth, choose `audio-24khz-48kbitrate-mono-mp3` or `audio-16khz-32kbitrate-mono-mp3`.
+
+```ts
+const client = new AzureTtsClient({
+  subscriptionKey: process.env.AZURE_SPEECH_KEY!,
+  region: process.env.AZURE_SPEECH_REGION!,
+  outputFormat: "audio-24khz-48kbitrate-mono-mp3",
+  timeoutMs: 15_000,
+});
+```
+
 The lower-level `synthesizeSpeech` function is also available. It requires
 `endpoint`, `subscriptionKey`, and `region` in its `TtsConfig` argument.
 
@@ -555,6 +662,45 @@ const audio = await synthesizeSpeech(ssml, {
 Internally, the client uses the Microsoft Cognitive Services Speech SDK's `SpeechSynthesizer`. If `endpoint` is omitted from `AzureTtsClient`, `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1` is used. The Playground example explicitly uses the WebSocket endpoint from `.env.example`. If a custom endpoint contains `{region}`, it is replaced with the configured region.
 Empty or whitespace-only `endpoint` values also fall back to the regional endpoint. Pass a `logger` with optional `debug`, `info`, `warn`, and `error` methods to receive client diagnostics; when omitted, the client is silent.
 Set `outputFormat` to a format supported by the Speech SDK. If omitted, `audio-16khz-128kbitrate-mono-mp3` is used.
+`timeoutMs` bounds a synthesis request, while `signal` supports cancellation when a client disconnects. If adding retries, retry only transient SDK failures, pass the same `AbortSignal`, and use exponential backoff.
+
+Keep the subscription key on the server by using a Next.js Route Handler (or an equivalent Node.js endpoint):
+
+```ts
+// app/api/synthesize/route.ts
+import { AzureTtsClient, AzureTtsError } from "@ssml-builder-js/azure-tts-client";
+import { validateAzureSsml, validateSsml } from "@ssml-builder-js/ssml-core";
+
+export const runtime = "nodejs";
+
+export async function POST(request: Request) {
+  const body = (await request.json()) as { ssml?: unknown };
+  if (typeof body.ssml !== "string" || validateSsml(body.ssml))
+    return Response.json({ error: "Invalid SSML" }, { status: 400 });
+  if (validateAzureSsml(body.ssml).some(({ severity }) => severity === "error"))
+    return Response.json({ error: "Invalid Azure SSML" }, { status: 400 });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  request.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  try {
+    const audio = await new AzureTtsClient({
+      subscriptionKey: process.env.AZURE_SPEECH_KEY!,
+      region: process.env.AZURE_SPEECH_REGION!,
+      signal: controller.signal,
+      outputFormat: "audio-24khz-48kbitrate-mono-mp3",
+    }).synthesize(body.ssml);
+    return new Response(new Uint8Array(audio), { headers: { "Content-Type": "audio/mpeg" } });
+  } catch (error) {
+    const status = error instanceof AzureTtsError && error.status === 0 ? 504 : 502;
+    return Response.json({ error: "Speech synthesis failed" }, { status });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+```
+
+Do not log the SSML body or subscription key. If external `audio` is allowed, validate its origins before synthesis and keep the same SSRF controls in place.
 
 Speech SDK synthesis errors throw `AzureTtsSdkError` (a subclass of `AzureTtsError`); its `errorDetails` field contains the SDK error details. Because the SDK does not expose HTTP status or request IDs, SDK errors use `0` for `status`, `"Speech SDK"` for `statusText`, and `null` for `requestId`. The playground's server-side logs include these fields along with the region and SSML character count. Logged error details are limited to 4,096 characters. The subscription key and SSML content itself are not written to logs.
 

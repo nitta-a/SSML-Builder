@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.5.0
+
+### Minor Changes
+
+- Add timeout and cancellation support for synthesis requests and document low-bitrate MP3 and server-side integration patterns.
+
 ## 2.4.0
 
 ### Minor Changes

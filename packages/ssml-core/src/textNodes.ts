@@ -2,7 +2,16 @@ import { parseSsml } from "./parser.ts";
 
 export interface SsmlTextNodeContext {
   parentTag: string;
+  parentAttributes: Record<string, string>;
+  ancestorTags: string[];
   path: string[];
+}
+
+export interface MapSsmlTextNodesOptions {
+  /** Element names whose text should not be passed to the transform. */
+  skipTags?: readonly string[];
+  /** Decides whether an individual text node should be passed to the transform. */
+  filter?: (context: SsmlTextNodeContext) => boolean;
 }
 
 interface TextNodeRecord {
@@ -12,6 +21,11 @@ interface TextNodeRecord {
   sourceEnd: number;
   sourceStart: number;
   start: number;
+}
+
+interface OpenElement {
+  attributes: Record<string, string>;
+  name: string;
 }
 
 function decodeXmlText(value: string): string {
@@ -29,6 +43,10 @@ function decodeXmlText(value: string): string {
 
 function encodeXmlText(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function decodeXmlAttribute(value: string): string {
+  return decodeXmlText(value);
 }
 
 function findTagEnd(source: string, start: number): number {
@@ -51,15 +69,33 @@ function readTagName(tag: string): string | undefined {
   return match?.[1];
 }
 
+function readTagAttributes(tag: string, name: string): Record<string, string> {
+  const attributes: Record<string, string> = {};
+  const nameStart = tag.indexOf(name);
+  const attributeSource = tag.slice(nameStart + name.length, tag.length - 1).replace(/\/\s*$/, "");
+  const attributePattern = /([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*(["'])([\s\S]*?)\2/g;
+  for (const match of attributeSource.matchAll(attributePattern)) {
+    attributes[match[1].toLowerCase()] = decodeXmlAttribute(match[3]);
+  }
+  return attributes;
+}
+
 function collectTextNodes(source: string): TextNodeRecord[] {
   const nodes: TextNodeRecord[] = [];
-  const path: string[] = [];
+  const elements: OpenElement[] = [];
   let index = 0;
 
   const addText = (start: number, end: number, rawText: string, sourceStart = start, sourceEnd = end): void => {
     if (!rawText) return;
+    const path = elements.map((element) => element.name);
+    const parent = elements[elements.length - 1];
     nodes.push({
-      context: { parentTag: path[path.length - 1] ?? "", path: [...path] },
+      context: {
+        ancestorTags: path.slice(0, -1),
+        parentAttributes: { ...(parent?.attributes ?? {}) },
+        parentTag: parent?.name ?? "",
+        path,
+      },
       decodedText: decodeXmlText(rawText),
       end,
       sourceEnd,
@@ -103,7 +139,7 @@ function collectTextNodes(source: string): TextNodeRecord[] {
     }
     if (source.startsWith("</", index)) {
       const end = findTagEnd(source, index + 2);
-      path.pop();
+      elements.pop();
       index = end + 1;
       continue;
     }
@@ -111,7 +147,7 @@ function collectTextNodes(source: string): TextNodeRecord[] {
     const end = findTagEnd(source, index + 1);
     const tag = source.slice(index, end + 1);
     const name = readTagName(tag);
-    if (name && !/\/\s*>$/.test(tag)) path.push(name);
+    if (name && !/\/\s*>$/.test(tag)) elements.push({ attributes: readTagAttributes(tag, name), name });
     index = end + 1;
   }
 
@@ -126,15 +162,22 @@ export function extractSsmlText(ssml: string): string[] {
 export async function mapSsmlTextNodes(
   ssml: string,
   transform: (text: string, context: SsmlTextNodeContext) => string | Promise<string>,
+  options: MapSsmlTextNodesOptions = {},
 ): Promise<string> {
   parseSsml(ssml);
   const nodes = collectTextNodes(ssml);
+  const skipTags = new Set((options.skipTags ?? ["phoneme", "say-as", "sub"]).map((tag) => tag.toLowerCase()));
   const replacements = await Promise.all(
     nodes.map(async (node) => {
-      const transformed = await transform(node.decodedText, {
+      const context = {
+        ancestorTags: [...node.context.ancestorTags],
+        parentAttributes: { ...node.context.parentAttributes },
         parentTag: node.context.parentTag,
         path: [...node.context.path],
-      });
+      };
+      const shouldTransform = !skipTags.has(context.parentTag.toLowerCase()) && (options.filter?.(context) ?? true);
+      if (!shouldTransform) return ssml.slice(node.sourceStart, node.sourceEnd);
+      const transformed = await transform(node.decodedText, context);
       if (typeof transformed !== "string") {
         throw new TypeError("SSML text node transform must return a string");
       }

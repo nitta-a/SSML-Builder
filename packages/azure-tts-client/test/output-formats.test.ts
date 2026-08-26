@@ -13,6 +13,14 @@ test("defines the default Azure Speech output format", () => {
 
 test("resolves supported output formats", () => {
   assert.equal(
+    resolveOutputFormat("audio-16khz-32kbitrate-mono-mp3"),
+    SpeechSDK.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3,
+  );
+  assert.equal(
+    resolveOutputFormat("audio-24khz-48kbitrate-mono-mp3"),
+    SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3,
+  );
+  assert.equal(
     resolveOutputFormat("audio-24khz-160kbitrate-mono-mp3"),
     SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz160KBitRateMonoMp3,
   );
