@@ -1,6 +1,6 @@
 {
   "name": "@ssml-builder-js/ssml-editor-elements",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Framework-independent SSML editor custom element",
   "license": "MIT",
   "repository": {
@@ -37,6 +37,6 @@
     "monaco-editor": "^0.56.0"
   },
   "dependencies": {
-    "@ssml-builder-js/ssml-core": "^2.5.0"
+    "@ssml-builder-js/ssml-core": "^2.6.0"
   }
 }

@@ -268,6 +268,34 @@ function diagnosticSeverity(policy: AzureValidationOptions["unknownVoicePolicy"]
   return policy === "error" ? "error" : "warning";
 }
 
+function voiceLocalePrefix(voiceName: string): { language: string; region: string } | undefined {
+  const match = /^(?<language>[A-Za-z]{2,3})-(?<region>[A-Za-z]{2}|\d{3})(?:-|$)/.exec(voiceName.trim());
+  if (!match?.groups) return undefined;
+  return {
+    language: match.groups.language.toLowerCase(),
+    region: match.groups.region.toLowerCase(),
+  };
+}
+
+function languageLocalePrefix(language: string): { language: string; region?: string } | undefined {
+  const match = /^(?<language>[A-Za-z]{2,3})(?:-(?<region>[A-Za-z]{2}|\d{3}))?(?:-|$)/.exec(language.trim());
+  if (!match?.groups) return undefined;
+  return {
+    language: match.groups.language.toLowerCase(),
+    region: match.groups.region?.toLowerCase(),
+  };
+}
+
+function voiceMatchesLanguage(voiceName: string, language: string): boolean | undefined {
+  const voiceLocale = voiceLocalePrefix(voiceName);
+  const languageLocale = languageLocalePrefix(language);
+  if (!voiceLocale || !languageLocale) return undefined;
+  return (
+    voiceLocale.language === languageLocale.language &&
+    (languageLocale.region === undefined || voiceLocale.region === languageLocale.region)
+  );
+}
+
 function validateElement(
   token: ElementToken,
   source: string,
@@ -438,6 +466,7 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
   const voicesToValidate = options.validateNestedVoices === false ? voices.slice(0, 1) : voices;
   for (const token of voicesToValidate) {
     const name = attr(token, "name")?.trim();
+    const language = attr(token, "xml:lang")?.trim() || (speak ? attr(speak, "xml:lang")?.trim() : undefined);
     if (name && !voiceStyleMap.has(name.toLowerCase()) && policySeverity)
       addDiagnostic(
         diagnostics,
@@ -445,6 +474,14 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
         token.start,
         `Unknown voice "${name}" is not registered in the voice style map.`,
         policySeverity,
+      );
+    if (name && language && voiceMatchesLanguage(name, language) === false)
+      addDiagnostic(
+        diagnostics,
+        ssml,
+        token.start,
+        `Voice "${name}" does not match language "${language}"; the voice name prefix indicates a different language or region.`,
+        "warning",
       );
   }
   for (const token of tokens) {

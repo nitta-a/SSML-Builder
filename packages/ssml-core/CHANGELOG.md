@@ -1,5 +1,12 @@
 # @ssml-builder-js/ssml-core
 
+## 2.6.0
+
+### Minor Changes
+
+- Warn when a voice name locale prefix does not match the effective `xml:lang`.
+- Document the three-stage SSML validation model and voice/style catalog override policy.
+
 ## 2.5.0
 
 ### Minor Changes

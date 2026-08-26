@@ -1,5 +1,13 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.6.0
+
+### Patch Changes
+
+- Update the package version and workspace dependency references for the v2.6.0 release.
+- Updated dependencies
+  - @ssml-builder-js/ssml-core@2.6.0
+
 ## 2.5.0
 
 ### Patch Changes

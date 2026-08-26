@@ -1,10 +1,29 @@
-# SSML-Builder v2.5.0 Release Notes
+# SSML-Builder v2.6.0 Release Notes
+
+Release date: 2026-08-26
+
+v2.6.0 strengthens Azure SSML quality checks and synthesis cancellation coverage.
+
+## Highlights
+
+- `validateAzureSsml` warns when a voice name's locale prefix does not match the voice or speak `xml:lang`.
+- Documented the three-stage validation model: XML syntax, static Azure semantics, and runtime API validation.
+- Added cancellation, timeout, and optionally enabled live Azure Speech API synthesis tests.
+- Documented the `customVoiceStyleMap` override workflow and the rationale for the default `unknownVoicePolicy: "warn"`.
+
+## Verification
+
+- `npm run test` — passed
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
+## v2.5.0
 
 Release date: 2026-08-26
 
 v2.5.0 adds safer Azure SSML validation, context-aware text mapping, React 18 compatibility, and production-oriented Azure TTS controls and examples.
 
-## Highlights
+### Highlights
 
 ### Azure SSML validation
 
@@ -49,14 +68,14 @@ react-dom: >=18.2.0 <20
 
 This supports React 18.3.1 with both Next.js Pages Router and App Router applications.
 
-## Upgrade notes
+### Upgrade notes
 
 - If an application relies on translating text inside `phoneme`, `say-as`, or `sub`, pass `skipTags: []` or provide a customized list.
 - Existing unknown Azure voices and unsupported styles now produce warnings by default. Set `unknownVoicePolicy: "error"` for strict validation or `"ignore"` to suppress metadata-map diagnostics.
 - Applications using external `<audio>` URLs must configure `allowedAudioOrigins` or explicitly opt in to external audio. Keep URL validation, redirect restrictions, and response-size limits on the server.
 - Azure subscription keys must remain server-side and must not be logged.
 
-## Verification
+### Verification
 
 - `npm test` — passed
 - `npm run typecheck` — passed

@@ -138,6 +138,16 @@ const parsed = parseSsml(ssml);
 | `mapSsmlTextNodes(xml, transform, options?)` | タグ構造を維持したままテキストノードだけを同期・非同期変換。スキップタグとコンテキストフィルターに対応 |
 | `validateAzureSsml(xml, options?)` | Azure Speech 向けの意味検証結果を Diagnostic 配列で返す |
 
+### 3段階の検証モデル
+
+SSML の検証は、構文、Azure 固有の静的な意味、実サービスのランタイム状態を分けて扱います。前段の検証に通っても、後段の検証結果までは保証しません。
+
+| 段階 | API / 操作 | 検証する範囲 | 検証しない範囲 |
+| --- | --- | --- | --- |
+| XML 構文 | `validateSsml` | XML の整形式性、タグの対応、属性・エンティティの構文 | Azure の音声・属性・スタイル対応、アカウント状態、実際の合成可否 |
+| 静的意味 | `validateAzureSsml` | Azure SSML の必須要素、属性値、音声と `xml:lang` の整合性、音声スタイル、文字数、`audio` URL/オリジン | Azure 側の最新音声一覧、キー・リージョン権限、サービス障害、実際の音声生成結果 |
+| ランタイム | `AzureTtsClient.synthesize` / Azure Speech API | アカウント、リージョン、キー、最新の音声・スタイル提供状況、サービス側の SSML 制約、通信状態 | 静的検証の代替ではないため、入力検証や SSRF 対策を自動で補完しない |
+
 `voice`、`prosody`、`break`、`express-as`、`say-as`、`phoneme`、`audio`、`lang`、`mark` などの要素を型付きで表現できます。`type: "custom"` と `name` を指定すれば、未定義の XML 要素や追加属性も扱えます。`mstts:` 要素を含むドキュメントを生成すると、必要な Azure Speech 名前空間が自動的に追加されます。
 
 翻訳などで本文だけを置き換える場合は、`mapSsmlTextNodes` に変換関数を渡します。変換関数には直近の親タグと祖先タグの `path` が渡され、戻り値は `string` または `Promise<string>` を指定できます。`validateAzureSsml` は音声、属性値、音声スタイル、文字数、`audio` URL/オリジンを検証します。
@@ -152,7 +162,7 @@ const translated = await mapSsmlTextNodes(ssml, translate, {
 });
 ```
 
-`validateAzureSsml` は `AzureValidationOptions` で音声・スタイルの定義を追加できます。`unknownVoicePolicy` のデフォルトは `"warn"`、`validateNestedVoices` のデフォルトは `true` です。`audio` の外部 URL はデフォルトで拒否されるため、利用する場合は `allowedAudioOrigins` に許可するオリジンを列挙するか、構成を理解した上で `allowExternalAudio: true` を指定してください。
+`validateAzureSsml` は `AzureValidationOptions` で音声・スタイルの定義を追加できます。Azure の音声・スタイル一覧はサービス更新やリージョン差分があるため、組み込み一覧は固定の完全な台帳ではありません。新しい音声を一覧の更新前から使う場合や既存音声のスタイルを上書きする場合は、`customVoiceStyleMap` に同じ音声名を指定すれば、その呼び出しで直ちに置き換えられます。未知音声をデフォルトの `unknownVoicePolicy: "warn"` で警告に留めるのは、一覧更新前の音声、カスタム音声、リージョン限定音声を静的検証で不必要にブロックしないためです。厳格なデプロイ前検査では `"error"`、台帳外の音声を利用する構成では `"ignore"` も選択できます。`validateNestedVoices` のデフォルトは `true` です。`audio` の外部 URL はデフォルトで拒否されるため、利用する場合は `allowedAudioOrigins` に許可するオリジンを列挙するか、構成を理解した上で `allowExternalAudio: true` を指定してください。
 
 ```ts
 const diagnostics = validateAzureSsml(ssml, {
@@ -508,6 +518,16 @@ The main `buildSsml` and `parseSsml` signatures are:
 | `mapSsmlTextNodes(xml, transform, options?)` | Transforms only text nodes while preserving the XML structure; supports sync/async transforms, skipped tags, and context filters |
 | `validateAzureSsml(xml, options?)` | Returns Azure Speech semantic-validation diagnostics |
 
+### Three-stage validation model
+
+SSML validation separates XML syntax, Azure-specific static semantics, and runtime service state. Passing an earlier stage does not guarantee the result of a later stage.
+
+| Stage | API / operation | What it validates | Boundary |
+| --- | --- | --- | --- |
+| XML syntax | `validateSsml` | Well-formed XML, matching tags, and attribute/entity syntax | Azure voice, attribute, and style support; account state; and actual synthesis availability |
+| Static semantics | `validateAzureSsml` | Required Azure SSML elements, attribute values, voice/`xml:lang` alignment, voice styles, character limits, and `audio` URL/origin policy | Azure's latest voice catalog, key/region permissions, service incidents, and the actual generated audio |
+| Runtime | `AzureTtsClient.synthesize` / Azure Speech API | Account, region, key, current voice/style availability, service-side SSML constraints, and network state | It does not replace input validation or automatically provide SSRF protection |
+
 Typed representations are available for elements such as `voice`, `prosody`, `break`, `express-as`, `say-as`, `phoneme`, `audio`, `lang`, and `mark`. Use `type: "custom"` and `name` to handle undefined XML elements or additional attributes. When a document contains `mstts:` elements, the required Azure Speech namespace is added automatically.
 
 Use `mapSsmlTextNodes` to replace translatable content without changing tags, attributes, or nesting. The transform receives the immediate parent tag and ancestor `path`, and may return a `string` or a `Promise<string>`. The third argument supports `skipTags` and a `filter` callback; `phoneme`, `say-as`, and `sub` are skipped by default. The callback receives `parentTag`, decoded `parentAttributes`, `ancestorTags`, and `path`.
@@ -520,7 +540,7 @@ const translated = await mapSsmlTextNodes(ssml, translate, {
 });
 ```
 
-`validateAzureSsml` accepts `AzureValidationOptions` for extending the voice/style map. `unknownVoicePolicy` defaults to `"warn"` and `validateNestedVoices` defaults to `true`. External `<audio>` URLs are blocked by default; provide `allowedAudioOrigins` or explicitly set `allowExternalAudio: true` only when the deployment is configured to control those requests.
+`validateAzureSsml` accepts `AzureValidationOptions` for extending the voice/style map. Azure's voice and style catalog changes over time and can differ by region, so the built-in map is a fixed snapshot rather than a complete live catalog. To use a newly released voice before the built-in map is updated, or to replace the styles for an existing voice, pass the same voice name through `customVoiceStyleMap`; that entry takes effect immediately for the call. Unknown voices default to `unknownVoicePolicy: "warn"` so catalog lag, custom voices, and region-limited voices do not get unnecessarily blocked by static validation. Use `"error"` for strict pre-deployment checks or `"ignore"` when the deployment intentionally operates outside the built-in catalog. `validateNestedVoices` defaults to `true`. External `<audio>` URLs are blocked by default; provide `allowedAudioOrigins` or explicitly set `allowExternalAudio: true` only when the deployment is configured to control those requests.
 
 ```ts
 const diagnostics = validateAzureSsml(ssml, {

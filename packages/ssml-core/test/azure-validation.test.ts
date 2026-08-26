@@ -69,6 +69,36 @@ test("validateAzureSsml accepts custom voice styles and reports unknown metadata
   );
 });
 
+test("validateAzureSsml reports voice and language mismatches", () => {
+  const diagnostics = validateAzureSsml(
+    '<speak version="1.0" xml:lang="en-US"><voice name="ja-JP-NanamiNeural">こんにちは</voice></speak>',
+  );
+
+  assert.ok(
+    diagnostics.some(
+      (diagnostic) =>
+        diagnostic.message.includes('Voice "ja-JP-NanamiNeural"') &&
+        diagnostic.message.includes('language "en-US"') &&
+        diagnostic.severity === "warning",
+    ),
+  );
+});
+
+test("validateAzureSsml prefers a voice xml:lang over the speak language", () => {
+  const matching = validateAzureSsml(
+    '<speak version="1.0" xml:lang="en-US"><voice name="ja-JP-NanamiNeural" xml:lang="ja-JP">こんにちは</voice></speak>',
+  );
+  assert.equal(
+    matching.some((diagnostic) => diagnostic.message.includes("does not match language")),
+    false,
+  );
+
+  const mismatching = validateAzureSsml(
+    '<speak version="1.0" xml:lang="en-US"><voice name="ja-JP-NanamiNeural" xml:lang="fr-FR">Bonjour</voice></speak>',
+  );
+  assert.ok(mismatching.some((diagnostic) => diagnostic.message.includes('language "fr-FR"')));
+});
+
 test("validateAzureSsml validates nested voices independently and protects external audio by default", () => {
   const ssml =
     '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural">One<voice name="CustomVoice"><mstts:express-as style="custom">Two</mstts:express-as></voice></voice><audio src="https://example.test/audio.mp3"/></speak>';

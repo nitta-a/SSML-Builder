@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.6.0
+
+### Patch Changes
+
+- Add synthesis cancellation, timeout, and optionally enabled live Azure Speech API coverage tests.
+
 ## 2.5.0
 
 ### Minor Changes
