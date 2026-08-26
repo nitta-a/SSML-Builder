@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateAzureSsml } from "../src/index.ts";
+import { areAzureLanguagesEquivalent, normalizeAzureLanguage, validateAzureSsml } from "../src/index.ts";
 
 const valid =
   '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural"><mstts:express-as style="cheerful">Hello</mstts:express-as></voice></speak>';
+
+test("normalizes BCP 47 language aliases", () => {
+  assert.equal(normalizeAzureLanguage("zh-Hans"), "zh-cn");
+  assert.equal(normalizeAzureLanguage("zh-TW"), "zh-tw");
+  assert.equal(areAzureLanguagesEquivalent("zh-Hant", "zh-TW"), true);
+  assert.equal(areAzureLanguagesEquivalent("en", "en-US"), true);
+  assert.equal(areAzureLanguagesEquivalent("en-US", "en-GB"), false);
+});
 
 test("validateAzureSsml accepts a valid Azure document", () => {
   assert.deepEqual(validateAzureSsml(valid), []);
@@ -97,6 +105,67 @@ test("validateAzureSsml prefers a voice xml:lang over the speak language", () =>
     '<speak version="1.0" xml:lang="en-US"><voice name="ja-JP-NanamiNeural" xml:lang="fr-FR">Bonjour</voice></speak>',
   );
   assert.ok(mismatching.some((diagnostic) => diagnostic.message.includes('language "fr-FR"')));
+  assert.equal(
+    mismatching.find((diagnostic) => diagnostic.message.includes('language "fr-FR"'))?.code,
+    "azure-locale-mismatch",
+  );
+});
+
+test("validateAzureSsml accepts the 16-language voice compatibility matrix", () => {
+  const matrix = [
+    ["ja", "ja-JP-MayuNeural"],
+    ["en", "en-US-JennyNeural"],
+    ["zh-Hans", "zh-CN-XiaoxiaoNeural"],
+    ["zh-Hant", "zh-TW-HsiaoChenNeural"],
+    ["ko", "ko-KR-SunHiNeural"],
+    ["th", "th-TH-PremwadeeNeural"],
+    ["fr", "fr-FR-DeniseNeural"],
+    ["es", "es-ES-ElviraNeural"],
+    ["pt-BR", "pt-BR-FranciscaNeural"],
+    ["it", "it-IT-ElsaNeural"],
+    ["de", "de-DE-KatjaNeural"],
+    ["ru", "ru-RU-SvetlanaNeural"],
+    ["fil", "fil-PH-AngeloNeural"],
+    ["vi", "vi-VN-HoaiMyNeural"],
+    ["id", "id-ID-GadisNeural"],
+    ["ms", "ms-MY-YasminNeural"],
+  ] as const;
+
+  for (const [language, voice] of matrix) {
+    const diagnostics = validateAzureSsml(
+      `<speak version="1.0" xml:lang="${language}"><voice name="${voice}">Text</voice></speak>`,
+    );
+    assert.deepEqual(diagnostics, [], `${language} / ${voice}`);
+  }
+});
+
+test("validateAzureSsml supports injected aliases and complete external voice definitions", () => {
+  const diagnostics = validateAzureSsml(
+    '<speak version="1.0" xml:lang="x-app"><voice name="x-App-ReaderNeural"><mstts:express-as style="narration">Text</mstts:express-as></voice></speak>',
+    {
+      languageAliases: { "x-APP": "x-App" },
+      voiceDefinitions: [
+        {
+          name: "x-App-ReaderNeural",
+          locale: "x-App",
+          styles: ["narration"],
+        },
+      ],
+    },
+  );
+  assert.deepEqual(diagnostics, []);
+});
+
+test("validateAzureSsml separates voice, style, and locale diagnostic codes", () => {
+  const unknownVoice = validateAzureSsml(
+    '<speak version="1.0" xml:lang="en-US"><voice name="UnknownVoice">Text</voice></speak>',
+  );
+  assert.equal(unknownVoice.find((diagnostic) => diagnostic.code)?.code, "azure-unknown-voice");
+
+  const unsupportedStyle = validateAzureSsml(
+    '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural"><mstts:express-as style="angry">Text</mstts:express-as></voice></speak>',
+  );
+  assert.equal(unsupportedStyle.find((diagnostic) => diagnostic.code)?.code, "azure-unsupported-style");
 });
 
 test("validateAzureSsml validates nested voices independently and protects external audio by default", () => {

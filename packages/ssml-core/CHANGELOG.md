@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.7.0
+
+### Minor Changes
+
+- Add BCP 47 language-alias normalization, injectable Azure voice definitions, and distinct Azure voice, style, and locale diagnostics.
+
 ## 2.6.0
 
 ### Minor Changes

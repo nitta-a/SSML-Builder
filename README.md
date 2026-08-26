@@ -162,7 +162,33 @@ const translated = await mapSsmlTextNodes(ssml, translate, {
 });
 ```
 
-`validateAzureSsml` は `AzureValidationOptions` で音声・スタイルの定義を追加できます。Azure の音声・スタイル一覧はサービス更新やリージョン差分があるため、組み込み一覧は固定の完全な台帳ではありません。新しい音声を一覧の更新前から使う場合や既存音声のスタイルを上書きする場合は、`customVoiceStyleMap` に同じ音声名を指定すれば、その呼び出しで直ちに置き換えられます。未知音声をデフォルトの `unknownVoicePolicy: "warn"` で警告に留めるのは、一覧更新前の音声、カスタム音声、リージョン限定音声を静的検証で不必要にブロックしないためです。厳格なデプロイ前検査では `"error"`、台帳外の音声を利用する構成では `"ignore"` も選択できます。`validateNestedVoices` のデフォルトは `true` です。`audio` の外部 URL はデフォルトで拒否されるため、利用する場合は `allowedAudioOrigins` に許可するオリジンを列挙するか、構成を理解した上で `allowExternalAudio: true` を指定してください。
+`validateAzureSsml` は `AzureValidationOptions` で音声・スタイルの定義を追加できます。言語比較は `Intl.Locale` を使って BCP 47 として正規化し、組み込みで `zh-Hans` と `zh-CN`、`zh-Hant` と `zh-TW` を同一視します。独自の別名や正規化関数も注入できます。
+
+```ts
+const diagnostics = validateAzureSsml(ssml, {
+  languageAliases: { "ja": ["ja-JP", "ja-Japan"] },
+  normalizeLanguage: (language) => language.replace("_", "-"),
+});
+```
+
+音声カタログは `AzureVoiceDefinition` の `name`、`locale`、`secondaryLocales`、`styles` で表現できます。`voiceDefinitions`（または `voiceCatalog`）を渡すと、組み込み台帳を外部定義で補完・上書きできます。`customVoiceStyleMap` は既存利用者向けに引き続き利用でき、指定した音声のスタイルを上書きします。組み込み台帳にない音声は `azure-unknown-voice`（`unknownVoicePolicy` に従う）、登録済み音声への非対応スタイルは `azure-unsupported-style`、ロケール不一致は `azure-locale-mismatch` として区別されます。
+
+```ts
+const diagnostics = validateAzureSsml(ssml, {
+  voiceDefinitions: [
+    {
+      name: "my-custom-voice",
+      locale: "ja-JP",
+      secondaryLocales: ["zh-Hant"],
+      styles: ["narration"],
+    },
+  ],
+  unknownVoicePolicy: "error", // "error" | "warn" | "ignore"
+  allowedAudioOrigins: ["https://cdn.example.com"],
+});
+```
+
+Azure の音声・スタイル一覧はサービス更新やリージョン差分があるため、組み込み一覧は固定の完全な台帳ではありません。新しい音声を完全に静的検証したい場合は、音声名だけでなくロケールとスタイルを `voiceDefinitions` に定義してください。`validateNestedVoices` のデフォルトは `true` です。`audio` の外部 URL はデフォルトで拒否されるため、利用する場合は `allowedAudioOrigins` に許可するオリジンを列挙するか、構成を理解した上で `allowExternalAudio: true` を指定してください。
 
 ```ts
 const diagnostics = validateAzureSsml(ssml, {
@@ -540,7 +566,33 @@ const translated = await mapSsmlTextNodes(ssml, translate, {
 });
 ```
 
-`validateAzureSsml` accepts `AzureValidationOptions` for extending the voice/style map. Azure's voice and style catalog changes over time and can differ by region, so the built-in map is a fixed snapshot rather than a complete live catalog. To use a newly released voice before the built-in map is updated, or to replace the styles for an existing voice, pass the same voice name through `customVoiceStyleMap`; that entry takes effect immediately for the call. Unknown voices default to `unknownVoicePolicy: "warn"` so catalog lag, custom voices, and region-limited voices do not get unnecessarily blocked by static validation. Use `"error"` for strict pre-deployment checks or `"ignore"` when the deployment intentionally operates outside the built-in catalog. `validateNestedVoices` defaults to `true`. External `<audio>` URLs are blocked by default; provide `allowedAudioOrigins` or explicitly set `allowExternalAudio: true` only when the deployment is configured to control those requests.
+`validateAzureSsml` accepts `AzureValidationOptions` for extending the voice/style catalog. Language comparison uses `Intl.Locale` and BCP 47 normalization; the built-in aliases treat `zh-Hans` and `zh-CN`, and `zh-Hant` and `zh-TW`, as equivalent. Custom aliases or a custom normalizer can be injected as well.
+
+```ts
+const diagnostics = validateAzureSsml(ssml, {
+  languageAliases: { ja: ["ja-JP", "ja-Japan"] },
+  normalizeLanguage: (language) => language.replace("_", "-"),
+});
+```
+
+The catalog is represented by `AzureVoiceDefinition` with `name`, `locale`, optional `secondaryLocales`, and optional `styles`. Pass `voiceDefinitions` (or `voiceCatalog`) to supplement or override the built-in catalog with an external definition. `customVoiceStyleMap` remains supported for backward compatibility and overrides styles for the named voice. Diagnostics distinguish an unregistered voice (`azure-unknown-voice`, controlled by `unknownVoicePolicy`), an unsupported style on a registered voice (`azure-unsupported-style`), and a locale mismatch (`azure-locale-mismatch`).
+
+```ts
+const diagnostics = validateAzureSsml(ssml, {
+  voiceDefinitions: [
+    {
+      name: "my-custom-voice",
+      locale: "ja-JP",
+      secondaryLocales: ["zh-Hant"],
+      styles: ["narration"],
+    },
+  ],
+  unknownVoicePolicy: "error", // "error" | "warn" | "ignore"
+  allowedAudioOrigins: ["https://cdn.example.com"],
+});
+```
+
+Azure's voice and style catalog changes over time and can differ by region, so the built-in catalog is a fixed snapshot rather than a complete live catalog. For complete static validation of a new voice, define its name, locale, and supported styles in `voiceDefinitions`. `validateNestedVoices` defaults to `true`. External `<audio>` URLs are blocked by default; provide `allowedAudioOrigins` or explicitly set `allowExternalAudio: true` only when the deployment is configured to control those requests.
 
 ```ts
 const diagnostics = validateAzureSsml(ssml, {

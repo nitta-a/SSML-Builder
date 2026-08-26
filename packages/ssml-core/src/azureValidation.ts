@@ -2,22 +2,43 @@ import { parseSsml } from "./parser.ts";
 
 export type SsmlDiagnosticSeverity = "error" | "warning";
 
+export type AzureDiagnosticCode = "azure-unknown-voice" | "azure-unsupported-style" | "azure-locale-mismatch";
+
 export interface SsmlDiagnostic {
+  code?: AzureDiagnosticCode;
   line: number;
   column: number;
   message: string;
   severity: SsmlDiagnosticSeverity;
 }
 
+export interface AzureVoiceDefinition {
+  name: string;
+  locale: string;
+  secondaryLocales?: readonly string[];
+  styles?: readonly string[];
+}
+
+/** Alias retained for consumers that prefer the metadata terminology. */
+export interface AzureVoiceMetadata extends AzureVoiceDefinition {}
+
 export interface AzureValidationOptions {
   allowedAudioOrigins?: readonly string[];
   allowExternalAudio?: boolean;
   allowHttpAudio?: boolean;
   customVoiceStyleMap?: Record<string, readonly string[]>;
+  customVoiceDefinitions?: readonly AzureVoiceDefinition[];
+  languageAliases?: Record<string, string | readonly string[]>;
   maxLength?: number;
+  normalizeLanguage?: (lang: string) => string;
   unknownVoicePolicy?: "error" | "warn" | "ignore";
+  unsupportedStylePolicy?: "error" | "warn" | "ignore";
   validateNestedVoices?: boolean;
+  voiceCatalog?: readonly AzureVoiceDefinition[];
+  voiceDefinitions?: readonly AzureVoiceDefinition[];
 }
+
+export type AzureLanguageNormalizationOptions = Pick<AzureValidationOptions, "languageAliases" | "normalizeLanguage">;
 
 /** @deprecated Use AzureValidationOptions instead. */
 export type AzureSsmlValidationOptions = AzureValidationOptions;
@@ -240,27 +261,122 @@ function addDiagnostic(
   offset: number,
   message: string,
   severity: SsmlDiagnosticSeverity = "error",
+  code?: AzureDiagnosticCode,
 ): void {
-  diagnostics.push({ ...location(source, offset), message, severity });
+  diagnostics.push({ ...location(source, offset), message, severity, ...(code ? { code } : {}) });
 }
 
 function attr(token: ElementToken, name: string): string | undefined {
   return token.attributes.get(name.toLowerCase());
 }
 
-function normalizeVoiceStyleMap(
-  customVoiceStyleMap: Record<string, readonly string[]> | undefined,
-): ReadonlyMap<string, readonly string[]> {
-  const map = new Map<string, readonly string[]>(
-    Object.entries(EXPRESS_AS_STYLES).map(([voiceName, styles]) => [voiceName.toLowerCase(), styles]),
-  );
-  for (const [voiceName, styles] of Object.entries(customVoiceStyleMap ?? {})) {
-    map.set(
-      voiceName.toLowerCase(),
-      styles.map((style) => style.toLowerCase()),
-    );
+const ADDITIONAL_VOICE_DEFINITIONS: readonly AzureVoiceDefinition[] = [
+  { name: "zh-TW-HsiaoChenNeural", locale: "zh-TW" },
+  { name: "es-ES-ElviraNeural", locale: "es-ES" },
+  { name: "th-TH-PremwadeeNeural", locale: "th-TH" },
+  { name: "fil-PH-AngeloNeural", locale: "fil-PH" },
+  { name: "vi-VN-HoaiMyNeural", locale: "vi-VN" },
+  { name: "id-ID-GadisNeural", locale: "id-ID" },
+  { name: "ms-MY-YasminNeural", locale: "ms-MY" },
+];
+
+const DEFAULT_LANGUAGE_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  "zh-CN": ["zh-Hans"],
+  "zh-TW": ["zh-Hant"],
+};
+
+function canonicalLanguageTag(language: string): string {
+  const trimmed = language.trim();
+  if (!trimmed) return "";
+  try {
+    return new Intl.Locale(trimmed).toString().toLowerCase();
+  } catch {
+    return trimmed.toLowerCase();
   }
-  return map;
+}
+
+function createLanguageNormalizer(options: AzureValidationOptions): (language: string) => string {
+  const aliases = new Map<string, string>();
+  const addAliasGroup = (canonical: string, values: readonly string[]): void => {
+    const normalizedCanonical = canonicalLanguageTag(canonical);
+    if (!normalizedCanonical) return;
+    aliases.set(normalizedCanonical, normalizedCanonical);
+    for (const value of values) {
+      const normalizedValue = canonicalLanguageTag(value);
+      if (normalizedValue) aliases.set(normalizedValue, normalizedCanonical);
+    }
+  };
+  for (const [canonical, values] of Object.entries(DEFAULT_LANGUAGE_ALIASES)) addAliasGroup(canonical, values);
+  for (const [canonical, valueOrValues] of Object.entries(options.languageAliases ?? {}))
+    addAliasGroup(canonical, typeof valueOrValues === "string" ? [valueOrValues] : valueOrValues);
+
+  return (language: string): string => {
+    const customValue = options.normalizeLanguage ? options.normalizeLanguage(language) : language;
+    const normalized = canonicalLanguageTag(customValue);
+    return aliases.get(normalized) ?? normalized;
+  };
+}
+
+/** Normalizes an Azure language tag using BCP 47 and the configured aliases. */
+export function normalizeAzureLanguage(language: string, options: AzureLanguageNormalizationOptions = {}): string {
+  return createLanguageNormalizer(options)(language);
+}
+
+/** Compares two Azure language tags after BCP 47 and alias normalization. */
+export function areAzureLanguagesEquivalent(
+  first: string,
+  second: string,
+  options: AzureLanguageNormalizationOptions = {},
+): boolean {
+  const normalize = createLanguageNormalizer(options);
+  const normalizedFirst = normalize(first);
+  const normalizedSecond = normalize(second);
+  if (normalizedFirst === normalizedSecond) return true;
+  return (
+    normalizedFirst === languagePart(normalizedFirst) &&
+    languagePart(normalizedFirst) === languagePart(normalizedSecond)
+  );
+}
+
+function voiceLocalePrefix(voiceName: string): { language: string; region: string; tag: string } | undefined {
+  const match = /^(?<language>[A-Za-z]{2,3})-(?<region>[A-Za-z]{2}|\d{3})(?:-|$)/.exec(voiceName.trim());
+  if (!match?.groups) return undefined;
+  const tag = `${match.groups.language}-${match.groups.region}`;
+  return {
+    language: match.groups.language.toLowerCase(),
+    region: match.groups.region.toLowerCase(),
+    tag,
+  };
+}
+
+function definitionFromStyleMap(voiceName: string, styles: readonly string[]): AzureVoiceDefinition {
+  return {
+    name: voiceName,
+    locale: voiceLocalePrefix(voiceName)?.tag ?? "",
+    styles,
+  };
+}
+
+function normalizeVoiceCatalog(options: AzureValidationOptions): ReadonlyMap<string, AzureVoiceDefinition> {
+  const definitions = new Map<string, AzureVoiceDefinition>();
+  for (const [name, styles] of Object.entries(EXPRESS_AS_STYLES)) {
+    definitions.set(name.toLowerCase(), definitionFromStyleMap(name, styles));
+  }
+  for (const definition of ADDITIONAL_VOICE_DEFINITIONS) definitions.set(definition.name.toLowerCase(), definition);
+  for (const definition of options.voiceCatalog ?? []) definitions.set(definition.name.toLowerCase(), definition);
+  for (const definition of options.voiceDefinitions ?? []) definitions.set(definition.name.toLowerCase(), definition);
+  for (const definition of options.customVoiceDefinitions ?? [])
+    definitions.set(definition.name.toLowerCase(), definition);
+  for (const [voiceName, styles] of Object.entries(options.customVoiceStyleMap ?? {})) {
+    const key = voiceName.toLowerCase();
+    const current = definitions.get(key);
+    definitions.set(key, {
+      ...(current ?? definitionFromStyleMap(voiceName, styles)),
+      name: current?.name ?? voiceName,
+      styles: styles.map((style) => style.toLowerCase()),
+    });
+  }
+  return definitions;
 }
 
 function diagnosticSeverity(policy: AzureValidationOptions["unknownVoicePolicy"]): SsmlDiagnosticSeverity | undefined {
@@ -268,32 +384,31 @@ function diagnosticSeverity(policy: AzureValidationOptions["unknownVoicePolicy"]
   return policy === "error" ? "error" : "warning";
 }
 
-function voiceLocalePrefix(voiceName: string): { language: string; region: string } | undefined {
-  const match = /^(?<language>[A-Za-z]{2,3})-(?<region>[A-Za-z]{2}|\d{3})(?:-|$)/.exec(voiceName.trim());
-  if (!match?.groups) return undefined;
-  return {
-    language: match.groups.language.toLowerCase(),
-    region: match.groups.region.toLowerCase(),
-  };
+function languagePart(language: string): string {
+  try {
+    return new Intl.Locale(language).language.toLowerCase();
+  } catch {
+    return language.split("-")[0]?.toLowerCase() ?? "";
+  }
 }
 
-function languageLocalePrefix(language: string): { language: string; region?: string } | undefined {
-  const match = /^(?<language>[A-Za-z]{2,3})(?:-(?<region>[A-Za-z]{2}|\d{3}))?(?:-|$)/.exec(language.trim());
-  if (!match?.groups) return undefined;
-  return {
-    language: match.groups.language.toLowerCase(),
-    region: match.groups.region?.toLowerCase(),
-  };
-}
-
-function voiceMatchesLanguage(voiceName: string, language: string): boolean | undefined {
-  const voiceLocale = voiceLocalePrefix(voiceName);
-  const languageLocale = languageLocalePrefix(language);
-  if (!voiceLocale || !languageLocale) return undefined;
-  return (
-    voiceLocale.language === languageLocale.language &&
-    (languageLocale.region === undefined || voiceLocale.region === languageLocale.region)
-  );
+function definitionMatchesLanguage(
+  definition: AzureVoiceDefinition | undefined,
+  voiceName: string,
+  language: string,
+  normalizeLanguage: (language: string) => string,
+): boolean | undefined {
+  const candidateLanguages = definition
+    ? [definition.locale, ...(definition.secondaryLocales ?? [])].filter(Boolean)
+    : [voiceLocalePrefix(voiceName)?.tag ?? ""];
+  if (candidateLanguages.length === 0 || !language.trim()) return undefined;
+  const normalizedLanguage = normalizeLanguage(language);
+  const normalizedCandidates = candidateLanguages.map(normalizeLanguage);
+  if (normalizedCandidates.includes(normalizedLanguage)) return true;
+  if (!normalizedLanguage || !normalizedCandidates.some(Boolean)) return undefined;
+  return normalizedLanguage === languagePart(normalizedLanguage)
+    ? normalizedCandidates.some((candidate) => languagePart(candidate) === normalizedLanguage)
+    : false;
 }
 
 function validateElement(
@@ -302,7 +417,7 @@ function validateElement(
   diagnostics: SsmlDiagnostic[],
   voiceName: string | undefined,
   options: AzureValidationOptions,
-  voiceStyleMap: ReadonlyMap<string, readonly string[]>,
+  voiceCatalog: ReadonlyMap<string, AzureVoiceDefinition>,
 ): void {
   const name = token.name.toLowerCase();
   if (name === "voice" && !attr(token, "name")?.trim())
@@ -345,17 +460,24 @@ function validateElement(
     const role = attr(token, "role");
     if (role && !ALLOWED_ROLES.has(role))
       addDiagnostic(diagnostics, source, token.start, `Unsupported <mstts:express-as role> value "${role}".`);
-    const supportedStyles = voiceName ? voiceStyleMap.get(voiceName.toLowerCase()) : undefined;
-    const severity = diagnosticSeverity(options.unknownVoicePolicy ?? "warn");
-    if (style && supportedStyles && !supportedStyles.includes(style.toLowerCase()) && severity)
+    const definition = voiceName ? voiceCatalog.get(voiceName.toLowerCase()) : undefined;
+    const supportedStyles = definition?.styles;
+    const severity = diagnosticSeverity(options.unsupportedStylePolicy ?? options.unknownVoicePolicy ?? "warn");
+    if (
+      style &&
+      definition &&
+      !supportedStyles?.some((candidate) => candidate.toLowerCase() === style.toLowerCase()) &&
+      severity
+    )
       addDiagnostic(
         diagnostics,
         source,
         token.start,
         `Unknown style "${style}" is not supported by voice "${voiceName}" according to the configured voice style map.`,
         severity,
+        "azure-unsupported-style",
       );
-    if (style && voiceName && !supportedStyles && severity)
+    if (style && voiceName && !definition && severity)
       addDiagnostic(
         diagnostics,
         source,
@@ -461,32 +583,36 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
       "Azure SSML requires at least one <voice> element under <speak>.",
     );
   const voiceName = voices[0] ? attr(voices[0], "name") : undefined;
-  const voiceStyleMap = normalizeVoiceStyleMap(options.customVoiceStyleMap);
+  const voiceCatalog = normalizeVoiceCatalog(options);
+  const normalizeLanguage = createLanguageNormalizer(options);
   const policySeverity = diagnosticSeverity(options.unknownVoicePolicy ?? "warn");
   const voicesToValidate = options.validateNestedVoices === false ? voices.slice(0, 1) : voices;
   for (const token of voicesToValidate) {
     const name = attr(token, "name")?.trim();
     const language = attr(token, "xml:lang")?.trim() || (speak ? attr(speak, "xml:lang")?.trim() : undefined);
-    if (name && !voiceStyleMap.has(name.toLowerCase()) && policySeverity)
+    const definition = name ? voiceCatalog.get(name.toLowerCase()) : undefined;
+    if (name && !definition && policySeverity)
       addDiagnostic(
         diagnostics,
         ssml,
         token.start,
-        `Unknown voice "${name}" is not registered in the voice style map.`,
+        `Unknown voice "${name}" is not registered in the voice catalog.`,
         policySeverity,
+        "azure-unknown-voice",
       );
-    if (name && language && voiceMatchesLanguage(name, language) === false)
+    if (name && language && definitionMatchesLanguage(definition, name, language, normalizeLanguage) === false)
       addDiagnostic(
         diagnostics,
         ssml,
         token.start,
         `Voice "${name}" does not match language "${language}"; the voice name prefix indicates a different language or region.`,
         "warning",
+        "azure-locale-mismatch",
       );
   }
   for (const token of tokens) {
     const tokenVoiceName = options.validateNestedVoices === false ? voiceName : token.parentVoiceName;
-    validateElement(token, ssml, diagnostics, tokenVoiceName, options, voiceStyleMap);
+    validateElement(token, ssml, diagnostics, tokenVoiceName, options, voiceCatalog);
   }
   return diagnostics;
 }
