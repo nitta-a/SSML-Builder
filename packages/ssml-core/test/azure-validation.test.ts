@@ -17,6 +17,89 @@ test("validateAzureSsml accepts a valid Azure document", () => {
   assert.deepEqual(validateAzureSsml(valid), []);
 });
 
+test("validateAzureSsml marks diagnostics as static validation results", () => {
+  const diagnostics = validateAzureSsml('<speak version="1.0" xml:lang="en-US"></speak>');
+  assert.ok(diagnostics.length > 0);
+  assert.ok(diagnostics.every((diagnostic) => diagnostic.source === "ssml-static-validator"));
+});
+
+test("validateAzureSsml accepts Azure absolute prosody rate multipliers from 0.5 to 2.0", () => {
+  for (const rate of ["0.5", "1", "1.5", "2.0", "0.5x", "1.5x", "2.0x"]) {
+    const diagnostics = validateAzureSsml(
+      `<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural"><prosody rate="${rate}">Text</prosody></voice></speak>`,
+    );
+    assert.deepEqual(diagnostics, [], `rate=${rate}`);
+  }
+});
+
+test("validateAzureSsml rejects absolute prosody rate multipliers outside the Azure range", () => {
+  for (const rate of ["0.3", "0.49", "2.01", "3.0", "0.3x", "3.0x"]) {
+    const diagnostics = validateAzureSsml(
+      `<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural"><prosody rate="${rate}">Text</prosody></voice></speak>`,
+    );
+    assert.ok(
+      diagnostics.some((diagnostic) => diagnostic.message.includes("prosody rate")),
+      `rate=${rate}`,
+    );
+  }
+});
+
+test("validateAzureSsml accepts Azure number_digit and absolute rate syntax across locales", () => {
+  const locales = [
+    ["ja-JP", "ja-JP-MayuNeural"],
+    ["en-US", "en-US-JennyNeural"],
+    ["zh-CN", "zh-CN-XiaoxiaoNeural"],
+    ["zh-Hans", "zh-CN-XiaoxiaoNeural"],
+    ["zh-TW", "zh-TW-HsiaoChenNeural"],
+    ["zh-Hant", "zh-TW-HsiaoChenNeural"],
+    ["ko-KR", "ko-KR-SunHiNeural"],
+  ] as const;
+
+  for (const [locale, voice] of locales) {
+    const diagnostics = validateAzureSsml(
+      `<speak version="1.0" xml:lang="${locale}"><voice name="${voice}"><prosody rate="1.5"><say-as interpret-as="number_digit">123</say-as></prosody></voice></speak>`,
+    );
+    assert.deepEqual(diagnostics, [], `${locale} / ${voice}`);
+  }
+});
+
+test("validateAzureSsml accepts nested Azure emotional styles with number_digit and rate", () => {
+  const diagnostics = validateAzureSsml(
+    '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural"><mstts:express-as style="cheerful"><prosody rate="1.5"><mstts:express-as style="empathetic"><say-as interpret-as="number_digit">123</say-as></mstts:express-as></prosody></mstts:express-as></voice></speak>',
+  );
+  assert.deepEqual(diagnostics, []);
+});
+
+test("validateAzureSsml reports invalid Azure syntax across supported locales", () => {
+  const locales = [
+    ["ja-JP", "ja-JP-MayuNeural"],
+    ["en-US", "en-US-JennyNeural"],
+    ["zh-CN", "zh-CN-XiaoxiaoNeural"],
+    ["zh-Hans", "zh-CN-XiaoxiaoNeural"],
+    ["zh-TW", "zh-TW-HsiaoChenNeural"],
+    ["zh-Hant", "zh-TW-HsiaoChenNeural"],
+    ["ko-KR", "ko-KR-SunHiNeural"],
+  ] as const;
+
+  for (const [locale, voice] of locales) {
+    const diagnostics = validateAzureSsml(
+      `<speak version="1.0" xml:lang="${locale}"><voice name="${voice}"><prosody rate="3.0"><say-as interpret-as="not-supported">123</say-as></prosody></voice></speak>`,
+    );
+    assert.ok(
+      diagnostics.some((diagnostic) => diagnostic.message.includes("prosody rate")),
+      locale,
+    );
+    assert.ok(
+      diagnostics.some((diagnostic) => diagnostic.message.includes("interpret-as")),
+      locale,
+    );
+    assert.ok(
+      diagnostics.every((diagnostic) => diagnostic.source === "ssml-static-validator"),
+      locale,
+    );
+  }
+});
+
 test("validateAzureSsml reports semantic requirements with locations", () => {
   const diagnostics = validateAzureSsml(
     '<speak version="1.0" xml:lang="en-US"><prosody rate="invalid">Hello</prosody></speak>',

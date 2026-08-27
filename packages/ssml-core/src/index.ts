@@ -26,5 +26,6 @@ export type {
   AzureVoiceDefinition,
   AzureVoiceMetadata,
   SsmlDiagnostic,
+  SsmlDiagnosticSource,
   SsmlDiagnosticSeverity,
 } from "./azureValidation.ts";

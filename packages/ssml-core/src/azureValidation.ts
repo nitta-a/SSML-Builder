@@ -1,6 +1,7 @@
 import { parseSsml } from "./parser.ts";
 
 export type SsmlDiagnosticSeverity = "error" | "warning";
+export type SsmlDiagnosticSource = "ssml-static-validator";
 
 export type AzureDiagnosticCode = "azure-unknown-voice" | "azure-unsupported-style" | "azure-locale-mismatch";
 
@@ -10,6 +11,7 @@ export interface SsmlDiagnostic {
   column: number;
   message: string;
   severity: SsmlDiagnosticSeverity;
+  source: SsmlDiagnosticSource;
 }
 
 export interface AzureVoiceDefinition {
@@ -153,6 +155,7 @@ const ALLOWED_SAY_AS = new Set([
   "address",
   "name",
   "currency",
+  "number_digit",
 ]);
 const ALLOWED_ROLES = new Set([
   "Girl",
@@ -263,7 +266,22 @@ function addDiagnostic(
   severity: SsmlDiagnosticSeverity = "error",
   code?: AzureDiagnosticCode,
 ): void {
-  diagnostics.push({ ...location(source, offset), message, severity, ...(code ? { code } : {}) });
+  diagnostics.push({
+    ...location(source, offset),
+    message,
+    severity,
+    source: "ssml-static-validator",
+    ...(code ? { code } : {}),
+  });
+}
+
+function isSupportedProsodyRate(value: string): boolean {
+  const trimmed = value.trim();
+  if (/^(x-slow|slow|medium|fast|x-fast|[+-]?\d+(?:\.\d+)?%)$/.test(trimmed)) return true;
+  const multiplier = /^(\d+(?:\.\d+)?)(x)?$/i.exec(trimmed);
+  if (!multiplier) return false;
+  const numericValue = Number(multiplier[1]);
+  return numericValue >= 0.5 && numericValue <= 2;
 }
 
 function attr(token: ElementToken, name: string): string | undefined {
@@ -438,7 +456,7 @@ function validateElement(
     const rate = attr(token, "rate");
     const pitch = attr(token, "pitch");
     const volume = attr(token, "volume");
-    if (rate && !/^(x-slow|slow|medium|fast|x-fast|[+-]?\d+(?:\.\d+)?%)$/.test(rate.trim()))
+    if (rate && !isSupportedProsodyRate(rate))
       addDiagnostic(diagnostics, source, token.start, `Unsupported <prosody rate> value "${rate}".`);
     if (pitch && !/^(x-low|low|medium|high|x-high|[+-]?\d+(?:\.\d+)?(?:st|Hz|%)?)$/.test(pitch.trim()))
       addDiagnostic(diagnostics, source, token.start, `Unsupported <prosody pitch> value "${pitch}".`);
@@ -559,7 +577,15 @@ function validateElement(
 export function validateAzureSsml(ssml: string, options: AzureValidationOptions = {}): SsmlDiagnostic[] {
   const diagnostics: SsmlDiagnostic[] = [];
   if (typeof ssml !== "string") {
-    return [{ line: 1, column: 1, message: "SSML input must be a string", severity: "error" }];
+    return [
+      {
+        line: 1,
+        column: 1,
+        message: "SSML input must be a string",
+        severity: "error",
+        source: "ssml-static-validator",
+      },
+    ];
   }
   const maxLength = options.maxLength ?? 10_000;
   if (ssml.length > maxLength)

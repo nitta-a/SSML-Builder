@@ -136,7 +136,7 @@ const parsed = parseSsml(ssml);
 | `validateSsml(xml)` | SSML の構文エラーを `{ message, position }` または `null` で返す |
 | `extractSsmlText(xml)` | タグを除いた全テキストノードを文書順に抽出 |
 | `mapSsmlTextNodes(xml, transform, options?)` | タグ構造を維持したままテキストノードだけを同期・非同期変換。スキップタグとコンテキストフィルターに対応 |
-| `validateAzureSsml(xml, options?)` | Azure Speech 向けの意味検証結果を Diagnostic 配列で返す |
+| `validateAzureSsml(xml, options?)` | Azure Speech 向けの意味検証結果を Diagnostic 配列で返す（各診断に `source: "ssml-static-validator"` を付与） |
 
 ### 3段階の検証モデル
 
@@ -149,6 +149,8 @@ SSML の検証は、構文、Azure 固有の静的な意味、実サービスの
 | ランタイム | `AzureTtsClient.synthesize` / Azure Speech API | アカウント、リージョン、キー、最新の音声・スタイル提供状況、サービス側の SSML 制約、通信状態 | 静的検証の代替ではないため、入力検証や SSRF 対策を自動で補完しない |
 
 `voice`、`prosody`、`break`、`express-as`、`say-as`、`phoneme`、`audio`、`lang`、`mark` などの要素を型付きで表現できます。`type: "custom"` と `name` を指定すれば、未定義の XML 要素や追加属性も扱えます。`mstts:` 要素を含むドキュメントを生成すると、必要な Azure Speech 名前空間が自動的に追加されます。
+
+`validateAzureSsml` は Azure Speech へ送信する前に実行する事前静的チェックです。返却される診断の `source` はパッケージ側の静的解析結果であることを示し、Azure Speech サービス側でのランタイム生成結果や実際の合成可否を表すものではありません。
 
 翻訳などで本文だけを置き換える場合は、`mapSsmlTextNodes` に変換関数を渡します。変換関数には直近の親タグと祖先タグの `path` が渡され、戻り値は `string` または `Promise<string>` を指定できます。`validateAzureSsml` は音声、属性値、音声スタイル、文字数、`audio` URL/オリジンを検証します。
 
@@ -542,7 +544,7 @@ The main `buildSsml` and `parseSsml` signatures are:
 | `validateSsml(xml)` | Returns `{ message, position }` for a syntax error, or `null` |
 | `extractSsmlText(xml)` | Extracts all text nodes in document order |
 | `mapSsmlTextNodes(xml, transform, options?)` | Transforms only text nodes while preserving the XML structure; supports sync/async transforms, skipped tags, and context filters |
-| `validateAzureSsml(xml, options?)` | Returns Azure Speech semantic-validation diagnostics |
+| `validateAzureSsml(xml, options?)` | Returns Azure Speech semantic-validation diagnostics (each diagnostic has `source: "ssml-static-validator"`) |
 
 ### Three-stage validation model
 
@@ -555,6 +557,8 @@ SSML validation separates XML syntax, Azure-specific static semantics, and runti
 | Runtime | `AzureTtsClient.synthesize` / Azure Speech API | Account, region, key, current voice/style availability, service-side SSML constraints, and network state | It does not replace input validation or automatically provide SSRF protection |
 
 Typed representations are available for elements such as `voice`, `prosody`, `break`, `express-as`, `say-as`, `phoneme`, `audio`, `lang`, and `mark`. Use `type: "custom"` and `name` to handle undefined XML elements or additional attributes. When a document contains `mstts:` elements, the required Azure Speech namespace is added automatically.
+
+`validateAzureSsml` is a preflight static check performed by this package before sending SSML to Azure Speech. The `source` on each returned diagnostic identifies package-side static analysis; it is independent of Azure Speech's runtime generation result and does not guarantee that synthesis will succeed.
 
 Use `mapSsmlTextNodes` to replace translatable content without changing tags, attributes, or nesting. The transform receives the immediate parent tag and ancestor `path`, and may return a `string` or a `Promise<string>`. The third argument supports `skipTags` and a `filter` callback; `phoneme`, `say-as`, and `sub` are skipped by default. The callback receives `parentTag`, decoded `parentAttributes`, `ancestorTags`, and `path`.
 
