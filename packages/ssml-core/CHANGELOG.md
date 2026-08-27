@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.8.1
+
+### Patch Changes
+
+- ba09a72: Prepare the v2.8.1 patch release.
+
 ## 2.8.0
 
 ### Minor Changes
