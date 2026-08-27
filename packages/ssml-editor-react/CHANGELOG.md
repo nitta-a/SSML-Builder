@@ -1,5 +1,16 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.9.0
+
+### Minor Changes
+
+- Release v2.9.0 with Azure SSML validation and migration utilities, voice catalog support, and visual/editor improvements.
+
+### Patch Changes
+
+- Updated dependencies
+  - @ssml-builder-js/ssml-core@2.9.0
+
 ## 2.8.1
 
 ### Patch Changes

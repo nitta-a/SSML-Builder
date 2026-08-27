@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.9.0
+
+### Minor Changes
+
+- Release v2.9.0 with Azure SSML validation and migration utilities, voice catalog support, and visual/editor improvements.
+
 ## 2.8.1
 
 ### Patch Changes

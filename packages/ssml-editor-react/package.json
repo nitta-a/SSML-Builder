@@ -1,6 +1,6 @@
 {
   "name": "@ssml-builder-js/ssml-editor-react",
-  "version": "2.8.1",
+  "version": "2.9.0",
   "description": "React-based SSML editor component",
   "license": "MIT",
   "repository": {
@@ -52,6 +52,6 @@
     }
   },
   "dependencies": {
-    "@ssml-builder-js/ssml-core": "^2.8.1"
+    "@ssml-builder-js/ssml-core": "^2.9.0"
   }
 }
