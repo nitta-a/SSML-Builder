@@ -42,12 +42,17 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release for root package
-        if: steps.changesets.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="$(node -p "require('./package.json').version")"
           tag="v${version}"
-          gh release create "$tag" \
-            --title "Release v${version}" \
-            --generate-notes
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "GitHub Release $tag already exists; skipping."
+          elif gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "Release v${version}" \
+              --generate-notes
+          else
+            echo "Git tag $tag does not exist; skipping GitHub Release creation."
+          fi
