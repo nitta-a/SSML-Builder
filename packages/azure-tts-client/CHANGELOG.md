@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.8.1
+
+### Patch Changes
+
+- ba09a72: Prepare the v2.8.1 patch release.
+
 ## 2.8.0
 
 ## 2.7.0

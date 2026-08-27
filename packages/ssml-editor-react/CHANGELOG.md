@@ -1,5 +1,13 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.8.1
+
+### Patch Changes
+
+- ba09a72: Prepare the v2.8.1 patch release.
+- Updated dependencies [ba09a72]
+  - @ssml-builder-js/ssml-core@2.8.1
+
 ## 2.8.0
 
 ### Patch Changes
