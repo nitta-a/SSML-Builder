@@ -3,6 +3,8 @@
  */
 
 export { SsmlEditor } from "./SsmlEditor";
+export { VisualSsmlEditor } from "./components/VisualSsmlEditor";
+export type { VisualSsmlEditorProps } from "./components/VisualSsmlEditor";
 export type {
   SsmlEditorButton,
   SsmlEditorButtonVisibility,
@@ -21,6 +23,7 @@ export type {
   SsmlEditorOptions,
   SsmlEditorRef,
   SsmlEditorProps,
+  SsmlEditorEditMode,
   SsmlEditorToolbarGroup,
   SelectionInfo,
   SsmlEditorTheme,

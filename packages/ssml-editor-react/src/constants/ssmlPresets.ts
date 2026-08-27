@@ -322,6 +322,11 @@ export const SSML_ATTRIBUTE_PRESETS = {
   "mstts:audioduration": {
     value: AUDIO_DURATION_PRESETS,
   },
+  "mstts:backgroundaudio": {
+    volume: PROSODY_VOLUME_PRESETS,
+    fadein: AUDIO_DURATION_PRESETS,
+    fadeout: AUDIO_DURATION_PRESETS,
+  },
   silence: {
     type: SILENCE_TYPE_PRESETS,
     value: SILENCE_VALUE_PRESETS,

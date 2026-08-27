@@ -11,15 +11,21 @@ import type {
   MsttsSilenceElement,
   MsttsVisemeElement,
   MsttsAudioDurationElement,
+  MsttsEmbeddingElement,
+  MsttsTtsEmbeddingElement,
+  MsttsVoiceConversionElement,
   ParagraphElement,
   PhonemeElement,
   ProsodyElement,
   SayAsElement,
   SentenceElement,
   SsmlAttributes,
+  SsmlBackgroundAudioNode,
+  SsmlDialogNode,
   SsmlDocument,
   SsmlElement,
   SsmlNode,
+  SsmlTurnNode,
   SubElement,
   VoiceElement,
   WordElement,
@@ -569,6 +575,40 @@ function convertElement(node: XmlElementNode): SsmlElement {
       const element: MsttsAudioDurationElement = { type: SSML_TAGS.MSTTS_AUDIO_DURATION };
       const value = readAttribute(attributes, SSML_ATTRS.VALUE);
       if (value !== undefined) element.value = value;
+      return finishElement(element, node, attributes);
+    }
+    case SSML_TAGS.MSTTS_DIALOG: {
+      const element: SsmlDialogNode = { type: SSML_TAGS.MSTTS_DIALOG };
+      return finishElement(element, node, attributes);
+    }
+    case SSML_TAGS.MSTTS_TURN: {
+      const element: SsmlTurnNode = { type: SSML_TAGS.MSTTS_TURN };
+      const voice = readAttribute(attributes, SSML_ATTRS.VOICE);
+      if (voice !== undefined) element.voice = voice;
+      return finishElement(element, node, attributes);
+    }
+    case SSML_TAGS.MSTTS_BACKGROUND_AUDIO: {
+      const element: SsmlBackgroundAudioNode = { type: SSML_TAGS.MSTTS_BACKGROUND_AUDIO };
+      const src = readAttribute(attributes, SSML_ATTRS.SRC);
+      const volume = readAttribute(attributes, SSML_ATTRS.VOLUME);
+      const fadeIn = readAttribute(attributes, SSML_ATTRS.FADE_IN);
+      const fadeOut = readAttribute(attributes, SSML_ATTRS.FADE_OUT);
+      if (src !== undefined) element.src = src;
+      if (volume !== undefined) element.volume = volume;
+      if (fadeIn !== undefined) element.fadeIn = fadeIn;
+      if (fadeOut !== undefined) element.fadeOut = fadeOut;
+      return finishElement(element, node, attributes);
+    }
+    case SSML_TAGS.MSTTS_TTS_EMBEDDING: {
+      const element: MsttsTtsEmbeddingElement = { type: SSML_TAGS.MSTTS_TTS_EMBEDDING };
+      return finishElement(element, node, attributes);
+    }
+    case SSML_TAGS.MSTTS_EMBEDDING: {
+      const element: MsttsEmbeddingElement = { type: SSML_TAGS.MSTTS_EMBEDDING };
+      return finishElement(element, node, attributes);
+    }
+    case SSML_TAGS.MSTTS_VOICE_CONVERSION: {
+      const element: MsttsVoiceConversionElement = { type: SSML_TAGS.MSTTS_VOICE_CONVERSION };
       return finishElement(element, node, attributes);
     }
     default: {

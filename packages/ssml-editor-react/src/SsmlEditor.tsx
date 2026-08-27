@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useImperativeHandle } from "react";
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor from "@monaco-editor/react";
 import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
@@ -40,6 +40,7 @@ import { InsertionPopover } from "./components/popovers/InsertionPopover";
 import { useSsmlEditorState } from "./hooks/useSsmlEditorState";
 import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
 import { editorStyles as styles } from "./styles/editorStyles";
+import { VisualSsmlEditor } from "./components/VisualSsmlEditor";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const TIMING_POPOVER_TAGS = new Set(["break", "mstts:silence", "mstts:audioduration"]);
 const PROSODY_POPOVER_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
@@ -637,6 +638,60 @@ const STYLE_CSS = `
   > .ssml-editor-help-settings-summary::before {
   content: "▾";
 }
+[data-ssml-editor] .ssml-editor-visual-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.35fr) minmax(16rem, 1fr);
+  gap: 1rem;
+}
+[data-ssml-editor] .ssml-editor-visual-tree,
+[data-ssml-editor] .ssml-editor-visual-form {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+[data-ssml-editor] .ssml-editor-visual-tree ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+[data-ssml-editor] .ssml-editor-visual-tree button,
+[data-ssml-editor] .ssml-editor-visual-breadcrumb button,
+[data-ssml-editor] .ssml-editor-visual-actions button {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--ssml-editor-control-border);
+  border-radius: 0.25rem;
+  color: var(--ssml-editor-color);
+  background: var(--ssml-editor-control-bg);
+  cursor: pointer;
+}
+[data-ssml-editor] .ssml-editor-visual-tree button[aria-current] {
+  border-color: var(--ssml-editor-active-border);
+  background: var(--ssml-editor-active-bg);
+}
+[data-ssml-editor] .ssml-editor-visual-breadcrumb,
+[data-ssml-editor] .ssml-editor-visual-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+[data-ssml-editor] .ssml-editor-visual-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 6rem;
+  padding: 0.5rem;
+  color: var(--ssml-editor-color);
+  background: var(--ssml-editor-control-bg);
+  border: 1px solid var(--ssml-editor-control-border);
+  border-radius: 0.25rem;
+  font: inherit;
+}
+[data-ssml-editor] .ssml-editor-visual-errors {
+  padding: 0.5rem;
+  color: var(--ssml-editor-error);
+  background: var(--ssml-editor-error-bg);
+  border: 1px solid var(--ssml-editor-error);
+  border-radius: 0.25rem;
+}
 `.trim();
 
 function injectEditorTheme(): void {
@@ -683,6 +738,8 @@ export interface SsmlEditorProps {
   minHeight?: string | number;
   /** Whether the Monaco editor is read-only. */
   readOnly?: boolean;
+  /** Selects the XML source editor or the structured visual editor. */
+  editMode?: SsmlEditorEditMode;
   /** Monaco theme mode. */
   theme?: SsmlEditorTheme;
   /** Monaco editor font size. */
@@ -722,6 +779,8 @@ export interface SsmlEditorProps {
   /** Inline styles applied to the editor display area. */
   displayStyle?: CSSProperties;
 }
+
+export type SsmlEditorEditMode = "code" | "visual";
 
 export interface SelectionInfo {
   selectedText: string;
@@ -814,9 +873,12 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     displayClassName,
     displayStyle,
     loadingFallback,
+    editMode: editModeProp = "code",
   }: SsmlEditorProps,
   ref,
 ): ReactElement {
+  const [editMode, setEditMode] = useState<SsmlEditorEditMode>(editModeProp);
+  useEffect(() => setEditMode(editModeProp), [editModeProp]);
   const resolvedEditorOptions: SsmlEditorOptions = {
     ...settings,
     ...editorOptions,
@@ -905,6 +967,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
 
   const {
     editorRef,
+    draftDocument,
     text,
     selectionOverlay,
     activeTags,
@@ -916,6 +979,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     syntaxError,
     setSyntaxError,
     helpPanelId,
+    commit,
     handleTextChange,
     handleInsert,
     handleInsertBreak,
@@ -1210,6 +1274,23 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             data-ssml-editor-toolbar-actions=""
           >
             {renderToolbarItems()}
+            <span style={styles.toolbarSeparator} aria-hidden="true" />
+            <button
+              type="button"
+              style={editMode === "visual" ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive } : toolbarButtonStyle}
+              aria-pressed={editMode === "visual"}
+              onClick={() => setEditMode("visual")}
+            >
+              Visual
+            </button>
+            <button
+              type="button"
+              style={editMode === "code" ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive } : toolbarButtonStyle}
+              aria-pressed={editMode === "code"}
+              onClick={() => setEditMode("code")}
+            >
+              Code
+            </button>
           </div>
         </div>
       )}
@@ -1255,6 +1336,16 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             )}
           </section>
         )}
+        {editMode === "visual" ? (
+          <div style={styles.visual}>
+            <VisualSsmlEditor
+              document={draftDocument}
+              readOnly={isReadOnly}
+              onChange={commit}
+              onPreviewSelection={onPreviewSelection}
+            />
+          </div>
+        ) : (
         <div style={{ ...styles.editor, minHeight: editorMinHeight }}>
           <Editor
             height={editorHeight}
@@ -1314,6 +1405,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             </div>
           )}
         </div>
+        )}
         {syntaxError && (
           <p style={styles.error} role="alert">
             {copy.syntaxError}: {syntaxError.message}

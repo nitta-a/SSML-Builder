@@ -46,7 +46,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=22.6.0"
   },
   "scripts": {
     "prebuild": "npm run build --workspaces --if-present",

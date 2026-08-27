@@ -571,6 +571,17 @@ describe("SsmlEditor toolbar menus", () => {
 });
 
 describe("SsmlEditor props", () => {
+  it("renders the structured visual editor and exposes formatting controls", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderEditor({ editMode: "visual", onChange });
+
+    expect(screen.getByRole("navigation", { name: "SSML structure tree" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Text" })).toBeTruthy();
+    await user.click(within(screen.getByRole("group", { name: "Apply SSML formatting" })).getByRole("button", { name: "Rate" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ version: "1.0" }));
+  });
+
   it("updates toolbar and popover text when the locale changes", async () => {
     const user = userEvent.setup();
     const { rerender } = renderEditor({ locale: "ja", showToolbarLabels: true });

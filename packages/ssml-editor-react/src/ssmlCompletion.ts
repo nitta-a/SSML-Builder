@@ -47,6 +47,22 @@ const SSML_COMPLETION_SNIPPETS = [
     insertText: '<mstts:audioduration value="10s" />',
   },
   {
+    label: "mstts:dialog",
+    insertText: `<mstts:dialog>\n  <mstts:turn voice="\${1:en-US-JennyNeural}">\${2:text}</mstts:turn>\n</mstts:dialog>`,
+  },
+  {
+    label: "mstts:turn",
+    insertText: `<mstts:turn voice="\${1:en-US-JennyNeural}">\${2:text}</mstts:turn>`,
+  },
+  {
+    label: "mstts:backgroundaudio",
+    insertText: `<mstts:backgroundaudio src="\${1:https://example.com/audio.mp3}" volume="\${2:-3dB}" />`,
+  },
+  {
+    label: "mstts:ttsembedding",
+    insertText: `<mstts:ttsembedding>\${1:text}</mstts:ttsembedding>`,
+  },
+  {
     label: "sub",
     insertText: `<sub alias="\${1:読み}">\${2:漢字}</sub>`,
   },

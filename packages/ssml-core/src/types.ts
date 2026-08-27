@@ -127,6 +127,42 @@ export interface MsttsAudioDurationElement extends SsmlElementBase {
   value?: SsmlAttributeValue;
 }
 
+export interface SsmlDialogNode extends SsmlElementBase {
+  type: "mstts:dialog";
+}
+
+export interface SsmlTurnNode extends SsmlElementBase {
+  type: "mstts:turn";
+  voice?: string;
+}
+
+export interface SsmlBackgroundAudioNode extends SsmlElementBase {
+  type: "mstts:backgroundaudio";
+  src?: string;
+  volume?: SsmlAttributeValue;
+  fadeIn?: SsmlAttributeValue;
+  fadeOut?: SsmlAttributeValue;
+  /** XML spelling aliases retained for ergonomic object construction. */
+  fadein?: SsmlAttributeValue;
+  fadeout?: SsmlAttributeValue;
+}
+
+export interface MsttsTtsEmbeddingElement extends SsmlElementBase {
+  type: "mstts:ttsembedding";
+}
+
+export interface MsttsEmbeddingElement extends SsmlElementBase {
+  type: "mstts:embedding";
+}
+
+export interface MsttsVoiceConversionElement extends SsmlElementBase {
+  type: "mstts:voiceconversion";
+}
+
+export type SsmlTtsEmbeddingNode = MsttsTtsEmbeddingElement;
+export type SsmlEmbeddingNode = MsttsEmbeddingElement;
+export type SsmlVoiceConversionNode = MsttsVoiceConversionElement;
+
 export interface CustomElement extends SsmlElementBase {
   type: "custom" | "element";
   name: string;
@@ -152,6 +188,12 @@ export type SsmlElement =
   | MsttsSilenceElement
   | MsttsVisemeElement
   | MsttsAudioDurationElement
+  | SsmlDialogNode
+  | SsmlTurnNode
+  | SsmlBackgroundAudioNode
+  | MsttsTtsEmbeddingElement
+  | MsttsEmbeddingElement
+  | MsttsVoiceConversionElement
   | CustomElement;
 
 export interface SsmlDocument {

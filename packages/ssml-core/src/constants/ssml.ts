@@ -32,6 +32,12 @@ export const SSML_TAGS = {
   MSTTS_VISEME: "mstts:viseme",
   VISEME: "viseme",
   MSTTS_AUDIO_DURATION: "mstts:audioduration",
+  MSTTS_DIALOG: "mstts:dialog",
+  MSTTS_TURN: "mstts:turn",
+  MSTTS_BACKGROUND_AUDIO: "mstts:backgroundaudio",
+  MSTTS_TTS_EMBEDDING: "mstts:ttsembedding",
+  MSTTS_EMBEDDING: "mstts:embedding",
+  MSTTS_VOICE_CONVERSION: "mstts:voiceconversion",
 } as const;
 
 export const SSML_ATTRS = {
@@ -41,6 +47,7 @@ export const SSML_ATTRS = {
   LANG: "lang",
   MSTTS_XMLNS: "xmlns:mstts",
   NAME: "name",
+  VOICE: "voice",
   EFFECT: "effect",
   RATE: "rate",
   PITCH: "pitch",
@@ -73,4 +80,6 @@ export const SSML_ATTRS = {
   URI: "uri",
   TYPE: "type",
   VALUE: "value",
+  FADE_IN: "fadein",
+  FADE_OUT: "fadeout",
 } as const;

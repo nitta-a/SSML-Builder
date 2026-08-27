@@ -109,6 +109,20 @@ function getAttributes(element: SsmlElement): SsmlAttributes {
     case SSML_TAGS.MSTTS_AUDIO_DURATION:
       addAttribute(attributes, SSML_ATTRS.VALUE, element.value);
       break;
+    case SSML_TAGS.MSTTS_TURN:
+      addAttribute(attributes, SSML_ATTRS.VOICE, element.voice);
+      break;
+    case SSML_TAGS.MSTTS_BACKGROUND_AUDIO:
+      addAttribute(attributes, SSML_ATTRS.SRC, element.src);
+      addAttribute(attributes, SSML_ATTRS.VOLUME, element.volume);
+      addAttribute(attributes, SSML_ATTRS.FADE_IN, element.fadeIn ?? element.fadein);
+      addAttribute(attributes, SSML_ATTRS.FADE_OUT, element.fadeOut ?? element.fadeout);
+      break;
+    case SSML_TAGS.MSTTS_DIALOG:
+    case SSML_TAGS.MSTTS_TTS_EMBEDDING:
+    case SSML_TAGS.MSTTS_EMBEDDING:
+    case SSML_TAGS.MSTTS_VOICE_CONVERSION:
+      break;
     case SSML_TAGS.PARAGRAPH:
     case SSML_TAGS.SENTENCE:
     case SSML_TAGS.WORD:

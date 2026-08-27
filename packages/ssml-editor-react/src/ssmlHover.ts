@@ -339,6 +339,63 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       },
     ],
   },
+  {
+    name: "mstts:dialog",
+    description: "Groups multiple Azure dialog turns that can use different voices.",
+    parameters: [],
+  },
+  {
+    name: "mstts:turn",
+    description: "Adds one dialog turn using the required Azure voice name.",
+    parameters: [
+      {
+        name: "voice",
+        description: "The Azure voice used for this turn, such as `en-US-JennyNeural`.",
+        example: "en-US-JennyNeural",
+      },
+    ],
+  },
+  {
+    name: "mstts:backgroundaudio",
+    description: "Plays background audio while speech is synthesized.",
+    parameters: [
+      {
+        name: "src",
+        description: "An absolute HTTP(S) URL for the background audio file.",
+        example: "https://example.com/music.mp3",
+      },
+      {
+        name: "volume",
+        description: "The background audio volume, for example `-3dB` or `medium`.",
+        example: "-3dB",
+      },
+      {
+        name: "fadein",
+        description: "The fade-in duration, for example `1s`.",
+        example: "1s",
+      },
+      {
+        name: "fadeout",
+        description: "The fade-out duration, for example `500ms`.",
+        example: "500ms",
+      },
+    ],
+  },
+  {
+    name: "mstts:ttsembedding",
+    description: "Embeds custom voice or speaker profile metadata for Azure Speech.",
+    parameters: [],
+  },
+  {
+    name: "mstts:embedding",
+    description: "Specifies embedding metadata for custom voice scenarios.",
+    parameters: [],
+  },
+  {
+    name: "mstts:voiceconversion",
+    description: "Specifies voice conversion metadata for custom voice scenarios.",
+    parameters: [],
+  },
 ] as const;
 
 export { SSML_TAG_DEFINITIONS };

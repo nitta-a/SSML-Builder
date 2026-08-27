@@ -4,7 +4,12 @@ import { AZURE_VOICE_DEFINITIONS } from "./generated/azureVoiceDefinitions.ts";
 export type SsmlDiagnosticSeverity = "error" | "warning";
 export type SsmlDiagnosticSource = "ssml-static-validator";
 
-export type AzureDiagnosticCode = "azure-unknown-voice" | "azure-unsupported-style" | "azure-locale-mismatch";
+export type AzureDiagnosticCode =
+  | "azure-unknown-voice"
+  | "azure-unsupported-style"
+  | "azure-locale-mismatch"
+  | "azure-unsupported-tag-for-voice"
+  | "azure-unsupported-model-for-voice";
 
 export interface SsmlDiagnostic {
   code?: AzureDiagnosticCode;
@@ -20,6 +25,9 @@ export interface AzureVoiceDefinition {
   locale: string;
   secondaryLocales?: readonly string[];
   styles?: readonly string[];
+  supportedTags?: readonly string[];
+  unsupportedTags?: readonly string[];
+  models?: readonly string[];
 }
 
 /** Alias retained for consumers that prefer the metadata terminology. */
@@ -33,6 +41,8 @@ export interface AzureValidationOptions {
   customVoiceDefinitions?: readonly AzureVoiceDefinition[];
   languageAliases?: Record<string, string | readonly string[]>;
   maxLength?: number;
+  /** Optional model identifier used to validate a voice's model compatibility. */
+  model?: string;
   normalizeLanguage?: (lang: string) => string;
   unknownVoicePolicy?: "error" | "warn" | "ignore";
   unsupportedStylePolicy?: "error" | "warn" | "ignore";
@@ -49,6 +59,7 @@ export type AzureSsmlValidationOptions = AzureValidationOptions;
 interface ElementToken {
   attributes: Map<string, string>;
   end: number;
+  parentName?: string;
   name: string;
   parentVoiceName?: string;
   start: number;
@@ -153,12 +164,27 @@ function tokenizeElements(source: string): ElementToken[] {
       attributes.set(match[1].toLowerCase(), decodeAttribute(match[3]));
     }
     const selfClosing = /\/\s*>$/.test(raw);
+    const parent = openElements[openElements.length - 1];
     const parentVoiceName = [...openElements].reverse().find((element) => element.voiceName)?.voiceName;
-    tokens.push({ attributes, end, name: nameMatch[1], parentVoiceName, selfClosing, start });
+    const tokenName = nameMatch[1];
+    const tokenVoiceName = tokenName.toLowerCase() === "voice"
+      ? attributes.get("name")
+      : tokenName.toLowerCase() === "mstts:turn"
+        ? attributes.get("voice") ?? parentVoiceName
+        : parentVoiceName;
+    tokens.push({
+      attributes,
+      end,
+      name: tokenName,
+      parentName: parent?.name,
+      parentVoiceName,
+      selfClosing,
+      start,
+    });
     if (!selfClosing) {
       openElements.push({
-        name: nameMatch[1],
-        voiceName: nameMatch[1].toLowerCase() === "voice" ? attributes.get("name") : parentVoiceName,
+        name: tokenName,
+        voiceName: tokenVoiceName,
       });
     }
     index = end + 1;
@@ -341,6 +367,71 @@ function definitionMatchesLanguage(
     : false;
 }
 
+function canonicalTagName(name: string): string {
+  const normalized = name.toLowerCase();
+  if (normalized === "express-as" || normalized === "expressas") return "mstts:express-as";
+  if (normalized === "sayas") return "say-as";
+  return normalized;
+}
+
+function validateVoiceFeatureMatrix(
+  token: ElementToken,
+  source: string,
+  diagnostics: SsmlDiagnostic[],
+  voiceName: string | undefined,
+  definition: AzureVoiceDefinition | undefined,
+): void {
+  if (!voiceName || !definition || token.name.toLowerCase() === "voice" || token.name.toLowerCase() === "mstts:turn")
+    return;
+
+  const tagName = canonicalTagName(token.name);
+  const unsupportedTags = new Set((definition.unsupportedTags ?? []).map(canonicalTagName));
+  const supportedTags = definition.supportedTags?.map(canonicalTagName);
+  if (unsupportedTags.has(tagName) || (supportedTags !== undefined && !supportedTags.includes(tagName))) {
+    addDiagnostic(
+      diagnostics,
+      source,
+      token.start,
+      `Tag <${token.name}> is not supported by voice "${voiceName}" according to the configured feature matrix.`,
+      "error",
+      "azure-unsupported-tag-for-voice",
+    );
+  }
+}
+
+function validateAudioSource(
+  token: ElementToken,
+  source: string,
+  diagnostics: SsmlDiagnostic[],
+  options: AzureValidationOptions,
+  elementName: "audio" | "mstts:backgroundaudio",
+): void {
+  const src = attr(token, "src");
+  if (!src) {
+    addDiagnostic(diagnostics, source, token.start, `<${elementName}> requires a "src" attribute.`);
+    return;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(src);
+  } catch {
+    addDiagnostic(diagnostics, source, token.start, `<${elementName} src> must be an absolute HTTP(S) URL.`);
+    return;
+  }
+  if (parsed.protocol !== "https:" && !(options.allowHttpAudio && parsed.protocol === "http:"))
+    addDiagnostic(diagnostics, source, token.start, `<${elementName} src> must use HTTPS.`);
+  if (options.allowedAudioOrigins && !options.allowedAudioOrigins.includes(parsed.origin))
+    addDiagnostic(diagnostics, source, token.start, `<${elementName} src> origin "${parsed.origin}" is not allowed.`);
+  else if (!options.allowExternalAudio)
+    addDiagnostic(
+      diagnostics,
+      source,
+      token.start,
+      `<${elementName} src> external origin "${parsed.origin}" is blocked by default; set allowExternalAudio to true or provide allowedAudioOrigins.`,
+    );
+}
+
 function validateElement(
   token: ElementToken,
   source: string,
@@ -472,29 +563,30 @@ function validateElement(
       addDiagnostic(diagnostics, source, token.start, '<mstts:viseme> requires a supported "type" attribute.');
   }
   if (name === "audio") {
-    const src = attr(token, "src");
-    if (!src) addDiagnostic(diagnostics, source, token.start, '<audio> requires a "src" attribute.');
-    else {
-      let parsed: URL;
-      try {
-        parsed = new URL(src);
-      } catch {
-        addDiagnostic(diagnostics, source, token.start, "<audio src> must be an absolute HTTP(S) URL.");
-        return;
-      }
-      if (parsed.protocol !== "https:" && !(options.allowHttpAudio && parsed.protocol === "http:"))
-        addDiagnostic(diagnostics, source, token.start, "<audio src> must use HTTPS.");
-      if (options.allowedAudioOrigins && !options.allowedAudioOrigins.includes(parsed.origin))
-        addDiagnostic(diagnostics, source, token.start, `<audio src> origin "${parsed.origin}" is not allowed.`);
-      else if (!options.allowExternalAudio)
+    validateAudioSource(token, source, diagnostics, options, "audio");
+  }
+  if (name === "mstts:turn") {
+    if (!attr(token, "voice")?.trim())
+      addDiagnostic(diagnostics, source, token.start, '<mstts:turn> requires a non-empty "voice" attribute.');
+    if (token.parentName?.toLowerCase() !== "mstts:dialog")
+      addDiagnostic(diagnostics, source, token.start, "<mstts:turn> is only allowed directly inside <mstts:dialog>.");
+  }
+  if (name === "mstts:backgroundaudio") {
+    validateAudioSource(token, source, diagnostics, options, "mstts:backgroundaudio");
+    const volume = attr(token, "volume");
+    if (volume && !/^(silent|x-soft|soft|medium|loud|x-loud|[+-]?\d+(?:\.\d+)?(?:dB|%))$/i.test(volume.trim()))
+      addDiagnostic(diagnostics, source, token.start, `Unsupported <mstts:backgroundaudio volume> value "${volume}".`);
+    for (const [attribute, value] of [["fadein", attr(token, "fadein")], ["fadeout", attr(token, "fadeout")]] as const) {
+      if (value && !isValidAzureAudioDuration(value))
         addDiagnostic(
           diagnostics,
           source,
           token.start,
-          `<audio src> external origin "${parsed.origin}" is blocked by default; set allowExternalAudio to true or provide allowedAudioOrigins.`,
-          "error",
+          `<mstts:backgroundaudio ${attribute}> must be a positive duration such as "500ms" or "10s".`,
         );
     }
+    if (!token.selfClosing)
+      addDiagnostic(diagnostics, source, token.start, "<mstts:backgroundaudio> must be self-closing.");
   }
 }
 
@@ -561,8 +653,33 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
       );
   }
   for (const token of tokens) {
-    const tokenVoiceName = options.validateNestedVoices === false ? voiceName : token.parentVoiceName;
+    const tokenName = token.name.toLowerCase();
+    const tokenVoiceName =
+      tokenName === "voice"
+        ? attr(token, "name")?.trim()
+        : tokenName === "mstts:turn"
+          ? attr(token, "voice")?.trim() || token.parentVoiceName
+          : options.validateNestedVoices === false
+            ? voiceName
+            : token.parentVoiceName;
     validateElement(token, ssml, diagnostics, tokenVoiceName, options, voiceCatalog);
+    const definition = tokenVoiceName ? voiceCatalog.get(tokenVoiceName.toLowerCase()) : undefined;
+    validateVoiceFeatureMatrix(token, ssml, diagnostics, tokenVoiceName, definition);
+    if (
+      tokenName === "voice" &&
+      options.model &&
+      definition?.models &&
+      !definition.models.some((model) => model.toLowerCase() === options.model?.toLowerCase())
+    ) {
+      addDiagnostic(
+        diagnostics,
+        ssml,
+        token.start,
+        `Voice "${tokenVoiceName}" does not support model "${options.model}" according to the configured feature matrix.`,
+        "error",
+        "azure-unsupported-model-for-voice",
+      );
+    }
   }
   return diagnostics;
 }

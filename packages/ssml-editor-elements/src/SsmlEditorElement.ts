@@ -1,6 +1,6 @@
 import type * as monaco from "monaco-editor";
-import { buildSsml, parseSsml } from "@ssml-builder-js/ssml-core";
-import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
+import { buildSsml, parseSsml, validateAzureSsml } from "@ssml-builder-js/ssml-core";
+import type { SsmlDocument, SsmlElement, SsmlNode } from "@ssml-builder-js/ssml-core";
 import { clearSsmlDocument } from "../../ssml-editor-react/src/clearSsmlDocument";
 import { getEditableRegion, getEditableText, updateEditableText } from "../../ssml-editor-react/src/editableSsml";
 import { formatXmlFragment } from "../../ssml-editor-react/src/formatXml";
@@ -245,6 +245,60 @@ section[data-ssml-editor] {
   border-radius: 0.25rem;
   overflow: visible;
 }
+[data-ssml-editor] .ssml-editor-visual {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 8rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ssml-editor-control-border);
+  border-radius: 0.25rem;
+}
+[data-ssml-editor] .ssml-editor-visual-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.35fr) minmax(16rem, 1fr);
+  gap: 1rem;
+}
+[data-ssml-editor] .ssml-editor-visual-tree ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+[data-ssml-editor] .ssml-editor-visual button {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--ssml-editor-control-border);
+  border-radius: 0.25rem;
+  color: var(--ssml-editor-color);
+  background: var(--ssml-editor-control-bg);
+  cursor: pointer;
+}
+[data-ssml-editor] .ssml-editor-visual button[data-selected="true"] {
+  border-color: var(--ssml-editor-active-border);
+  background: var(--ssml-editor-active-bg);
+}
+[data-ssml-editor] .ssml-editor-visual textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 6rem;
+  padding: 0.5rem;
+  color: var(--ssml-editor-color);
+  background: var(--ssml-editor-control-bg);
+  border: 1px solid var(--ssml-editor-control-border);
+  border-radius: 0.25rem;
+  font: inherit;
+}
+[data-ssml-editor] .ssml-editor-visual-actions,
+[data-ssml-editor] .ssml-editor-visual-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+[data-ssml-editor] .ssml-editor-visual-errors {
+  padding: 0.5rem;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #b91c1c;
+  border-radius: 0.25rem;
+}
 `.trim();
 
 function injectStyles(): void {
@@ -260,6 +314,78 @@ function injectStyles(): void {
 
 function isDarkTheme(theme: SsmlEditorTheme): boolean {
   return theme === "vs-dark" || theme.toLowerCase().includes("dark");
+}
+
+function isElement(node: SsmlNode): node is SsmlElement {
+  return typeof node !== "string" && node.type !== "text";
+}
+
+function visualElementName(element: SsmlElement): string {
+  return element.type === "custom" || element.type === "element" ? element.name : element.type;
+}
+
+interface VisualTextLeaf {
+  path: number[];
+  value: string;
+  ancestors: string[];
+}
+
+function collectVisualTextLeaves(nodes: SsmlNode[], path: number[] = [], ancestors: string[] = []): VisualTextLeaf[] {
+  return nodes.flatMap((node, index) => {
+    const currentPath = [...path, index];
+    if (typeof node === "string") return [{ path: currentPath, value: node, ancestors }];
+    if (node.type === "text") return [{ path: currentPath, value: node.value, ancestors }];
+    return collectVisualTextLeaves(node.children ?? [], currentPath, [...ancestors, visualElementName(node)]);
+  });
+}
+
+function updateVisualNodes(
+  nodes: SsmlNode[],
+  path: number[],
+  update: (node: SsmlNode) => SsmlNode | SsmlNode[],
+): SsmlNode[] {
+  if (path.length === 0) return nodes;
+  const [index, ...rest] = path;
+  return nodes.flatMap((node, nodeIndex) => {
+    if (nodeIndex !== index) return [node];
+    if (rest.length === 0) {
+      const next = update(node);
+      return Array.isArray(next) ? next : [next];
+    }
+    if (!isElement(node)) return [node];
+    return [{ ...node, children: updateVisualNodes(node.children ?? [], rest, update) }];
+  });
+}
+
+function updateVisualText(document: SsmlDocument, path: number[], value: string): SsmlDocument {
+  return { ...document, children: updateVisualNodes(document.children ?? [], path, () => value) };
+}
+
+function wrapVisualText(
+  document: SsmlDocument,
+  path: number[],
+  start: number,
+  end: number,
+  type: SsmlElement["type"],
+  attributes: Record<string, string>,
+): SsmlDocument {
+  return {
+    ...document,
+    children: updateVisualNodes(document.children ?? [], path, (node) => {
+      const value = typeof node === "string" ? node : node.type === "text" ? node.value : "";
+      if (!value || start === end) return node;
+      if (type === "break") {
+        return [value.slice(0, start), { type, attributes, children: [] } as SsmlElement, value.slice(start)].filter(
+          (part) => (typeof part === "string" ? part.length > 0 : true),
+        );
+      }
+      const selected = value.slice(start, end);
+      const wrapper = { type, attributes, children: [selected] } as SsmlElement;
+      return [value.slice(0, start), wrapper, value.slice(end)].filter((part) =>
+        typeof part === "string" ? part.length > 0 : true,
+      );
+    }),
+  };
 }
 
 function getMenuPosition(trigger: HTMLElement, menu: HTMLElement): { top: number; left: number } {
@@ -283,6 +409,7 @@ export class SsmlEditorElement extends HTMLElementBase {
     "show-toolbar",
     "show-toolbar-labels",
     "show-decorations",
+    "edit-mode",
   ];
 
   private editor: MonacoEditor | null = null;
@@ -293,6 +420,7 @@ export class SsmlEditorElement extends HTMLElementBase {
   private toolbarActions: HTMLElement | null = null;
   private display: HTMLElement | null = null;
   private editorContainer: HTMLDivElement | null = null;
+  private visualContainer: HTMLDivElement | null = null;
   private helpPanel: HTMLElement | null = null;
   private openMenu: HTMLElement | null = null;
   private openMenuTrigger: HTMLButtonElement | null = null;
@@ -307,6 +435,8 @@ export class SsmlEditorElement extends HTMLElementBase {
   private documentState: SsmlDocument | null = null;
   private decorationsVisible = false;
   private helpOpen = false;
+  private visualSelectedPath: number[] | null = null;
+  private visualSelection = { start: 0, end: 0 };
 
   get value(): string {
     return this.valueState ?? this.getAttribute("value") ?? "";
@@ -343,6 +473,14 @@ export class SsmlEditorElement extends HTMLElementBase {
 
   set locale(locale: SsmlEditorLocale) {
     this.setAttribute("locale", locale);
+  }
+
+  get editMode(): "code" | "visual" {
+    return this.getAttribute("edit-mode") === "visual" ? "visual" : "code";
+  }
+
+  set editMode(mode: "code" | "visual") {
+    this.setAttribute("edit-mode", mode);
   }
 
   private prepareDocument(value: string): string {
@@ -391,6 +529,7 @@ export class SsmlEditorElement extends HTMLElementBase {
           }
         }
       }
+      this.renderVisualEditor();
       return;
     }
 
@@ -410,6 +549,10 @@ export class SsmlEditorElement extends HTMLElementBase {
       this.renderToolbar();
       this.renderHelp();
       return;
+    }
+
+    if (name === "edit-mode") {
+      this.updateEditMode();
     }
 
     if (name === "show-decorations") {
@@ -439,7 +582,9 @@ export class SsmlEditorElement extends HTMLElementBase {
     display.dataset.ssmlEditorDisplay = "";
     const editorContainer = document.createElement("div");
     editorContainer.className = "ssml-editor-editor";
-    display.append(editorContainer);
+    const visualContainer = document.createElement("div");
+    visualContainer.className = "ssml-editor-visual";
+    display.append(editorContainer, visualContainer);
     root.append(toolbar, display);
     this.replaceChildren(root);
 
@@ -448,8 +593,11 @@ export class SsmlEditorElement extends HTMLElementBase {
     this.toolbarActions = toolbarActions;
     this.display = display;
     this.editorContainer = editorContainer;
+    this.visualContainer = visualContainer;
     this.renderToolbar();
     this.renderHelp();
+    this.updateEditMode();
+    this.renderVisualEditor();
   }
 
   private renderToolbar(): void {
@@ -513,7 +661,24 @@ export class SsmlEditorElement extends HTMLElementBase {
         toolbarActions.append(this.createActionButton(id));
       }
     }
+    const separator = document.createElement("span");
+    separator.className = "ssml-editor-toolbar-separator";
+    separator.setAttribute("aria-hidden", "true");
+    toolbarActions.append(separator, this.createModeButton("visual", "Visual"), this.createModeButton("code", "Code"));
     this.updateActiveButtons();
+  }
+
+  private createModeButton(mode: "code" | "visual", label: string): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ssml-editor-toolbar-button";
+    button.dataset.ssmlEditorButton = `edit-mode-${mode}`;
+    button.setAttribute("aria-pressed", String(this.editMode === mode));
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      this.editMode = mode;
+    });
+    return button;
   }
 
   private createActionButton(id: string): HTMLButtonElement {
@@ -938,6 +1103,148 @@ export class SsmlEditorElement extends HTMLElementBase {
     }
   }
 
+  private updateEditMode(): void {
+    if (this.editorContainer && this.visualContainer) {
+      const visual = this.editMode === "visual";
+      this.editorContainer.hidden = visual;
+      this.visualContainer.hidden = !visual;
+    }
+    for (const mode of ["visual", "code"] as const) {
+      const button = this.toolbarActions?.querySelector<HTMLButtonElement>(`[data-ssml-editor-button="edit-mode-${mode}"]`);
+      button?.setAttribute("aria-pressed", String(this.editMode === mode));
+      button?.toggleAttribute("data-active", this.editMode === mode);
+    }
+    this.renderVisualEditor();
+  }
+
+  private renderVisualEditor(): void {
+    const container = this.visualContainer;
+    if (!container) return;
+    container.replaceChildren();
+    if (!this.documentState) {
+      const error = document.createElement("p");
+      error.className = "ssml-editor-visual-errors";
+      error.textContent = "SSML syntax must be valid before visual editing is available.";
+      container.append(error);
+      return;
+    }
+
+    const documentState = this.documentState;
+    const leaves = collectVisualTextLeaves(documentState.children ?? []);
+    const selectedLeaf = leaves.find((leaf) => leaf.path.join(".") === this.visualSelectedPath?.join(".")) ?? leaves[0];
+    const breadcrumb = document.createElement("div");
+    breadcrumb.className = "ssml-editor-visual-breadcrumb";
+    breadcrumb.textContent = `<speak>${selectedLeaf ? ` / ${selectedLeaf.ancestors.map((name) => `<${name}>`).join(" / ")}` : ""}`;
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.textContent = "Clear parent";
+    clear.disabled = !this.visualSelectedPath;
+    clear.addEventListener("click", () => {
+      this.visualSelectedPath = null;
+      this.renderVisualEditor();
+    });
+    breadcrumb.append(clear);
+    container.append(breadcrumb);
+
+    const diagnostics = validateAzureSsml(buildSsml(documentState));
+    if (diagnostics.length > 0) {
+      const errors = document.createElement("div");
+      errors.className = "ssml-editor-visual-errors";
+      errors.setAttribute("role", "alert");
+      for (const diagnostic of diagnostics) {
+        const message = document.createElement("div");
+        message.textContent = diagnostic.message;
+        errors.append(message);
+      }
+      container.append(errors);
+    }
+
+    const layout = document.createElement("div");
+    layout.className = "ssml-editor-visual-layout";
+    const tree = document.createElement("nav");
+    tree.className = "ssml-editor-visual-tree";
+    tree.setAttribute("aria-label", "SSML structure tree");
+    tree.append(document.createTextNode("Structure"));
+    const treeList = document.createElement("ul");
+    const renderTree = (nodes: SsmlNode[], parent: HTMLElement, parentPath: number[] = []): void => {
+      nodes.forEach((node, index) => {
+        if (!isElement(node)) return;
+        const path = [...parentPath, index];
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = `<${visualElementName(node)}>`;
+        button.dataset.selected = String(path.join(".") === this.visualSelectedPath?.join("."));
+        button.addEventListener("click", () => {
+          this.visualSelectedPath = path;
+          this.renderVisualEditor();
+        });
+        item.append(button);
+        if ((node.children ?? []).some(isElement)) {
+          const childList = document.createElement("ul");
+          renderTree(node.children ?? [], childList, path);
+          item.append(childList);
+        }
+        parent.append(item);
+      });
+    };
+    renderTree(documentState.children ?? [], treeList);
+    tree.append(treeList);
+    layout.append(tree);
+
+    const form = document.createElement("div");
+    form.className = "ssml-editor-visual-form";
+    if (selectedLeaf) {
+      const label = document.createElement("label");
+      label.append(document.createTextNode("Text"));
+      const textarea = document.createElement("textarea");
+      textarea.value = selectedLeaf.value;
+      textarea.readOnly = this.readonly;
+      textarea.addEventListener("select", () => {
+        this.visualSelection = { start: textarea.selectionStart, end: textarea.selectionEnd };
+      });
+      textarea.addEventListener("input", () => {
+        if (!this.readonly) this.replaceDocument(updateVisualText(documentState, selectedLeaf.path, textarea.value));
+      });
+      label.append(textarea);
+      form.append(label);
+      const actions = document.createElement("div");
+      actions.className = "ssml-editor-visual-actions";
+      const wrappers: readonly [string, SsmlElement["type"], Record<string, string>][] = [
+        ["Rate", "prosody", { rate: "slow" }],
+        ["Pitch", "prosody", { pitch: "high" }],
+        ["Emotion", "mstts:express-as", { style: "cheerful" }],
+        ["Pause", "break", { time: "500ms" }],
+        ["Pronunciation", "phoneme", { alphabet: "ipa", ph: selectedLeaf.value }],
+      ];
+      for (const [labelText, type, attributes] of wrappers) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = labelText;
+        button.disabled = this.readonly;
+        button.addEventListener("click", () => {
+          const start = this.visualSelection.start === this.visualSelection.end ? 0 : this.visualSelection.start;
+          const end = this.visualSelection.start === this.visualSelection.end ? selectedLeaf.value.length : this.visualSelection.end;
+          this.replaceDocument(wrapVisualText(documentState, selectedLeaf.path, start, end, type, attributes));
+          this.renderVisualEditor();
+        });
+        actions.append(button);
+      }
+      const preview = document.createElement("button");
+      preview.type = "button";
+      preview.textContent = "Preview selection";
+      preview.addEventListener("click", () => {
+        this.dispatchEvent(new CustomEvent("preview-selection", { detail: { ssml: buildSsml({ ...documentState, children: [selectedLeaf.value] }) }, bubbles: true, composed: true }));
+      });
+      actions.append(preview);
+      form.append(actions);
+    } else {
+      form.textContent = "Select an element or text node to edit it.";
+    }
+    layout.append(form);
+    container.append(layout);
+  }
+
   private updateActiveButtons(): void {
     const editor = this.editor;
     const model = this.model;
@@ -969,6 +1276,7 @@ export class SsmlEditorElement extends HTMLElementBase {
     }
 
     const model = monacoModule.editor.createModel(this.prepareDocument(this.value), "xml");
+    this.renderVisualEditor();
     const editor = monacoModule.editor.create(container, {
       model,
       theme: this.theme,

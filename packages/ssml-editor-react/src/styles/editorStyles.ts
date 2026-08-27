@@ -82,6 +82,14 @@ export const editorStyles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "0.5rem",
   },
+  visual: {
+    display: "grid",
+    gap: "0.75rem",
+    minHeight: "8rem",
+    padding: "0.75rem",
+    border: "1px solid var(--ssml-editor-control-border)",
+    borderRadius: "0.25rem",
+  },
   toolbarIconOnly: {
     justifyContent: "center",
     minWidth: "2.25rem",
