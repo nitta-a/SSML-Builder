@@ -1110,7 +1110,9 @@ export class SsmlEditorElement extends HTMLElementBase {
       this.visualContainer.hidden = !visual;
     }
     for (const mode of ["visual", "code"] as const) {
-      const button = this.toolbarActions?.querySelector<HTMLButtonElement>(`[data-ssml-editor-button="edit-mode-${mode}"]`);
+      const button = this.toolbarActions?.querySelector<HTMLButtonElement>(
+        `[data-ssml-editor-button="edit-mode-${mode}"]`,
+      );
       button?.setAttribute("aria-pressed", String(this.editMode === mode));
       button?.toggleAttribute("data-active", this.editMode === mode);
     }
@@ -1224,7 +1226,10 @@ export class SsmlEditorElement extends HTMLElementBase {
         button.disabled = this.readonly;
         button.addEventListener("click", () => {
           const start = this.visualSelection.start === this.visualSelection.end ? 0 : this.visualSelection.start;
-          const end = this.visualSelection.start === this.visualSelection.end ? selectedLeaf.value.length : this.visualSelection.end;
+          const end =
+            this.visualSelection.start === this.visualSelection.end
+              ? selectedLeaf.value.length
+              : this.visualSelection.end;
           this.replaceDocument(wrapVisualText(documentState, selectedLeaf.path, start, end, type, attributes));
           this.renderVisualEditor();
         });
@@ -1234,7 +1239,13 @@ export class SsmlEditorElement extends HTMLElementBase {
       preview.type = "button";
       preview.textContent = "Preview selection";
       preview.addEventListener("click", () => {
-        this.dispatchEvent(new CustomEvent("preview-selection", { detail: { ssml: buildSsml({ ...documentState, children: [selectedLeaf.value] }) }, bubbles: true, composed: true }));
+        this.dispatchEvent(
+          new CustomEvent("preview-selection", {
+            detail: { ssml: buildSsml({ ...documentState, children: [selectedLeaf.value] }) },
+            bubbles: true,
+            composed: true,
+          }),
+        );
       });
       actions.append(preview);
       form.append(actions);

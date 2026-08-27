@@ -1277,7 +1277,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             <span style={styles.toolbarSeparator} aria-hidden="true" />
             <button
               type="button"
-              style={editMode === "visual" ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive } : toolbarButtonStyle}
+              style={
+                editMode === "visual" ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive } : toolbarButtonStyle
+              }
               aria-pressed={editMode === "visual"}
               onClick={() => setEditMode("visual")}
             >
@@ -1285,7 +1287,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             </button>
             <button
               type="button"
-              style={editMode === "code" ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive } : toolbarButtonStyle}
+              style={
+                editMode === "code" ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive } : toolbarButtonStyle
+              }
               aria-pressed={editMode === "code"}
               onClick={() => setEditMode("code")}
             >
@@ -1346,65 +1350,65 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
             />
           </div>
         ) : (
-        <div style={{ ...styles.editor, minHeight: editorMinHeight }}>
-          <Editor
-            height={editorHeight}
-            language="xml"
-            theme={isDarkTheme ? "vs-dark" : "light"}
-            options={{
-              automaticLayout: resolvedEditorOptions.automaticLayout ?? true,
-              autoClosingBrackets: "never",
-              fontSize: resolvedEditorOptions.fontSize,
-              hover: { enabled: "on" },
-              inlayHints: { enabled: decorationsVisible ? "on" : "off" },
-              lineNumbers: resolvedEditorOptions.lineNumbers,
-              minimap: {
-                enabled: resolvedEditorOptions.minimap ?? true,
-              },
-              readOnly: isReadOnly,
-              wordWrap: resolvedEditorOptions.wordWrap,
-            }}
-            value={text}
-            loading={loadingFallback}
-            onMount={onMount}
-            onChange={(value) => handleTextChange(value ?? "")}
-          />
-          {selectionOverlay.hasSelection && selectionOverlay.position && (
-            <div
-              role="toolbar"
-              aria-label={copy.selectionActions}
-              data-ssml-editor-selection-actions=""
-              style={{
-                ...styles.selectionActions,
-                top: selectionOverlay.position.top,
-                left: selectionOverlay.position.left,
-                transform:
-                  selectionOverlay.placement === "above"
-                    ? "translateY(calc(-100% - 0.5rem))"
-                    : `translateY(calc(${selectionOverlay.position.height}px + 0.5rem))`,
+          <div style={{ ...styles.editor, minHeight: editorMinHeight }}>
+            <Editor
+              height={editorHeight}
+              language="xml"
+              theme={isDarkTheme ? "vs-dark" : "light"}
+              options={{
+                automaticLayout: resolvedEditorOptions.automaticLayout ?? true,
+                autoClosingBrackets: "never",
+                fontSize: resolvedEditorOptions.fontSize,
+                hover: { enabled: "on" },
+                inlayHints: { enabled: decorationsVisible ? "on" : "off" },
+                lineNumbers: resolvedEditorOptions.lineNumbers,
+                minimap: {
+                  enabled: resolvedEditorOptions.minimap ?? true,
+                },
+                readOnly: isReadOnly,
+                wordWrap: resolvedEditorOptions.wordWrap,
               }}
-              onMouseDown={(event) => event.preventDefault()}
-            >
-              <span style={styles.selectionCount} aria-live="polite">
-                {selectionOverlay.characterCount}
-                {copy.selectionCountSuffix}
-              </span>
-              <span style={styles.selectionActionsDivider} aria-hidden="true" />
-              <button
-                type="button"
-                style={styles.selectionActionButton}
-                title={copy.previewSelectionTitle}
-                disabled={!canPreviewSelection}
-                onClick={previewSelection}
+              value={text}
+              loading={loadingFallback}
+              onMount={onMount}
+              onChange={(value) => handleTextChange(value ?? "")}
+            />
+            {selectionOverlay.hasSelection && selectionOverlay.position && (
+              <div
+                role="toolbar"
+                aria-label={copy.selectionActions}
+                data-ssml-editor-selection-actions=""
+                style={{
+                  ...styles.selectionActions,
+                  top: selectionOverlay.position.top,
+                  left: selectionOverlay.position.left,
+                  transform:
+                    selectionOverlay.placement === "above"
+                      ? "translateY(calc(-100% - 0.5rem))"
+                      : `translateY(calc(${selectionOverlay.position.height}px + 0.5rem))`,
+                }}
+                onMouseDown={(event) => event.preventDefault()}
               >
-                <span style={styles.selectionActionIcon} aria-hidden="true">
-                  ▶
+                <span style={styles.selectionCount} aria-live="polite">
+                  {selectionOverlay.characterCount}
+                  {copy.selectionCountSuffix}
                 </span>
-                {copy.previewSelection}
-              </button>
-            </div>
-          )}
-        </div>
+                <span style={styles.selectionActionsDivider} aria-hidden="true" />
+                <button
+                  type="button"
+                  style={styles.selectionActionButton}
+                  title={copy.previewSelectionTitle}
+                  disabled={!canPreviewSelection}
+                  onClick={previewSelection}
+                >
+                  <span style={styles.selectionActionIcon} aria-hidden="true">
+                    ▶
+                  </span>
+                  {copy.previewSelection}
+                </button>
+              </div>
+            )}
+          </div>
         )}
         {syntaxError && (
           <p style={styles.error} role="alert">

@@ -167,11 +167,12 @@ function tokenizeElements(source: string): ElementToken[] {
     const parent = openElements[openElements.length - 1];
     const parentVoiceName = [...openElements].reverse().find((element) => element.voiceName)?.voiceName;
     const tokenName = nameMatch[1];
-    const tokenVoiceName = tokenName.toLowerCase() === "voice"
-      ? attributes.get("name")
-      : tokenName.toLowerCase() === "mstts:turn"
-        ? attributes.get("voice") ?? parentVoiceName
-        : parentVoiceName;
+    const tokenVoiceName =
+      tokenName.toLowerCase() === "voice"
+        ? attributes.get("name")
+        : tokenName.toLowerCase() === "mstts:turn"
+          ? (attributes.get("voice") ?? parentVoiceName)
+          : parentVoiceName;
     tokens.push({
       attributes,
       end,
@@ -576,7 +577,10 @@ function validateElement(
     const volume = attr(token, "volume");
     if (volume && !/^(silent|x-soft|soft|medium|loud|x-loud|[+-]?\d+(?:\.\d+)?(?:dB|%))$/i.test(volume.trim()))
       addDiagnostic(diagnostics, source, token.start, `Unsupported <mstts:backgroundaudio volume> value "${volume}".`);
-    for (const [attribute, value] of [["fadein", attr(token, "fadein")], ["fadeout", attr(token, "fadeout")]] as const) {
+    for (const [attribute, value] of [
+      ["fadein", attr(token, "fadein")],
+      ["fadeout", attr(token, "fadeout")],
+    ] as const) {
       if (value && !isValidAzureAudioDuration(value))
         addDiagnostic(
           diagnostics,

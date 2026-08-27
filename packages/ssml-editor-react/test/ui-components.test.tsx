@@ -578,7 +578,9 @@ describe("SsmlEditor props", () => {
 
     expect(screen.getByRole("navigation", { name: "SSML structure tree" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Text" })).toBeTruthy();
-    await user.click(within(screen.getByRole("group", { name: "Apply SSML formatting" })).getByRole("button", { name: "Rate" }));
+    await user.click(
+      within(screen.getByRole("group", { name: "Apply SSML formatting" })).getByRole("button", { name: "Rate" }),
+    );
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ version: "1.0" }));
   });
 

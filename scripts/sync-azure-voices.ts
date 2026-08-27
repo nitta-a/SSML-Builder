@@ -131,7 +131,10 @@ function parseArgs(args: readonly string[]): CliOptions {
     if (argument === "--dry-run") options.dryRun = true;
     else if (argument === "--region") options.region = args[++index];
     else if (argument === "--regions")
-      options.regions = (args[++index] ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+      options.regions = (args[++index] ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
     else if (argument === "--api-version") options.apiVersion = args[++index];
     else if (argument === "--key") options.key = args[++index];
     else if (argument === "--input") options.inputPath = args[++index];
@@ -167,7 +170,11 @@ export async function syncAzureVoices(options: CliOptions): Promise<AzureVoiceDe
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const region = options.region ?? process.env.AZURE_SPEECH_REGION;
-  const regions = options.regions ?? process.env.AZURE_SPEECH_REGIONS?.split(",").map((value) => value.trim()).filter(Boolean);
+  const regions =
+    options.regions ??
+    process.env.AZURE_SPEECH_REGIONS?.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
   const key = options.key ?? process.env.AZURE_SPEECH_KEY;
   if (!options.inputPath && (!(regions?.length || region) || !key))
     throw new Error("Set AZURE_SPEECH_REGION(S) and AZURE_SPEECH_KEY, or pass --region(s) and --key.");
