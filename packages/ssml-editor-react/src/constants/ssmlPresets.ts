@@ -1,5 +1,8 @@
 type SsmlPresetDescription = Readonly<Record<"ja" | "en", string>>;
 
+// @ts-expect-error The Node strip-types test runner requires the explicit TypeScript extension.
+import { AZURE_VOICE_STYLE_MAP } from "./azureVoiceStyleMap.generated.ts";
+
 export interface SsmlPreset {
   id: string;
   label: string;
@@ -119,7 +122,7 @@ export function getExpressAsStyleCategory(style: string): ExpressAsStyleCategory
   return "other";
 }
 
-export const VOICE_STYLE_MAP = {
+const LEGACY_VOICE_STYLE_MAP = {
   "ja-JP-MayuNeural": ["calm", "cheerful", "sad"],
   "ja-JP-KeitaNeural": ["chat"],
   "ja-JP-NanamiNeural": ["chat", "customerservice", "cheerful", "whispering", "sad"],
@@ -206,7 +209,11 @@ export const VOICE_STYLE_MAP = {
   "ru-RU-SvetlanaNeural": ["cheerful", "sad", "angry", "disgruntled", "embarrassed", "fearful"],
 } as const satisfies Readonly<Record<string, readonly ExpressAsStyle[]>>;
 
-const VOICE_STYLE_MAP_BY_NORMALIZED_NAME = new Map<string, readonly ExpressAsStyle[]>(
+/** Snapshot generated from Azure's List Voices API. The legacy map is only a safety fallback for an empty generated file. */
+export const VOICE_STYLE_MAP =
+  Object.keys(AZURE_VOICE_STYLE_MAP).length > 0 ? AZURE_VOICE_STYLE_MAP : LEGACY_VOICE_STYLE_MAP;
+
+const VOICE_STYLE_MAP_BY_NORMALIZED_NAME = new Map<string, readonly string[]>(
   Object.entries(VOICE_STYLE_MAP).map(([voiceName, styles]) => [voiceName.toLowerCase(), styles]),
 );
 
@@ -254,6 +261,7 @@ export const SAY_AS_PRESETS = [
 ] as const;
 export const LANGUAGE_PRESETS = ["ja-JP", "en-US", "de-DE", "fr-FR"] as const;
 export const SILENCE_VALUE_PRESETS = ["300ms", "500ms", "1s"] as const;
+export const AUDIO_DURATION_PRESETS = ["5s", "10s", "30s"] as const;
 export const SILENCE_TYPE_PRESETS = [
   "Leading",
   "Tailing",
@@ -262,6 +270,11 @@ export const SILENCE_TYPE_PRESETS = [
   "Semicolon",
   "Enumerationcomma",
 ] as const;
+export const AUDIO_DURATION_DESCRIPTIONS = {
+  "5s": { ja: "5秒", en: "5 seconds" },
+  "10s": { ja: "10秒", en: "10 seconds" },
+  "30s": { ja: "30秒", en: "30 seconds" },
+} as const;
 export const PHONEME_ALPHABET_PRESETS = ["ipa", "sapi", "ups", "x-sampa"] as const;
 export const VISEME_TYPE_PRESETS = ["redlips_front", "FacialExpression"] as const;
 
@@ -305,6 +318,9 @@ export const SSML_ATTRIBUTE_PRESETS = {
   "mstts:silence": {
     type: SILENCE_TYPE_PRESETS,
     value: SILENCE_VALUE_PRESETS,
+  },
+  "mstts:audioduration": {
+    value: AUDIO_DURATION_PRESETS,
   },
   silence: {
     type: SILENCE_TYPE_PRESETS,

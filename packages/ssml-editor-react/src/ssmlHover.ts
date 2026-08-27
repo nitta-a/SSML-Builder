@@ -328,6 +328,17 @@ const SSML_TAG_DEFINITIONS: readonly SsmlTagDefinition[] = [
       },
     ],
   },
+  {
+    name: "mstts:audioduration",
+    description: "Sets the target duration of synthesized audio.",
+    parameters: [
+      {
+        name: "value",
+        description: "The target duration, such as `10s`, `5000ms`, or `00:00:10`.",
+        example: "10s",
+      },
+    ],
+  },
 ] as const;
 
 export { SSML_TAG_DEFINITIONS };

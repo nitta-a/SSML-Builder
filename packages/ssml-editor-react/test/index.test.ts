@@ -80,7 +80,23 @@ test("provides attribute values from the active SSML tag and attribute", () => {
   );
 });
 
-test("generates CodeLens actions for prosody and break tags", () => {
+test("provides the audioduration snippet and value completions", () => {
+  const tagSuggestions = getSuggestions("<");
+  assert.equal(
+    tagSuggestions.some(
+      (suggestion) =>
+        suggestion.label === "mstts:audioduration" && suggestion.insertText === '<mstts:audioduration value="10s" />',
+    ),
+    true,
+  );
+  const valueSuggestions = getSuggestions('<mstts:audioduration value="');
+  assert.equal(
+    valueSuggestions.some((suggestion) => suggestion.label === "10s"),
+    true,
+  );
+});
+
+test("generates CodeLens actions for prosody, break, and audioduration tags", () => {
   let provider: Parameters<Monaco["languages"]["registerCodeLensProvider"]>[1] | undefined;
   let commandId: string | undefined;
   let commandHandler: ((accessor: unknown, ...args: unknown[]) => void) | undefined;
@@ -102,7 +118,8 @@ test("generates CodeLens actions for prosody and break tags", () => {
   const editor = {
     addAction: () => ({ dispose() {} }),
   } as never;
-  const source = '<prosody rate="+10%" pitch="high">Hello</prosody><break time="500ms"/>';
+  const source =
+    '<prosody rate="+10%" pitch="high">Hello</prosody><break time="500ms"/><mstts:audioduration value="10s"/>';
   registerSsmlCodeLens(monaco, editor, () => undefined);
   const model = {
     getValue: () => source,
@@ -117,6 +134,8 @@ test("generates CodeLens actions for prosody and break tags", () => {
       "⚡ Pitch: high (Click to edit)",
       "Unwrap",
       "⚡ Time: 500ms (Click to edit)",
+      "Delete",
+      "⚡ Duration: 10s (Click to edit)",
       "Delete",
     ],
   );

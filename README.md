@@ -154,6 +154,8 @@ SSML の検証は、構文、Azure 固有の静的な意味、実サービスの
 
 翻訳などで本文だけを置き換える場合は、`mapSsmlTextNodes` に変換関数を渡します。変換関数には直近の親タグと祖先タグの `path` が渡され、戻り値は `string` または `Promise<string>` を指定できます。`validateAzureSsml` は音声、属性値、音声スタイル、文字数、`audio` URL/オリジンを検証します。
 
+`mstts:audioduration` は `<mstts:audioduration value="10s"/>` の形式で扱えます。`value` には正の `ms`／`s` 値、または `hh:mm:ss`（ミリ秒を含む場合は `hh:mm:ss.fff`）を指定できます。
+
 `mapSsmlTextNodes` の第 3 引数で、翻訳対象外タグとコンテキストフィルターを指定できます。デフォルトでは `phoneme`、`say-as`、`sub` の本文を変換しません。`filter` には `parentTag`、`parentAttributes`、`ancestorTags`、`path` が渡されます。
 
 ```ts
@@ -192,6 +194,8 @@ const diagnostics = validateAzureSsml(ssml, {
 
 Azure の音声・スタイル一覧はサービス更新やリージョン差分があるため、組み込み一覧は固定の完全な台帳ではありません。新しい音声を完全に静的検証したい場合は、音声名だけでなくロケールとスタイルを `voiceDefinitions` に定義してください。`validateNestedVoices` のデフォルトは `true` です。`audio` の外部 URL はデフォルトで拒否されるため、利用する場合は `allowedAudioOrigins` に許可するオリジンを列挙するか、構成を理解した上で `allowExternalAudio: true` を指定してください。
 
+Azure の音声カタログを更新する場合は、`AZURE_SPEECH_REGION` と `AZURE_SPEECH_KEY` を設定して `npm run sync:voices` を実行します。`packages/ssml-core` の音声定義とエディタのスタイル補完候補が同時に更新されます。
+
 ```ts
 const diagnostics = validateAzureSsml(ssml, {
   customVoiceStyleMap: { "my-custom-voice": ["narration"] },
@@ -204,7 +208,7 @@ Azure Speech は `<audio>` の URL を取得するため、任意の URL をそ�
 
 ## `ssml-editor-react` の利用方法
 
-`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`enableCodeLens`（デフォルトは `true`）が有効な場合、`prosody` と `break` タグの上に属性編集やタグ操作の CodeLens が表示されます。`showDecorations` が有効な場合、`break` と `prosody` のタグに間やピッチ変化を示すインラインバッジが表示され、Monaco のインライン装飾も有効になります。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体、選択範囲、または現在行の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
+`SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`enableCodeLens`（デフォルトは `true`）が有効な場合、`prosody`、`break`、`mstts:audioduration` タグの上に属性編集やタグ操作の CodeLens が表示されます。`showDecorations` が有効な場合、`break` と `prosody` のタグに間やピッチ変化を示すインラインバッジが表示され、Monaco のインライン装飾も有効になります。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体、選択範囲、または現在行の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
 
 `<mstts:express-as>` の `style` 属性補完と標準の感情メニューは、カーソルまたは選択範囲を囲む最内の `<voice name="...">` が対応するスタイルだけを表示します。音声名が未指定の場合は全候補を表示し、登録済みでスタイル非対応の音声や未登録の音声では候補がないことを表示します。`emotionStyles` を指定した場合、感情メニューではその値と登録済み音声の対応スタイルの共通部分を使用します。
 
@@ -249,8 +253,8 @@ export function App() {
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
 - `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
 - `showDecorations`: 本文中のインライン装飾（バッジや Inlay Hints）の表示（デフォルトは `false`）。ツールバーの「装飾」スイッチで表示・非表示を切り替えられます
-- `enableCodeLens`: `prosody` と `break` タグの CodeLens クイックコントローラーを表示するか（デフォルトは `true`）
-- `buttonVisibility`: ツールバーボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`undo`、`redo`、`clearAll`、`format`、`decorations`、カスタム挿入 ID を指定でき、未指定のボタンは表示されます
+- `enableCodeLens`: `prosody`、`break`、`mstts:audioduration` タグの CodeLens クイックコントローラーを表示するか（デフォルトは `true`）
+- `buttonVisibility`: ツールバーボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`mstts:audioduration`、`undo`、`redo`、`clearAll`、`format`、`decorations`、カスタム挿入 ID を指定でき、未指定のボタンは表示されます
 - `editorOptions` / `settings`: Monaco の設定。`height`、`minHeight`、`readOnly`、`theme`（`system` / `light` / `dark`）、`fontSize`、`wordWrap`、`lineNumbers`、`minimap`、`automaticLayout` を指定できます。これらは同名のトップレベル props でも指定できます
 - `loadingFallback`: Monaco の読み込み中に表示する React ノード
 - `toolbarOrder`: ツールバー全体のボタン ID の表示順。指定されていないボタンは後ろに続きます
@@ -263,10 +267,10 @@ export function App() {
 - `toolbarClassName` / `toolbarStyle`: ツールバーのクラス名とインラインスタイル
 - `displayClassName` / `displayStyle`: 本文表示エリアのクラス名とインラインスタイル
 - ツールバーの「フォーマット」ボタンで本文の XML を整形できます
-- 挿入専用の要素（`break`、`mstts:silence`、カスタム挿入の `mode: "insert"`）は、本文内で独立した行になるよう自動的に改行されます。選択範囲を囲む要素はインラインのまま挿入されます
+- 挿入専用の要素（`break`、`mstts:silence`、`mstts:audioduration`、カスタム挿入の `mode: "insert"`）は、本文内で独立した行になるよう自動的に改行されます。選択範囲を囲む要素はインラインのまま挿入されます
 - 本文を変更すると SSML 構文を検証し、エラー箇所をエディター上に表示します
 
-標準の挿入メニューには `break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence` が含まれます。これらの定義は `SSML_INSERTIONS` から参照できます。カスタム挿入定義は配列または ID をキーにしたオブジェクトで指定でき、`createSsmlEditorInsertionDefinition` でタグ名と任意の 1 属性を持つ定義を作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
+標準の挿入メニューには `break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`mstts:audioduration` が含まれます。これらの定義は `SSML_INSERTIONS` から参照できます。カスタム挿入定義は配列または ID をキーにしたオブジェクトで指定でき、`createSsmlEditorInsertionDefinition` でタグ名と任意の 1 属性を持つ定義を作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
 
 「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは `voice` 要素を保持したまま、それ以外の XML 要素を削除して本文を残します。ドキュメントの `version`、`lang`、その他の属性も保持されます。
 
@@ -579,7 +583,7 @@ const diagnostics = validateAzureSsml(ssml, {
 });
 ```
 
-The catalog is represented by `AzureVoiceDefinition` with `name`, `locale`, optional `secondaryLocales`, and optional `styles`. Pass `voiceDefinitions` (or `voiceCatalog`) to supplement or override the built-in catalog with an external definition. `customVoiceStyleMap` remains supported for backward compatibility and overrides styles for the named voice. Diagnostics distinguish an unregistered voice (`azure-unknown-voice`, controlled by `unknownVoicePolicy`), an unsupported style on a registered voice (`azure-unsupported-style`), and a locale mismatch (`azure-locale-mismatch`).
+The catalog is represented by `AzureVoiceDefinition` with `name`, `locale`, optional `secondaryLocales`, and optional `styles`. Pass `voiceDefinitions` (or `voiceCatalog`) to supplement or override the built-in catalog with an external definition. `customVoiceStyleMap` remains supported for backward compatibility and overrides styles for the named voice. Diagnostics distinguish an unregistered voice (`azure-unknown-voice`, controlled by `unknownVoicePolicy`), an unsupported style on a registered voice (`azure-unsupported-style`), and a locale mismatch (`azure-locale-mismatch`). The `<mstts:audioduration value="10s"/>` element accepts positive `ms` or `s` values and `hh:mm:ss[.fff]` clock values.
 
 ```ts
 const diagnostics = validateAzureSsml(ssml, {
@@ -597,6 +601,8 @@ const diagnostics = validateAzureSsml(ssml, {
 ```
 
 Azure's voice and style catalog changes over time and can differ by region, so the built-in catalog is a fixed snapshot rather than a complete live catalog. For complete static validation of a new voice, define its name, locale, and supported styles in `voiceDefinitions`. `validateNestedVoices` defaults to `true`. External `<audio>` URLs are blocked by default; provide `allowedAudioOrigins` or explicitly set `allowExternalAudio: true` only when the deployment is configured to control those requests.
+
+To refresh the built-in voice catalog, set `AZURE_SPEECH_REGION` and `AZURE_SPEECH_KEY`, then run `npm run sync:voices`. The command updates the core voice definitions and editor style-completion map together.
 
 ```ts
 const diagnostics = validateAzureSsml(ssml, {
@@ -655,8 +661,8 @@ export function App() {
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
 - `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
 - `showDecorations`: Whether inline decorations such as badges and inlay hints are shown in the text (defaults to `false`); use the **Decorations** toolbar switch to toggle them at runtime
-- `enableCodeLens`: Whether CodeLens quick controls for `prosody` and `break` tags are shown (defaults to `true`)
-- `buttonVisibility`: Per-toolbar-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, `undo`, `redo`, `clearAll`, `format`, `decorations`, and custom insertion IDs; unspecified buttons are shown
+- `enableCodeLens`: Whether CodeLens quick controls for `prosody`, `break`, and `mstts:audioduration` tags are shown (defaults to `true`)
+- `buttonVisibility`: Per-toolbar-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, `mstts:audioduration`, `undo`, `redo`, `clearAll`, `format`, `decorations`, and custom insertion IDs; unspecified buttons are shown
 - `editorOptions` / `settings`: Monaco settings for `height`, `minHeight`, `readOnly`, `theme` (`system` / `light` / `dark`), `fontSize`, `wordWrap`, `lineNumbers`, `minimap`, and `automaticLayout`. The same settings can also be supplied as top-level props
 - `loadingFallback`: A React node displayed while Monaco is loading
 - `toolbarOrder`: Display order for all toolbar button IDs; unlisted buttons follow
@@ -669,10 +675,10 @@ export function App() {
 - `toolbarClassName` / `toolbarStyle`: A class name and inline styles for the toolbar
 - `displayClassName` / `displayStyle`: A class name and inline styles for the text display area
 - Use the **Format** button to format the XML in the text display area
-- Standalone elements (`break`, `mstts:silence`, and custom insertions with `mode: "insert"`) are automatically placed on separate lines; elements that wrap a selection remain inline
+- Standalone elements (`break`, `mstts:silence`, `mstts:audioduration`, and custom insertions with `mode: "insert"`) are automatically placed on separate lines; elements that wrap a selection remain inline
 - Changing the text validates SSML syntax and displays errors in the editor
 
-The built-in insertion menus are `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, and `mstts:silence`. Their definitions are available through `SSML_INSERTIONS`. Custom insertion definitions can be supplied as an array or an object keyed by ID. Use `createSsmlEditorInsertionDefinition` to create a definition from a tag and one optional attribute; for arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
+The built-in insertion menus are `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, and `mstts:audioduration`. Their definitions are available through `SSML_INSERTIONS`. Custom insertion definitions can be supplied as an array or an object keyed by ID. Use `createSsmlEditorInsertionDefinition` to create a definition from a tag and one optional attribute; for arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
 
 Click the **Description** button to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button preserves `voice` elements, removes the other XML elements, and leaves the text in place. The document's `version`, `lang`, and other attributes are also preserved.
 

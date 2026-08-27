@@ -17,7 +17,12 @@ export { validateSsml } from "./validation.ts";
 export type { SsmlValidationError } from "./validation.ts";
 export { extractSsmlText, mapSsmlTextNodes } from "./textNodes.ts";
 export type { MapSsmlTextNodesOptions, SsmlTextNodeContext } from "./textNodes.ts";
-export { areAzureLanguagesEquivalent, normalizeAzureLanguage, validateAzureSsml } from "./azureValidation.ts";
+export {
+  areAzureLanguagesEquivalent,
+  isValidAzureAudioDuration,
+  normalizeAzureLanguage,
+  validateAzureSsml,
+} from "./azureValidation.ts";
 export type {
   AzureDiagnosticCode,
   AzureLanguageNormalizationOptions,

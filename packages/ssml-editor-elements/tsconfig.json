@@ -15,6 +15,7 @@
     "../ssml-editor-react/src/ssmlContext.ts",
     "../ssml-editor-react/src/locales.ts",
     "../ssml-editor-react/src/constants/ssmlPresets.ts",
+    "../ssml-editor-react/src/constants/azureVoiceStyleMap.generated.ts",
     "../ssml-editor-react/src/ssmlInsertions.ts"
   ],
   "references": []

@@ -13,6 +13,7 @@ export type SsmlEditorInsertionButton =
   | "mark"
   | "bookmark"
   | "mstts:silence"
+  | "mstts:audioduration"
   | "mstts:viseme"
   | (string & {});
 

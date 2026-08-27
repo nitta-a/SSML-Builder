@@ -2,6 +2,8 @@ import type { SsmlEditorLocalizedText } from "./locales";
 import {
   BREAK_TIME_DESCRIPTIONS,
   BREAK_TIME_PRESETS,
+  AUDIO_DURATION_DESCRIPTIONS,
+  AUDIO_DURATION_PRESETS,
   EMPHASIS_LEVEL_DESCRIPTIONS,
   EMPHASIS_LEVEL_PRESETS,
   EXPRESS_AS_STYLE_DESCRIPTIONS,
@@ -320,13 +322,34 @@ export const SSML_INSERTIONS = [
       mode: "insert",
     }),
   },
+  {
+    id: "mstts:audioduration",
+    icon: "◷",
+    tagName: "mstts:audioduration",
+    selfClosing: true,
+    labels: { ja: "音声長", en: "Audio duration" },
+    descriptions: {
+      ja: "合成音声の目標時間を指定します。",
+      en: "Sets the target duration of synthesized audio.",
+    },
+    parameterDescription: {
+      ja: "目標時間を選択します。",
+      en: "Selects the target duration.",
+    },
+    options: createInsertionOptions(AUDIO_DURATION_PRESETS, AUDIO_DURATION_DESCRIPTIONS),
+    createTemplate: (value) => ({
+      prefix: `<mstts:audioduration value="${value}"/>`,
+      suffix: "",
+      mode: "insert",
+    }),
+  },
 ] satisfies readonly SsmlEditorInsertionDefinition[];
 
 export const DEFAULT_INSERTION_GROUPS = [
   {
     id: "pauses",
     labels: { ja: "間・無音", en: "Pauses" },
-    insertionIds: ["break", "mstts:silence"],
+    insertionIds: ["break", "mstts:silence", "mstts:audioduration"],
   },
   {
     id: "prosody",

@@ -5,8 +5,8 @@ import type { SsmlTagRange } from "./ssmlContext";
 export type SsmlCodeLensAction =
   | {
       type: "attribute";
-      insertionId: "rate" | "pitch" | "break";
-      attributeName: "rate" | "pitch" | "time";
+      insertionId: "rate" | "pitch" | "break" | "mstts:audioduration";
+      attributeName: "rate" | "pitch" | "time" | "value";
       tagRange: SsmlTagRange;
     }
   | {
@@ -139,7 +139,7 @@ export function registerSsmlCodeLens(
           break;
         }
         const tag = source.slice(tagStart, tagEnd + 1);
-        const tagName = tag.match(/^<\s*(prosody|break)\b/i)?.[1]?.toLowerCase();
+        const tagName = tag.match(/^<\s*(prosody|break|mstts:audioduration)\b/i)?.[1]?.toLowerCase();
         index = tagEnd + 1;
         if (!tagName) {
           continue;
@@ -171,7 +171,22 @@ export function registerSsmlCodeLens(
               elementRange,
             }),
           );
-        } else if (/\/\s*>$/.test(tag)) {
+        } else if (tagName === "mstts:audioduration" && /\/\s*>$/.test(tag)) {
+          lenses.push(
+            createLens(
+              model,
+              tagStart,
+              tagEnd + 1,
+              `⚡ Duration: ${getAttributeValue(tag, "value") ?? "default"} (Click to edit)`,
+              { type: "attribute", insertionId: "mstts:audioduration", attributeName: "value", tagRange },
+            ),
+            createLens(model, tagStart, tagEnd + 1, "Delete", {
+              type: "delete",
+              tagRange,
+              elementRange,
+            }),
+          );
+        } else if (tagName === "break" && /\/\s*>$/.test(tag)) {
           lenses.push(
             createLens(
               model,

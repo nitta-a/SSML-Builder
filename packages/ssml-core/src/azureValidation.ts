@@ -1,4 +1,5 @@
 import { parseSsml } from "./parser.ts";
+import { AZURE_VOICE_DEFINITIONS } from "./generated/azureVoiceDefinitions.ts";
 
 export type SsmlDiagnosticSeverity = "error" | "warning";
 export type SsmlDiagnosticSource = "ssml-static-validator";
@@ -53,93 +54,6 @@ interface ElementToken {
   start: number;
   selfClosing: boolean;
 }
-
-const EXPRESS_AS_STYLES: Readonly<Record<string, readonly string[]>> = {
-  "en-us-jennyneural": [
-    "assistant",
-    "chat",
-    "customerservice",
-    "newscast",
-    "cheerful",
-    "empathetic",
-    "excited",
-    "friendly",
-    "hopeful",
-    "sad",
-    "shouting",
-    "terrified",
-    "unfriendly",
-    "whispering",
-  ],
-  "en-us-guyneural": [
-    "angry",
-    "cheerful",
-    "excited",
-    "friendly",
-    "hopeful",
-    "newscast",
-    "sad",
-    "shouting",
-    "terrified",
-    "unfriendly",
-    "whispering",
-  ],
-  "en-us-jennymultilingualneural": [
-    "cheerful",
-    "empathetic",
-    "excited",
-    "friendly",
-    "hopeful",
-    "sad",
-    "shouting",
-    "terrified",
-    "unfriendly",
-    "whispering",
-  ],
-  "en-us-andrewneural": ["empathetic", "relieved"],
-  "ja-jp-mayuneural": ["calm", "cheerful", "sad"],
-  "ja-jp-nanamineural": ["chat", "customerservice", "cheerful", "whispering", "sad"],
-  "ja-jp-keitaneural": ["chat"],
-  "ko-kr-sunhineural": ["cheerful", "sad"],
-  "zh-cn-yunxineural": [
-    "narration-relaxed",
-    "embarrassed",
-    "fearful",
-    "sad",
-    "disgruntled",
-    "serious",
-    "angry",
-    "depressed",
-    "chat",
-    "cheerful",
-    "assistant",
-  ],
-  "zh-cn-xiaoxiaoneural": [
-    "assistant",
-    "chat",
-    "customerservice",
-    "newscast",
-    "cheerful",
-    "empathetic",
-    "excited",
-    "friendly",
-    "hopeful",
-    "sad",
-    "terrified",
-    "whispering",
-    "poetry-reading",
-    "sports_commentary",
-    "sports_commentary_excited",
-    "story",
-  ],
-  "fr-fr-deniseneural": ["cheerful", "sad"],
-  "fr-fr-henrineural": ["cheerful", "sad"],
-  "pt-br-franciscaneural": ["calm"],
-  "it-it-elsaneural": ["cheerful", "sad"],
-  "de-de-katjaneural": ["cheerful", "sad"],
-  "de-de-conradneural": ["cheerful", "sad"],
-  "ru-ru-svetlananeural": ["cheerful", "sad", "angry", "disgruntled", "embarrassed", "fearful"],
-};
 
 const ALLOWED_BREAK_STRENGTHS = new Set(["none", "x-weak", "weak", "medium", "strong", "x-strong"]);
 const ALLOWED_SAY_AS = new Set([
@@ -284,19 +198,20 @@ function isSupportedProsodyRate(value: string): boolean {
   return numericValue >= 0.5 && numericValue <= 2;
 }
 
+/** Returns whether a value is a positive Azure SSML audio duration. */
+export function isValidAzureAudioDuration(value: string): boolean {
+  const trimmed = value.trim();
+  const numeric = /^(\d+(?:\.\d+)?)(ms|s)$/.exec(trimmed);
+  if (numeric) return Number(numeric[1]) > 0;
+
+  const clock = /^(\d{2,}):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?$/.exec(trimmed);
+  if (!clock) return false;
+  return Number(clock[1]) > 0 || Number(clock[2]) > 0 || Number(clock[3]) > 0 || Number(clock[4] ?? 0) > 0;
+}
+
 function attr(token: ElementToken, name: string): string | undefined {
   return token.attributes.get(name.toLowerCase());
 }
-
-const ADDITIONAL_VOICE_DEFINITIONS: readonly AzureVoiceDefinition[] = [
-  { name: "zh-TW-HsiaoChenNeural", locale: "zh-TW" },
-  { name: "es-ES-ElviraNeural", locale: "es-ES" },
-  { name: "th-TH-PremwadeeNeural", locale: "th-TH" },
-  { name: "fil-PH-AngeloNeural", locale: "fil-PH" },
-  { name: "vi-VN-HoaiMyNeural", locale: "vi-VN" },
-  { name: "id-ID-GadisNeural", locale: "id-ID" },
-  { name: "ms-MY-YasminNeural", locale: "ms-MY" },
-];
 
 const DEFAULT_LANGUAGE_ALIASES: Readonly<Record<string, readonly string[]>> = {
   "zh-CN": ["zh-Hans"],
@@ -377,10 +292,7 @@ function definitionFromStyleMap(voiceName: string, styles: readonly string[]): A
 
 function normalizeVoiceCatalog(options: AzureValidationOptions): ReadonlyMap<string, AzureVoiceDefinition> {
   const definitions = new Map<string, AzureVoiceDefinition>();
-  for (const [name, styles] of Object.entries(EXPRESS_AS_STYLES)) {
-    definitions.set(name.toLowerCase(), definitionFromStyleMap(name, styles));
-  }
-  for (const definition of ADDITIONAL_VOICE_DEFINITIONS) definitions.set(definition.name.toLowerCase(), definition);
+  for (const definition of AZURE_VOICE_DEFINITIONS) definitions.set(definition.name.toLowerCase(), definition);
   for (const definition of options.voiceCatalog ?? []) definitions.set(definition.name.toLowerCase(), definition);
   for (const definition of options.voiceDefinitions ?? []) definitions.set(definition.name.toLowerCase(), definition);
   for (const definition of options.customVoiceDefinitions ?? [])
@@ -541,6 +453,18 @@ function validateElement(
       addDiagnostic(diagnostics, source, token.start, '<mstts:silence> requires a supported "type" attribute.');
     if (!value || !/^\d+(?:\.\d+)?(?:ms|s)$/.test(value.trim()))
       addDiagnostic(diagnostics, source, token.start, '<mstts:silence> requires a time-valued "value" attribute.');
+  }
+  if (name === "mstts:audioduration") {
+    const value = attr(token, "value");
+    if (!value || !isValidAzureAudioDuration(value))
+      addDiagnostic(
+        diagnostics,
+        source,
+        token.start,
+        '<mstts:audioduration> requires a positive duration such as "10s", "5000ms", or "00:00:10".',
+      );
+    if (!token.selfClosing)
+      addDiagnostic(diagnostics, source, token.start, "<mstts:audioduration> must be self-closing.");
   }
   if (name === "mstts:viseme") {
     const type = attr(token, "type");

@@ -273,6 +273,13 @@ export const SSML_HOVER_COPY: Readonly<Record<SsmlEditorLocale, SsmlHoverLocale>
           type: { title: "type", description: "ビゼームイベントの形式。" },
         },
       },
+      "mstts:audioduration": {
+        title: "音声長",
+        description: "合成音声の目標時間を指定します。",
+        parameters: {
+          value: { title: "value", description: "目標時間。例: `10s`、`5000ms`、`00:00:10`。" },
+        },
+      },
     },
   },
   en: {
@@ -428,6 +435,13 @@ export const SSML_HOVER_COPY: Readonly<Record<SsmlEditorLocale, SsmlHoverLocale>
         description: "Requests viseme events for the synthesized audio.",
         parameters: {
           type: { title: "type", description: "The viseme event format." },
+        },
+      },
+      "mstts:audioduration": {
+        title: "Audio duration",
+        description: "Sets the target duration of synthesized audio.",
+        parameters: {
+          value: { title: "value", description: "The target duration, such as `10s`, `5000ms`, or `00:00:10`." },
         },
       },
     },

@@ -6,6 +6,8 @@ import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButton
 import {
   BREAK_TIME_DESCRIPTIONS,
   BREAK_TIME_PRESETS,
+  AUDIO_DURATION_DESCRIPTIONS,
+  AUDIO_DURATION_PRESETS,
   EMPHASIS_LEVEL_DESCRIPTIONS,
   EMPHASIS_LEVEL_PRESETS,
   EXPRESS_AS_STYLE_DESCRIPTIONS,
@@ -39,7 +41,7 @@ import { useSsmlEditorState } from "./hooks/useSsmlEditorState";
 import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
 import { editorStyles as styles } from "./styles/editorStyles";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
-const TIMING_POPOVER_TAGS = new Set(["break", "mstts:silence"]);
+const TIMING_POPOVER_TAGS = new Set(["break", "mstts:silence", "mstts:audioduration"]);
 const PROSODY_POPOVER_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
 const TEXT_POPOVER_TAGS = new Set(["sub", "say-as", "phoneme", "w", "lang"]);
 
@@ -365,13 +367,34 @@ export const SSML_INSERTIONS = [
       mode: "insert",
     }),
   },
+  {
+    id: "mstts:audioduration",
+    icon: "◷",
+    tagName: "mstts:audioduration",
+    selfClosing: true,
+    labels: { ja: "音声長", en: "Audio duration" },
+    descriptions: {
+      ja: "合成音声の目標時間を指定します。",
+      en: "Sets the target duration of synthesized audio.",
+    },
+    parameterDescription: {
+      ja: "目標時間を選択します。",
+      en: "Selects the target duration.",
+    },
+    options: createInsertionOptions(AUDIO_DURATION_PRESETS, AUDIO_DURATION_DESCRIPTIONS),
+    createTemplate: (value) => ({
+      prefix: `<mstts:audioduration value="${value}"/>`,
+      suffix: "",
+      mode: "insert",
+    }),
+  },
 ] satisfies readonly SsmlInsertionDefinition[];
 
 const DEFAULT_INSERTION_GROUPS = [
   {
     id: "pauses",
     labels: { ja: "間・無音", en: "Pauses" },
-    insertionIds: ["break", "mstts:silence"],
+    insertionIds: ["break", "mstts:silence", "mstts:audioduration"],
   },
   {
     id: "prosody",

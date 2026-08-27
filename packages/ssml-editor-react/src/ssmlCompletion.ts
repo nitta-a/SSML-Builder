@@ -43,6 +43,10 @@ const SSML_COMPLETION_SNIPPETS = [
     insertText: `<mstts:express-as style="cheerful">\${1:text}</mstts:express-as>`,
   },
   {
+    label: "mstts:audioduration",
+    insertText: '<mstts:audioduration value="10s" />',
+  },
+  {
     label: "sub",
     insertText: `<sub alias="\${1:読み}">\${2:漢字}</sub>`,
   },

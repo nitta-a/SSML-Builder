@@ -24,7 +24,7 @@ import type { MonacoEditor, SsmlSyntaxError } from "../ssmlDiagnostics";
 import type { SsmlCodeLensAction } from "../ssmlCodeLens";
 import { SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "../constants/ui";
 
-const TIMING_INSERTION_TAGS = new Set(["break", "mstts:silence"]);
+const TIMING_INSERTION_TAGS = new Set(["break", "mstts:silence", "mstts:audioduration"]);
 const PROSODY_INSERTION_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
 const TEXT_INSERTION_TAGS = new Set(["sub", "say-as", "phoneme", "w", "lang"]);
 
@@ -53,8 +53,8 @@ export interface UseSsmlEditorStateOptions {
 }
 
 interface PendingCodeLensAttribute {
-  insertionId: "rate" | "pitch" | "break";
-  attributeName: "rate" | "pitch" | "time";
+  insertionId: "rate" | "pitch" | "break" | "mstts:audioduration";
+  attributeName: "rate" | "pitch" | "time" | "value";
   tagRange: { start: number; end: number };
   modelVersionId: number;
 }

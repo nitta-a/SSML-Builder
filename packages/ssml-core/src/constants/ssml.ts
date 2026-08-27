@@ -31,6 +31,7 @@ export const SSML_TAGS = {
   SILENCE: "silence",
   MSTTS_VISEME: "mstts:viseme",
   VISEME: "viseme",
+  MSTTS_AUDIO_DURATION: "mstts:audioduration",
 } as const;
 
 export const SSML_ATTRS = {

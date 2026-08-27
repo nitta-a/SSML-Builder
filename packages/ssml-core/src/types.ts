@@ -122,6 +122,11 @@ export interface MsttsVisemeElement extends SsmlElementBase {
   visemeType?: string;
 }
 
+export interface MsttsAudioDurationElement extends SsmlElementBase {
+  type: "mstts:audioduration";
+  value?: SsmlAttributeValue;
+}
+
 export interface CustomElement extends SsmlElementBase {
   type: "custom" | "element";
   name: string;
@@ -146,6 +151,7 @@ export type SsmlElement =
   | WordElement
   | MsttsSilenceElement
   | MsttsVisemeElement
+  | MsttsAudioDurationElement
   | CustomElement;
 
 export interface SsmlDocument {

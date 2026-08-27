@@ -106,6 +106,9 @@ function getAttributes(element: SsmlElement): SsmlAttributes {
     case SSML_TAGS.VISEME:
       addAttribute(attributes, SSML_ATTRS.TYPE, element.typeValue ?? element.visemeType);
       break;
+    case SSML_TAGS.MSTTS_AUDIO_DURATION:
+      addAttribute(attributes, SSML_ATTRS.VALUE, element.value);
+      break;
     case SSML_TAGS.PARAGRAPH:
     case SSML_TAGS.SENTENCE:
     case SSML_TAGS.WORD:
@@ -132,6 +135,8 @@ function getTagName(element: SsmlElement): string {
     case SSML_TAGS.VISEME:
     case SSML_TAGS.MSTTS_VISEME:
       return SSML_TAGS.MSTTS_VISEME;
+    case SSML_TAGS.MSTTS_AUDIO_DURATION:
+      return SSML_TAGS.MSTTS_AUDIO_DURATION;
     case "element":
     case "custom":
       return element.name;

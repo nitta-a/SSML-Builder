@@ -7,6 +7,7 @@ export const INTRINSICALLY_EMPTY_ELEMENTS = new Set([
   "lexicon",
   "mark",
   "mstts:silence",
+  "mstts:audioduration",
   "mstts:viseme",
   "silence",
   "viseme",

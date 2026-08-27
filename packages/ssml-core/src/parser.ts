@@ -10,6 +10,7 @@ import type {
   MarkElement,
   MsttsSilenceElement,
   MsttsVisemeElement,
+  MsttsAudioDurationElement,
   ParagraphElement,
   PhonemeElement,
   ProsodyElement,
@@ -562,6 +563,12 @@ function convertElement(node: XmlElementNode): SsmlElement {
       };
       const typeValue = readAttribute(attributes, SSML_ATTRS.TYPE);
       if (typeValue !== undefined) element.typeValue = typeValue;
+      return finishElement(element, node, attributes);
+    }
+    case SSML_TAGS.MSTTS_AUDIO_DURATION: {
+      const element: MsttsAudioDurationElement = { type: SSML_TAGS.MSTTS_AUDIO_DURATION };
+      const value = readAttribute(attributes, SSML_ATTRS.VALUE);
+      if (value !== undefined) element.value = value;
       return finishElement(element, node, attributes);
     }
     default: {
