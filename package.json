@@ -56,7 +56,7 @@
     "format": "biome format .",
     "format:write": "biome format --write .",
     "lint": "biome check .",
-    "release": "npm run build && changeset publish && npm publish --access public",
+    "release": "npm run build && changeset publish && node scripts/publish-root-if-needed.js",
     "sync:voices": "node scripts/sync-azure-voices.ts",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
