@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.8.0
+
+### Minor Changes
+
+- c7c8cb4: Expand Azure SSML static validation to accept absolute prosody rate multipliers from 0.5 to 2.0 and the `number_digit` `say-as` value. Add static-validator source metadata to diagnostics.
+
 ## 2.7.0
 
 ### Minor Changes
