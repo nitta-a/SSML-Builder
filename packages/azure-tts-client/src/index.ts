@@ -2,10 +2,19 @@
  * azure-tts-client: Azure Text-to-Speech client for SSML playback.
  */
 
-export type { AzureTtsClientOptions, AzureTtsLogger, TtsConfig } from "./types.ts";
+export type {
+  AzureTtsClientOptions,
+  AzureTtsLogger,
+  SsmlSynthesisBookmark,
+  SsmlSynthesisBoundary,
+  SsmlSynthesisResult,
+  SsmlSynthesisViseme,
+  TtsConfig,
+} from "./types.ts";
 export { AzureTtsError, AzureTtsSdkError } from "./errors.ts";
 export { AzureTtsClient } from "./client.ts";
 export { synthesizeSpeech } from "./synthesis.ts";
+export { synthesizeSsml } from "./synthesis.ts";
 export { fetchAzureVoiceCatalog } from "./voiceCatalog.ts";
 export type {
   AzureVoiceCatalog,

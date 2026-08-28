@@ -1,4 +1,24 @@
-# SSML-Builder v2.6.0 Release Notes
+# SSML-Builder v2.12.0 Release Notes
+
+Release date: 2026-08-29
+
+v2.12.0 adds full Visual Editor element inspectors, Azure Speech synchronization metadata, safe long-document splitting, and stricter XML depth/audio-origin validation.
+
+## Highlights
+
+- Added `splitSsmlDocument` for independently synthesizable SSML blocks that preserve parent context.
+- Added `synthesizeSsml` and `SsmlSynthesisResult` with word boundaries, visemes, bookmarks, and duration in milliseconds.
+- Added Visual Editor forms for voice, prosody, say-as, phoneme, audio, mark, bookmark, silence, duration, embedding, and voice conversion elements.
+- Visual selection preview now retains the selected document's `speak`, `voice`, and `prosody` context.
+- Added `maxXmlDepth` and stricter exact-origin allowlist handling for audio sources.
+
+## Verification
+
+- `npm run test` — passed
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
+## v2.6.0 Release Notes
 
 Release date: 2026-08-26
 

@@ -47,6 +47,8 @@ export interface AzureValidationOptions {
   customVoiceDefinitions?: readonly AzureVoiceDefinition[];
   languageAliases?: Record<string, string | readonly string[]>;
   maxLength?: number;
+  /** Maximum XML element nesting depth, counting `<speak>` as depth 1. */
+  maxXmlDepth?: number;
   /** Optional model identifier used to validate a voice's model compatibility. */
   model?: string;
   normalizeLanguage?: (lang: string) => string;
@@ -72,6 +74,7 @@ interface ElementToken {
   attributes: Map<string, string>;
   childElementIndex?: number;
   end: number;
+  depth: number;
   parentName?: string;
   name: string;
   parentVoiceName?: string;
@@ -208,6 +211,7 @@ function tokenizeElements(source: string): ElementToken[] {
       attributes,
       childElementIndex,
       end,
+      depth: openElements.length + 1,
       name: tokenName,
       parentName: parent?.name,
       parentVoiceName,
@@ -460,14 +464,26 @@ function validateAudioSource(
     addDiagnostic(diagnostics, source, token.start, `<${elementName} src> must be an absolute HTTP(S) URL.`);
     return;
   }
+  if (parsed.username || parsed.password)
+    addDiagnostic(diagnostics, source, token.start, `<${elementName} src> must not contain URL credentials.`);
   if (parsed.protocol !== "https:" && !(options.allowHttpAudio && parsed.protocol === "http:"))
     addDiagnostic(diagnostics, source, token.start, `<${elementName} src> must use HTTPS.`);
   const isAllowedOrigin =
     options.allowedAudioOrigins?.some((allowedOrigin) => {
       try {
-        return new URL(allowedOrigin).origin === parsed.origin;
+        const configured = new URL(allowedOrigin);
+        if (
+          (configured.protocol !== "https:" && configured.protocol !== "http:") ||
+          configured.username ||
+          configured.password ||
+          configured.pathname !== "/" ||
+          configured.search ||
+          configured.hash
+        )
+          return false;
+        return configured.origin === parsed.origin;
       } catch {
-        return allowedOrigin === parsed.origin;
+        return false;
       }
     }) ?? false;
   if (options.allowedAudioOrigins && !isAllowedOrigin)
@@ -689,6 +705,9 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
   const maxLength = options.maxLength ?? 10_000;
   if (ssml.length > maxLength)
     addDiagnostic(diagnostics, ssml, maxLength, `SSML exceeds the maximum length of ${maxLength} characters.`);
+  if (options.maxXmlDepth !== undefined && (!Number.isInteger(options.maxXmlDepth) || options.maxXmlDepth <= 0)) {
+    addDiagnostic(diagnostics, ssml, 0, "maxXmlDepth must be a positive integer.");
+  }
   try {
     parseSsml(ssml);
   } catch (error) {
@@ -698,6 +717,18 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
     return diagnostics;
   }
   const tokens = tokenizeElements(ssml);
+  if (options.maxXmlDepth !== undefined) {
+    for (const token of tokens) {
+      if (token.depth > options.maxXmlDepth) {
+        addDiagnostic(
+          diagnostics,
+          ssml,
+          token.start,
+          `XML nesting depth ${token.depth} exceeds the configured maximum of ${options.maxXmlDepth}.`,
+        );
+      }
+    }
+  }
   const speak = tokens.find((token) => token.name.toLowerCase() === "speak");
   const voices = tokens.filter((token) => token.name.toLowerCase() === "voice");
   const backgroundAudioTokens = tokens.filter((token) => token.name.toLowerCase() === "mstts:backgroundaudio");

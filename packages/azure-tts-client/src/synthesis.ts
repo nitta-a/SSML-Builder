@@ -1,7 +1,7 @@
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 import { createSpeechSdkError } from "./errors.ts";
 import { createSpeechConfig } from "./speechConfig.ts";
-import type { TtsConfig } from "./types.ts";
+import type { SsmlSynthesisResult, TtsConfig } from "./types.ts";
 
 function closeSpeechResources(speechConfig: SpeechSDK.SpeechConfig, synthesizer: SpeechSDK.SpeechSynthesizer): void {
   try {
@@ -13,7 +13,9 @@ function closeSpeechResources(speechConfig: SpeechSDK.SpeechConfig, synthesizer:
   } catch {}
 }
 
-export async function synthesizeSpeech(ssml: string, config: TtsConfig): Promise<ArrayBuffer> {
+const ticksToMilliseconds = (ticks: number): number => Math.max(0, ticks) / 10_000;
+
+export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<SsmlSynthesisResult> {
   if (config.signal?.aborted) {
     throw createSpeechSdkError("Speech synthesis was cancelled.");
   }
@@ -21,7 +23,7 @@ export async function synthesizeSpeech(ssml: string, config: TtsConfig): Promise
   const speechConfig = createSpeechConfig(config);
   const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, null);
 
-  return await new Promise<ArrayBuffer>((resolve, reject) => {
+  return await new Promise<SsmlSynthesisResult>((resolve, reject) => {
     let resourcesClosed = false;
     let settled = false;
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -43,6 +45,23 @@ export async function synthesizeSpeech(ssml: string, config: TtsConfig): Promise
       reject(createSpeechSdkError(error));
     };
 
+    const boundaries: SsmlSynthesisResult["boundaries"] = [];
+    const visemes: SsmlSynthesisResult["visemes"] = [];
+    const bookmarks: SsmlSynthesisResult["bookmarks"] = [];
+    synthesizer.wordBoundary = (_sender, event) => {
+      boundaries.push({
+        text: event.text,
+        audioOffsetMs: ticksToMilliseconds(event.audioOffset),
+        durationMs: ticksToMilliseconds(event.duration),
+      });
+    };
+    synthesizer.visemeReceived = (_sender, event) => {
+      visemes.push({ visemeId: event.visemeId, audioOffsetMs: ticksToMilliseconds(event.audioOffset) });
+    };
+    synthesizer.bookmarkReached = (_sender, event) => {
+      bookmarks.push({ name: event.text, audioOffsetMs: ticksToMilliseconds(event.audioOffset) });
+    };
+
     const cb = (result: SpeechSDK.SpeechSynthesisResult) => {
       if (settled) return;
       const { reason, errorDetails } = result;
@@ -54,7 +73,20 @@ export async function synthesizeSpeech(ssml: string, config: TtsConfig): Promise
       settled = true;
       cleanup();
       closeResources();
-      resolve(result.audioData);
+      const eventDurationMs = Math.max(
+        0,
+        ...(boundaries ?? []).map((boundary) => boundary.audioOffsetMs + boundary.durationMs),
+        ...(visemes ?? []).map((viseme) => viseme.audioOffsetMs),
+        ...(bookmarks ?? []).map((bookmark) => bookmark.audioOffsetMs),
+      );
+      const durationMs = result.audioDuration ? ticksToMilliseconds(result.audioDuration) : eventDurationMs;
+      resolve({
+        audioData: result.audioData,
+        durationMs,
+        ...(boundaries.length > 0 ? { boundaries, wordBoundary: boundaries, wordBoundaries: boundaries } : {}),
+        ...(visemes.length > 0 ? { visemes } : {}),
+        ...(bookmarks.length > 0 ? { bookmarks } : {}),
+      });
     };
 
     try {
@@ -73,4 +105,9 @@ export async function synthesizeSpeech(ssml: string, config: TtsConfig): Promise
       rejectWithError(error);
     }
   });
+}
+
+/** Backward-compatible audio-only synthesis helper. */
+export async function synthesizeSpeech(ssml: string, config: TtsConfig): Promise<ArrayBuffer> {
+  return (await synthesizeSsml(ssml, config)).audioData;
 }

@@ -1,5 +1,11 @@
 # playground
 
+## 2.12.0
+
+### Minor Changes
+
+- Consume the v2.12.0 workspace packages.
+
 ## 2.11.0
 
 ### Minor Changes

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
-import { synthesizeSpeech } from "../src/index.ts";
+import { synthesizeSpeech, synthesizeSsml } from "../src/index.ts";
 
 const endpoint = "https://speech.example.test/cognitiveservices/v1";
 const subscriptionKey = "subscription-key";
@@ -49,6 +49,45 @@ test("synthesizeSpeech aborts the SDK request and settles its promise", async (t
     reason: SpeechSDK.ResultReason.SynthesizingAudioCompleted,
   } as SpeechSDK.SpeechSynthesisResult);
   assert.equal(closeCount, 1);
+});
+
+test("synthesizeSsml returns word boundaries, visemes, bookmarks, and duration", async (t) => {
+  const originalFromEndpoint = SpeechSDK.SpeechConfig.fromEndpoint;
+  t.mock.method(SpeechSDK.SpeechConfig, "fromEndpoint", (speechEndpoint, key) =>
+    originalFromEndpoint(speechEndpoint, String(key)),
+  );
+  t.mock.method(
+    SpeechSDK.SpeechSynthesizer.prototype,
+    "speakSsmlAsync",
+    function (this: SpeechSDK.SpeechSynthesizer, _ssml, callback) {
+      this.wordBoundary?.(this, {
+        text: "Hello",
+        audioOffset: 1_000_000,
+        duration: 250_000,
+      } as SpeechSDK.SpeechSynthesisWordBoundaryEventArgs);
+      this.visemeReceived?.(this, { visemeId: 4, audioOffset: 2_000_000 } as SpeechSDK.SpeechSynthesisVisemeEventArgs);
+      this.bookmarkReached?.(this, {
+        text: "chapter-1",
+        audioOffset: 3_000_000,
+      } as SpeechSDK.SpeechSynthesisBookmarkEventArgs);
+      callback?.({
+        audioData: new ArrayBuffer(2),
+        audioDuration: 4_000_000,
+        errorDetails: "",
+        reason: SpeechSDK.ResultReason.SynthesizingAudioCompleted,
+      } as SpeechSDK.SpeechSynthesisResult);
+    },
+  );
+  t.mock.method(SpeechSDK.SpeechSynthesizer.prototype, "close", () => undefined);
+
+  const result = await synthesizeSsml("<speak>Hello</speak>", { endpoint, subscriptionKey, region });
+
+  assert.deepEqual(result.boundaries, [{ text: "Hello", audioOffsetMs: 100, durationMs: 25 }]);
+  assert.deepEqual(result.wordBoundary, result.boundaries);
+  assert.deepEqual(result.wordBoundaries, result.boundaries);
+  assert.deepEqual(result.visemes, [{ visemeId: 4, audioOffsetMs: 200 }]);
+  assert.deepEqual(result.bookmarks, [{ name: "chapter-1", audioOffsetMs: 300 }]);
+  assert.equal(result.durationMs, 400);
 });
 
 test("synthesizeSpeech aborts the SDK request on timeout and settles its promise", async (t) => {

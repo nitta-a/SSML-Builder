@@ -621,6 +621,84 @@ describe("SsmlEditor props", () => {
     );
   });
 
+  it("provides forms for every supported Azure element", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderEditor({
+      editMode: "visual",
+      onChange,
+      document: {
+        ...editorDocument,
+        children: [
+          { type: "voice", name: "en-US-JennyNeural", children: ["Hello"] },
+          { type: "prosody", rate: "slow", children: ["Hello"] },
+          { type: "say-as", interpretAs: "cardinal", children: ["1"] },
+          { type: "phoneme", alphabet: "ipa", ph: "həˈloʊ", children: ["Hello"] },
+          { type: "audio", src: "https://allowed.test/a.mp3" },
+          { type: "mark", name: "chapter-1" },
+          { type: "bookmark", mark: "chapter-1" },
+          { type: "mstts:silence", typeValue: "Comma", value: "100ms" },
+          { type: "mstts:audioduration", value: "10s" },
+          { type: "mstts:embedding", id: "speaker-1" },
+          { type: "mstts:voiceconversion", url: "https://allowed.test/profile" },
+        ],
+      },
+    });
+
+    const tree = screen.getByRole("navigation", { name: "SSML structure tree" });
+    const expectedFields = [
+      ["<voice>", "Voice name"],
+      ["<prosody>", "Rate"],
+      ["<say-as>", "Interpret as"],
+      ["<phoneme>", "Alphabet"],
+      ["<audio>", "Source URL"],
+      ["<mark>", "Mark name"],
+      ["<bookmark>", "Bookmark name"],
+      ["<mstts:silence>", "Silence type"],
+      ["<mstts:audioduration>", "Duration"],
+      ["<mstts:embedding>", "Embedding ID"],
+      ["<mstts:voiceconversion>", "Source URL"],
+    ];
+
+    for (const [element, field] of expectedFields) {
+      await user.click(within(tree).getByRole("button", { name: element }));
+      expect(screen.getByLabelText(field)).toBeTruthy();
+    }
+
+    await user.click(within(tree).getByRole("button", { name: "<mstts:embedding>" }));
+    await user.clear(screen.getByLabelText("Embedding ID"));
+    await user.type(screen.getByLabelText("Embedding ID"), "speaker-2");
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        children: expect.arrayContaining([expect.objectContaining({ type: "mstts:embedding", id: "speaker-2" })]),
+      }),
+    );
+  });
+
+  it("retains voice and prosody context for visual selection preview", async () => {
+    const user = userEvent.setup();
+    const onPreviewSelection = vi.fn();
+    renderEditor({
+      editMode: "visual",
+      onPreviewSelection,
+      document: {
+        ...editorDocument,
+        children: [
+          {
+            type: "voice",
+            name: "en-US-JennyNeural",
+            children: [{ type: "prosody", rate: "slow", children: ["Hello world"] }],
+          },
+        ],
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Preview selection" }));
+    expect(onPreviewSelection).toHaveBeenCalledWith(
+      '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural"><prosody rate="slow">Hello world</prosody></voice></speak>',
+    );
+  });
+
   it("edits Azure background audio settings in the visual editor", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

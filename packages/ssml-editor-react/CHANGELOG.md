@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.12.0
+
+### Minor Changes
+
+- Add Visual Editor forms for the supported SSML and Azure extension elements and preserve parent context during selection preview.
+
 ## 2.11.0
 
 ### Minor Changes

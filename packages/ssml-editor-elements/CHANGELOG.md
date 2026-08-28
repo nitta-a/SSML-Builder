@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-editor-elements
 
+## 2.12.0
+
+### Minor Changes
+
+- Update the wrapped React editor to v2.12.0.
+
 ## 2.11.0
 
 ### Minor Changes

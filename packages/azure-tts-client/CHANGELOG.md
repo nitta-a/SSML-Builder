@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.12.0
+
+### Minor Changes
+
+- Add `synthesizeSsml` and `SsmlSynthesisResult` for word boundaries, visemes, bookmarks, and duration metadata.
+
 ## 2.11.0
 
 ### Minor Changes

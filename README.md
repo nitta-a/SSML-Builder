@@ -236,7 +236,20 @@ const diagnostics = validateAzureSsml(ssml, {
   customVoiceStyleMap: { "my-custom-voice": ["narration"] },
   unknownVoicePolicy: "error", // "error" | "warn" | "ignore"
   allowedAudioOrigins: ["https://cdn.example.com"],
+  maxXmlDepth: 24,
 });
+```
+
+`maxXmlDepth` は `<speak>` を深さ 1 として XML の過剰なネストを検出します。長文は `splitSsmlDocument` で `<p>`／`<s>` と親の `voice`、`prosody` コンテキストを保ったまま分割できます。
+
+```ts
+import { splitSsmlDocument } from "ssml-builder-js/core";
+
+const blocks = splitSsmlDocument(longSsml, 10_000);
+for (const block of blocks) {
+  // 各 block は独立した <speak> 文書として Azure へ送信できます。
+  await client.synthesize(block);
+}
 ```
 
 Azure Speech は `<audio>` の URL を取得するため、任意の URL をそのまま受け付けるサーバーは SSRF の踏み台になり得ます。ユーザー入力の SSML を合成する場合は、HTTPS、許可オリジン、リダイレクト先、応答サイズをサーバー側でも制限し、`allowExternalAudio` だけで無制限に許可しないでください。
@@ -251,10 +264,14 @@ Visual Editor と Code Editor の対応要素は次のとおりです。
 
 | 要素 | Visual Editor | Code Editor |
 | --- | --- | --- |
-| `voice`、`prosody`、`break`、`express-as`、`say-as`、`phoneme` | フォーム操作・構造ツリー | 完全対応 |
+| `voice`、`prosody` | 音声名/effect、rate/pitch/volume/contour/range のフォーム | 完全対応 |
+| `say-as`、`phoneme` | 属性フォーム・構造ツリー | 完全対応 |
+| `audio` | URL、説明、clip、速度、繰り返し、音量のフォーム | 完全対応 |
+| `mark`、`bookmark` | 名前のフォーム | 完全対応 |
+| `mstts:silence`、`mstts:audioduration` | 種別/value・duration のフォーム | 完全対応 |
 | `mstts:dialog` / `mstts:turn` | 話者ターンの追加・音声/話者/本文編集 | 完全対応・補完あり |
 | `mstts:backgroundaudio` | URL、音量、フェードイン/アウト編集 | 完全対応・補完あり |
-| `mstts:ttsembedding`、`mstts:embedding`、`mstts:voiceconversion` | 構造ツリーで保持 | 完全対応 |
+| `mstts:ttsembedding`、`mstts:embedding`、`mstts:voiceconversion` | profile/id/url のフォーム | 完全対応 |
 | 未定義の XML 要素 | 構造ツリーで保持 | `custom` として編集 |
 
 Azure Speech のライフサイクル対応状況は次のとおりです。GA 要素は通常の静的検証対象、プレビュー要素・音声は Warning、非推奨要素・音声は Info の診断を返します。`AzureVoiceDefinition.status` と `AzureValidationOptions.tagStatuses` で外部カタログの状態も指定できます。
@@ -301,7 +318,7 @@ export function App() {
 - `onSsmlChange`: 編集後に生成された SSML 文字列を受け取るコールバック
 - `ref`: `SsmlEditorRef` の `getFullSsml()` で全体の SSML、`getSelectedSsml()` で選択範囲（未選択時は内容が空でないカーソル行）の SSML、`getCurrentLineSsml()` で現在行の SSML を取得。選択範囲やカーソル行が空の場合は `null` を返します
 - `onSelectionChange`: 選択テキスト、文字数、選択状態を受け取るコールバック
-- `onPreviewSelection`: フローティングアクションの試聴ボタン押下時に、選択部分の SSML を受け取るコールバック。省略時は試聴ボタンが無効になります。Azure などの音声 API はこのコールバックから呼び出してください
+- `onPreviewSelection`: フローティングアクションの試聴ボタン押下時に、選択部分を元の `speak` 属性、`voice`、`prosody` などの親コンテキストで包んだ一時 SSML を受け取るコールバック。省略時は試聴ボタンが無効になります。Azure などの音声 API はこのコールバックから呼び出してください
 - `editMode`: 初期編集モード（`"code"` または `"visual"`）。Visual モードは構造ツリーとフォームによる構造化編集を提供します
 - `locale`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`。ホバーヘルプを含む UI の翻訳にも使用されます
 - `language`: `locale` の旧名称。既存コードとの互換性のため利用できますが、新しいコードでは `locale` を使用してください
@@ -853,6 +870,22 @@ const catalog = await fetchAzureVoiceCatalog({
   apiKey: process.env.AZURE_SPEECH_KEY!,
   region: ["eastus", "japaneast"],
 });
+```
+
+同期情報が必要な場合は `synthesizeSsml`（または `AzureTtsClient.synthesizeSsml`）を使用します。SDK の 100 ナノ秒単位のオフセットはミリ秒へ変換されます。
+
+```ts
+import { synthesizeSsml } from "ssml-builder-js";
+
+const result = await synthesizeSsml(ssml, {
+  subscriptionKey: process.env.AZURE_SPEECH_KEY!,
+  region: process.env.AZURE_SPEECH_REGION!,
+});
+result.audioData; // ArrayBuffer
+result.durationMs;
+result.boundaries; // { text, audioOffsetMs, durationMs }[]
+result.visemes; // { visemeId, audioOffsetMs }[]
+result.bookmarks; // { name, audioOffsetMs }[]
 ```
 
 The public updater CLI is `npx ssml-builder sync-voices --region eastus --output ./azure-voices.json`. It reads the key from `AZURE_SPEECH_KEY` (or `--key`) and regions from `AZURE_SPEECH_REGION(S)` (or `--region(s)`).

@@ -6,6 +6,7 @@
 export * from "./types.ts";
 export { buildSsml } from "./builder.ts";
 export { buildPartialSsml } from "./partial.ts";
+export { splitSsmlDocument } from "./split.ts";
 export type {
   BuildPartialSsmlOptions,
   SsmlPartialContext,

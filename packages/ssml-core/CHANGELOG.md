@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.12.0
+
+### Minor Changes
+
+- Add `splitSsmlDocument`, configurable `maxXmlDepth`, and strict audio-origin validation.
+
 ## 2.11.0
 
 ### Minor Changes

@@ -93,7 +93,7 @@ function updateElementText(element: SsmlElement, value: string): SsmlElement {
 function updateOptionalElementProperty(
   document: SsmlDocument,
   path: number[],
-  property: "voice" | "speaker" | "src" | "volume" | "fadeIn" | "fadeOut",
+  property: string,
   value: string,
 ): SsmlDocument {
   return updateElementAtPath(document, path, (element) => {
@@ -102,6 +102,168 @@ function updateOptionalElementProperty(
     else delete next[property];
     return next;
   });
+}
+
+interface VisualElementField {
+  key: string;
+  label: string;
+  multiline?: boolean;
+}
+
+const VISUAL_ELEMENT_FIELDS: Readonly<Record<string, readonly VisualElementField[]>> = {
+  voice: [
+    { key: "name", label: "Voice name" },
+    { key: "effect", label: "Effect" },
+  ],
+  prosody: [
+    { key: "rate", label: "Rate" },
+    { key: "pitch", label: "Pitch" },
+    { key: "volume", label: "Volume" },
+    { key: "contour", label: "Contour" },
+    { key: "range", label: "Range" },
+  ],
+  "express-as": [
+    { key: "style", label: "Style" },
+    { key: "styleDegree", label: "Style degree" },
+    { key: "role", label: "Role" },
+  ],
+  expressAs: [
+    { key: "style", label: "Style" },
+    { key: "styleDegree", label: "Style degree" },
+    { key: "role", label: "Role" },
+  ],
+  "mstts:express-as": [
+    { key: "style", label: "Style" },
+    { key: "styleDegree", label: "Style degree" },
+    { key: "role", label: "Role" },
+  ],
+  "say-as": [
+    { key: "interpretAs", label: "Interpret as" },
+    { key: "format", label: "Format" },
+    { key: "detail", label: "Detail" },
+  ],
+  sayAs: [
+    { key: "interpretAs", label: "Interpret as" },
+    { key: "format", label: "Format" },
+    { key: "detail", label: "Detail" },
+  ],
+  phoneme: [
+    { key: "alphabet", label: "Alphabet" },
+    { key: "ph", label: "Pronunciation" },
+  ],
+  emphasis: [{ key: "level", label: "Level" }],
+  audio: [
+    { key: "src", label: "Source URL" },
+    { key: "desc", label: "Description" },
+    { key: "clipBegin", label: "Clip begin" },
+    { key: "clipEnd", label: "Clip end" },
+    { key: "speed", label: "Speed" },
+    { key: "repeatCount", label: "Repeat count" },
+    { key: "repeatDuration", label: "Repeat duration" },
+    { key: "soundLevel", label: "Sound level" },
+  ],
+  mark: [{ key: "name", label: "Mark name" }],
+  bookmark: [{ key: "mark", label: "Bookmark name" }],
+  sub: [{ key: "alias", label: "Alias" }],
+  lang: [{ key: "lang", label: "Language" }],
+  lexicon: [{ key: "uri", label: "Lexicon URI" }],
+  "mstts:silence": [
+    { key: "typeValue", label: "Silence type" },
+    { key: "value", label: "Value" },
+  ],
+  silence: [
+    { key: "typeValue", label: "Silence type" },
+    { key: "value", label: "Value" },
+  ],
+  "mstts:audioduration": [{ key: "value", label: "Duration" }],
+  "mstts:ttsembedding": [{ key: "speakerProfileId", label: "Speaker profile ID" }],
+  "mstts:embedding": [
+    { key: "id", label: "Embedding ID" },
+    { key: "speakerProfileId", label: "Speaker profile ID" },
+  ],
+  "mstts:voiceconversion": [
+    { key: "url", label: "Source URL" },
+    { key: "profile", label: "Profile" },
+    { key: "speakerProfileId", label: "Speaker profile ID" },
+  ],
+};
+
+function getElementFields(element: SsmlElement): readonly VisualElementField[] {
+  return VISUAL_ELEMENT_FIELDS[elementLabel(element)] ?? [];
+}
+
+function VisualElementInspector({
+  document,
+  element,
+  path,
+  readOnly,
+  commit,
+}: {
+  document: SsmlDocument;
+  element: SsmlElement;
+  path: number[];
+  readOnly: boolean;
+  commit: (document: SsmlDocument) => void;
+}): ReactElement {
+  const fields = getElementFields(element);
+  return (
+    <fieldset>
+      <legend>{`<${elementLabel(element)}>`}</legend>
+      {fields.length === 0 ? (
+        <p>This element is preserved in the visual tree. Edit its attributes in Code mode.</p>
+      ) : (
+        fields.map((field) => {
+          const value = (element as SsmlElement & Record<string, unknown>)[field.key];
+          const inputValue = value === undefined ? "" : String(value);
+          const inputId = `ssml-visual-${field.key}`;
+          return (
+            <label key={field.key} htmlFor={inputId}>
+              {field.label}
+              {field.multiline ? (
+                <textarea
+                  id={inputId}
+                  value={inputValue}
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(updateOptionalElementProperty(document, path, field.key, event.target.value))
+                  }
+                />
+              ) : (
+                <input
+                  id={inputId}
+                  value={inputValue}
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(updateOptionalElementProperty(document, path, field.key, event.target.value))
+                  }
+                />
+              )}
+            </label>
+          );
+        })
+      )}
+    </fieldset>
+  );
+}
+
+function getElementAncestors(nodes: SsmlNode[], path: number[], ancestors: SsmlElement[] = []): SsmlElement[] {
+  const [index, ...rest] = path;
+  const node = nodes[index];
+  if (!node || !isElement(node)) return ancestors;
+  if (rest.length === 0) return ancestors;
+  return getElementAncestors(node.children ?? [], rest, [...ancestors, node]);
+}
+
+function buildVisualPreview(document: SsmlDocument, leaf: TextLeaf, selection: { start: number; end: number }): string {
+  const start = Math.max(0, Math.min(selection.start, leaf.value.length));
+  const end = Math.max(start, Math.min(selection.end, leaf.value.length));
+  const value = start === end ? leaf.value : leaf.value.slice(start, end);
+  const ancestors = getElementAncestors(document.children ?? [], leaf.path);
+  const children = ancestors.reduceRight<SsmlNode[]>(
+    (current, ancestor) => [{ ...ancestor, children: current }],
+    [value],
+  );
+  return buildSsml({ ...document, children });
 }
 
 function addDialogTurn(document: SsmlDocument, path: number[]): SsmlDocument {
@@ -334,6 +496,14 @@ export function VisualSsmlEditor({
                 />
               </label>
             </fieldset>
+          ) : selectedElement && isElement(selectedElement) ? (
+            <VisualElementInspector
+              document={document}
+              element={selectedElement}
+              path={selectedPath ?? []}
+              readOnly={readOnly}
+              commit={commit}
+            />
           ) : selectedLeaf ? (
             <>
               <label>
@@ -375,7 +545,7 @@ export function VisualSsmlEditor({
                 {onPreviewSelection && (
                   <button
                     type="button"
-                    onClick={() => onPreviewSelection(buildSsml({ ...document, children: [selectedLeaf.value] }))}
+                    onClick={() => onPreviewSelection(buildVisualPreview(document, selectedLeaf, selection))}
                   >
                     Preview selection
                   </button>
