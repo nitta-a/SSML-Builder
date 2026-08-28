@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.10.0
+
+### Minor Changes
+
+- Release v2.10.0 with expanded Azure SSML extension attributes, stricter background audio and multi-talker validation, and updated package entrypoint documentation.
+
 ## 2.9.0
 
 ### Minor Changes

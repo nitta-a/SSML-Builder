@@ -1,5 +1,16 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.10.0
+
+### Minor Changes
+
+- Release v2.10.0 with expanded Azure SSML extension attributes, stricter background audio and multi-talker validation, and updated package entrypoint documentation.
+
+### Patch Changes
+
+- Updated dependencies
+  - @ssml-builder-js/ssml-core@2.10.0
+
 ## 2.9.0
 
 ### Minor Changes
