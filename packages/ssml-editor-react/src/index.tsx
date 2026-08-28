@@ -4,7 +4,13 @@
 
 export { SsmlEditor } from "./SsmlEditor";
 export { VisualSsmlEditor } from "./components/VisualSsmlEditor";
-export type { VisualSsmlEditorProps } from "./components/VisualSsmlEditor";
+export type {
+  VisualInspectorRenderProps,
+  VisualInspectorRenderer,
+  VisualSsmlEditorProps,
+  VisualVoiceCatalogEntry,
+  VoiceSelectorRenderProps,
+} from "./components/VisualSsmlEditor";
 export type {
   SsmlEditorButton,
   SsmlEditorButtonVisibility,
@@ -32,7 +38,7 @@ export type {
   SsmlInsertionOption,
   SsmlInsertionTemplate,
 } from "./SsmlEditor";
-export { EDITOR_COPY, INLINE_BADGE_COPY, SSML_HOVER_COPY } from "./locales";
+export { EDITOR_COPY, INLINE_BADGE_COPY, SSML_ELEMENT_COPY, SSML_HOVER_COPY } from "./locales";
 export type {
   EditorCopy,
   InlineBadgeCopy,
@@ -42,6 +48,7 @@ export type {
   SsmlHoverLocale,
   SsmlHoverParameterCopy,
   SsmlHoverTagCopy,
+  SsmlElementLocaleCopy,
 } from "./locales";
 export {
   createSsmlEditorInsertionDefinition,

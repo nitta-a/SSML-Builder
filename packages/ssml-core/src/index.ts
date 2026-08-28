@@ -7,6 +7,7 @@ export * from "./types.ts";
 export { buildSsml } from "./builder.ts";
 export { buildPartialSsml } from "./partial.ts";
 export { splitSsmlDocument } from "./split.ts";
+export type { SplitSsmlOptions, SsmlChunk, SsmlChunkContext, SsmlTextRange } from "./split.ts";
 export type {
   BuildPartialSsmlOptions,
   SsmlPartialContext,
@@ -40,6 +41,8 @@ export type { AzureVoiceCatalogMetadata } from "./generated/azureVoiceCatalog.ts
 export type {
   AzureDiagnosticCode,
   AzureLanguageNormalizationOptions,
+  AzureUrlValidationResult,
+  AzureUrlValidator,
   AzureValidationOptions,
   AzureSsmlValidationOptions,
   AzureVoiceDefinition,

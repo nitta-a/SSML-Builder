@@ -60,6 +60,160 @@ export interface SsmlHoverLocale {
   tags: Readonly<Record<string, SsmlHoverTagCopy>>;
 }
 
+export interface SsmlElementLocaleCopy {
+  label: string;
+  description: string;
+  validationErrors: Readonly<Record<string, string>>;
+}
+
+/** Localized labels and validation copy for Azure extension elements. */
+export const SSML_ELEMENT_COPY: Readonly<Record<SsmlEditorLocale, Readonly<Record<string, SsmlElementLocaleCopy>>>> = {
+  ja: {
+    dialog: {
+      label: "ダイアログ",
+      description: "複数の話者ターンをまとめます。",
+      validationErrors: { turn: "turn は dialog の直下に配置してください。" },
+    },
+    "mstts:dialog": {
+      label: "ダイアログ",
+      description: "複数の話者ターンをまとめます。",
+      validationErrors: { turn: "turn は dialog の直下に配置してください。" },
+    },
+    turn: {
+      label: "話者ターン",
+      description: "ダイアログ内の話者と発話内容を指定します。",
+      validationErrors: { voice: "voice または speaker を指定してください。" },
+    },
+    "mstts:turn": {
+      label: "話者ターン",
+      description: "ダイアログ内の話者と発話内容を指定します。",
+      validationErrors: { voice: "voice または speaker を指定してください。" },
+    },
+    backgroundaudio: {
+      label: "背景音声",
+      description: "合成音声の背後で再生する音声ファイルを指定します。",
+      validationErrors: { src: "背景音声には URL を指定してください。" },
+    },
+    "mstts:backgroundaudio": {
+      label: "背景音声",
+      description: "合成音声の背後で再生する音声ファイルを指定します。",
+      validationErrors: { src: "背景音声には URL を指定してください。" },
+    },
+    ttsembedding: {
+      label: "音声埋め込み",
+      description: "カスタム音声または話者プロファイルのメタデータを埋め込みます。",
+      validationErrors: { speakerProfileId: "話者プロファイル ID を指定してください。" },
+    },
+    "mstts:ttsembedding": {
+      label: "音声埋め込み",
+      description: "カスタム音声または話者プロファイルのメタデータを埋め込みます。",
+      validationErrors: { speakerProfileId: "話者プロファイル ID を指定してください。" },
+    },
+    embedding: {
+      label: "埋め込み",
+      description: "話者埋め込みのメタデータを指定します。",
+      validationErrors: {},
+    },
+    "mstts:embedding": {
+      label: "埋め込み",
+      description: "話者埋め込みのメタデータを指定します。",
+      validationErrors: {},
+    },
+    silence: {
+      label: "無音",
+      description: "発話前後または句読点の境界に無音を追加します。",
+      validationErrors: { value: "無音の長さを指定してください。" },
+    },
+    "mstts:silence": {
+      label: "無音",
+      description: "発話前後または句読点の境界に無音を追加します。",
+      validationErrors: { value: "無音の長さを指定してください。" },
+    },
+    voiceconversion: {
+      label: "音声変換",
+      description: "カスタム音声の変換メタデータを指定します。",
+      validationErrors: {},
+    },
+    "mstts:voiceconversion": {
+      label: "音声変換",
+      description: "カスタム音声の変換メタデータを指定します。",
+      validationErrors: {},
+    },
+  },
+  en: {
+    dialog: {
+      label: "Dialog",
+      description: "Groups multiple speaker turns.",
+      validationErrors: { turn: "Place turns directly inside a dialog." },
+    },
+    "mstts:dialog": {
+      label: "Dialog",
+      description: "Groups multiple speaker turns.",
+      validationErrors: { turn: "Place turns directly inside a dialog." },
+    },
+    turn: {
+      label: "Dialog turn",
+      description: "Specifies a speaker and utterance within a dialog.",
+      validationErrors: { voice: "Provide a voice or speaker." },
+    },
+    "mstts:turn": {
+      label: "Dialog turn",
+      description: "Specifies a speaker and utterance within a dialog.",
+      validationErrors: { voice: "Provide a voice or speaker." },
+    },
+    backgroundaudio: {
+      label: "Background audio",
+      description: "Specifies an audio file played behind synthesized speech.",
+      validationErrors: { src: "Provide a background audio URL." },
+    },
+    "mstts:backgroundaudio": {
+      label: "Background audio",
+      description: "Specifies an audio file played behind synthesized speech.",
+      validationErrors: { src: "Provide a background audio URL." },
+    },
+    ttsembedding: {
+      label: "TTS embedding",
+      description: "Embeds custom voice or speaker profile metadata.",
+      validationErrors: { speakerProfileId: "Provide a speaker profile ID." },
+    },
+    "mstts:ttsembedding": {
+      label: "TTS embedding",
+      description: "Embeds custom voice or speaker profile metadata.",
+      validationErrors: { speakerProfileId: "Provide a speaker profile ID." },
+    },
+    embedding: {
+      label: "Embedding",
+      description: "Specifies speaker embedding metadata.",
+      validationErrors: {},
+    },
+    "mstts:embedding": {
+      label: "Embedding",
+      description: "Specifies speaker embedding metadata.",
+      validationErrors: {},
+    },
+    silence: {
+      label: "Silence",
+      description: "Adds silence before, after, or around punctuation.",
+      validationErrors: { value: "Provide a silence duration." },
+    },
+    "mstts:silence": {
+      label: "Silence",
+      description: "Adds silence before, after, or around punctuation.",
+      validationErrors: { value: "Provide a silence duration." },
+    },
+    voiceconversion: {
+      label: "Voice conversion",
+      description: "Specifies custom voice conversion metadata.",
+      validationErrors: {},
+    },
+    "mstts:voiceconversion": {
+      label: "Voice conversion",
+      description: "Specifies custom voice conversion metadata.",
+      validationErrors: {},
+    },
+  },
+};
+
 export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
   ja: {
     editorAriaLabel: "SSMLエディター",
@@ -280,6 +434,42 @@ export const SSML_HOVER_COPY: Readonly<Record<SsmlEditorLocale, SsmlHoverLocale>
           value: { title: "value", description: "目標時間。例: `10s`、`5000ms`、`00:00:10`。" },
         },
       },
+      "mstts:dialog": { title: "ダイアログ", description: "複数の話者ターンをまとめます。", parameters: {} },
+      "mstts:turn": {
+        title: "話者ターン",
+        description: "ダイアログ内の話者と発話内容を指定します。",
+        parameters: {
+          voice: { title: "voice", description: "このターンで使用する Azure 音声名。" },
+          speaker: { title: "speaker", description: "話者識別子。" },
+        },
+      },
+      "mstts:backgroundaudio": {
+        title: "背景音声",
+        description: "合成音声の背後で再生する音声ファイルを指定します。",
+        parameters: { src: { title: "src", description: "音声ファイルの HTTPS URL。" } },
+      },
+      "mstts:ttsembedding": {
+        title: "音声埋め込み",
+        description: "カスタム音声または話者プロファイルのメタデータを埋め込みます。",
+        parameters: { speakerProfileId: { title: "speakerProfileId", description: "話者プロファイル ID。" } },
+      },
+      "mstts:embedding": {
+        title: "埋め込み",
+        description: "話者埋め込みのメタデータを指定します。",
+        parameters: {
+          id: { title: "id", description: "埋め込み ID。" },
+          speakerProfileId: { title: "speakerProfileId", description: "話者プロファイル ID。" },
+        },
+      },
+      "mstts:voiceconversion": {
+        title: "音声変換",
+        description: "カスタム音声の変換メタデータを指定します。",
+        parameters: {
+          url: { title: "url", description: "音声変換プロファイル URL。" },
+          profile: { title: "profile", description: "変換プロファイル。" },
+          speakerProfileId: { title: "speakerProfileId", description: "話者プロファイル ID。" },
+        },
+      },
     },
   },
   en: {
@@ -442,6 +632,42 @@ export const SSML_HOVER_COPY: Readonly<Record<SsmlEditorLocale, SsmlHoverLocale>
         description: "Sets the target duration of synthesized audio.",
         parameters: {
           value: { title: "value", description: "The target duration, such as `10s`, `5000ms`, or `00:00:10`." },
+        },
+      },
+      "mstts:dialog": { title: "Dialog", description: "Groups multiple speaker turns.", parameters: {} },
+      "mstts:turn": {
+        title: "Dialog turn",
+        description: "Specifies a speaker and utterance within a dialog.",
+        parameters: {
+          voice: { title: "voice", description: "The Azure voice used by this turn." },
+          speaker: { title: "speaker", description: "The speaker identifier." },
+        },
+      },
+      "mstts:backgroundaudio": {
+        title: "Background audio",
+        description: "Specifies an audio file played behind synthesized speech.",
+        parameters: { src: { title: "src", description: "The HTTPS URL of the audio file." } },
+      },
+      "mstts:ttsembedding": {
+        title: "TTS embedding",
+        description: "Embeds custom voice or speaker profile metadata.",
+        parameters: { speakerProfileId: { title: "speakerProfileId", description: "The speaker profile ID." } },
+      },
+      "mstts:embedding": {
+        title: "Embedding",
+        description: "Specifies speaker embedding metadata.",
+        parameters: {
+          id: { title: "id", description: "The embedding ID." },
+          speakerProfileId: { title: "speakerProfileId", description: "The speaker profile ID." },
+        },
+      },
+      "mstts:voiceconversion": {
+        title: "Voice conversion",
+        description: "Specifies custom voice conversion metadata.",
+        parameters: {
+          url: { title: "url", description: "The voice conversion profile URL." },
+          profile: { title: "profile", description: "The conversion profile." },
+          speakerProfileId: { title: "speakerProfileId", description: "The speaker profile ID." },
         },
       },
     },

@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.13.0
+
+### Minor Changes
+
+- Add structured SSML chunk metadata and background-audio replication policies, merged synthesis synchronization offsets, safe preflight synthesis with custom URL validation, chunk progress reporting, source tracking, and extensible Japanese-localized Visual Editor controls.
+
 ## 2.12.0
 
 ### Minor Changes

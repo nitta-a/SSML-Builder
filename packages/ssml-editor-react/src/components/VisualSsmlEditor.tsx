@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import {
   buildSsml,
   validateAzureSsml,
@@ -7,12 +7,48 @@ import {
   type SsmlElement,
   type SsmlNode,
 } from "@ssml-builder-js/ssml-core";
+import { SSML_ELEMENT_COPY, type SsmlEditorLocale } from "../locales";
+
+export interface VisualVoiceCatalogEntry {
+  name: string;
+  locale: string;
+  region?: string;
+  styles?: readonly string[];
+  preview?: boolean;
+  status?: "ga" | "preview" | "deprecated";
+}
+
+export interface VoiceSelectorRenderProps {
+  value: string;
+  voices: readonly VisualVoiceCatalogEntry[];
+  readOnly: boolean;
+  locale: SsmlEditorLocale;
+  onChange: (voice: string) => void;
+}
+
+export interface VisualInspectorRenderProps {
+  document: SsmlDocument;
+  element: SsmlElement;
+  path: number[];
+  readOnly: boolean;
+  onChange: (document: SsmlDocument) => void;
+  locale: SsmlEditorLocale;
+}
+
+export type VisualInspectorRenderer = (props: VisualInspectorRenderProps) => ReactNode;
 
 export interface VisualSsmlEditorProps {
   document: SsmlDocument;
   readOnly?: boolean;
   onChange?: (document: SsmlDocument) => void;
   onPreviewSelection?: (ssml: string) => void;
+  locale?: SsmlEditorLocale;
+  customInspectors?: Readonly<Record<string, VisualInspectorRenderer>>;
+  renderVoiceSelector?: (props: VoiceSelectorRenderProps) => ReactNode;
+  voiceCatalog?: readonly VisualVoiceCatalogEntry[];
+  voiceLocale?: string;
+  voiceRegion?: string;
+  voiceStyle?: string;
 }
 
 interface TextLeaf {
@@ -192,20 +228,76 @@ function getElementFields(element: SsmlElement): readonly VisualElementField[] {
   return VISUAL_ELEMENT_FIELDS[elementLabel(element)] ?? [];
 }
 
+function localizedElementLabel(element: SsmlElement, locale: SsmlEditorLocale): string {
+  return SSML_ELEMENT_COPY[locale][elementLabel(element)]?.label ?? elementLabel(element);
+}
+
+function filteredVoices(
+  voiceCatalog: readonly VisualVoiceCatalogEntry[] | undefined,
+  locale: string | undefined,
+  region: string | undefined,
+  style: string | undefined,
+): readonly VisualVoiceCatalogEntry[] {
+  return (voiceCatalog ?? []).filter((voice) => {
+    if (locale && voice.locale.toLowerCase() !== locale.toLowerCase()) return false;
+    if (region && voice.region && voice.region.toLowerCase() !== region.toLowerCase()) return false;
+    if (style && !voice.styles?.some((candidate) => candidate.toLowerCase() === style.toLowerCase())) return false;
+    return true;
+  });
+}
+
+function DefaultVoiceSelector({ value, voices, readOnly, locale, onChange }: VoiceSelectorRenderProps): ReactElement {
+  return (
+    <select
+      aria-label={locale === "ja" ? "音声" : "Voice"}
+      value={value}
+      disabled={readOnly}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">{locale === "ja" ? "音声を選択" : "Select a voice"}</option>
+      {voices.map((voice) => (
+        <option key={voice.name} value={voice.name}>
+          {voice.name}
+          {voice.preview || voice.status === "preview" ? " (preview)" : ""}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function VisualElementInspector({
   document,
   element,
   path,
   readOnly,
   commit,
+  locale,
+  customInspector,
+  renderVoiceSelector,
+  voiceCatalog,
+  voiceLocale,
+  voiceRegion,
+  voiceStyle,
 }: {
   document: SsmlDocument;
   element: SsmlElement;
   path: number[];
   readOnly: boolean;
   commit: (document: SsmlDocument) => void;
+  locale: SsmlEditorLocale;
+  customInspector?: VisualInspectorRenderer;
+  renderVoiceSelector?: (props: VoiceSelectorRenderProps) => ReactNode;
+  voiceCatalog?: readonly VisualVoiceCatalogEntry[];
+  voiceLocale?: string;
+  voiceRegion?: string;
+  voiceStyle?: string;
 }): ReactElement {
+  if (customInspector) {
+    return <>{customInspector({ document, element, path, readOnly, onChange: commit, locale })}</>;
+  }
   const fields = getElementFields(element);
+  const availableVoices = filteredVoices(voiceCatalog, voiceLocale, voiceRegion, voiceStyle);
+  const renderSelector = renderVoiceSelector ?? DefaultVoiceSelector;
   return (
     <fieldset>
       <legend>{`<${elementLabel(element)}>`}</legend>
@@ -218,8 +310,53 @@ function VisualElementInspector({
           const inputId = `ssml-visual-${field.key}`;
           return (
             <label key={field.key} htmlFor={inputId}>
-              {field.label}
-              {field.multiline ? (
+              {locale === "ja"
+                ? ((
+                    {
+                      name: "名前",
+                      effect: "効果",
+                      rate: "速度",
+                      pitch: "ピッチ",
+                      volume: "音量",
+                      contour: "ピッチ曲線",
+                      range: "範囲",
+                      style: "スタイル",
+                      styleDegree: "スタイル強度",
+                      role: "役割",
+                      interpretAs: "解釈",
+                      alphabet: "アルファベット",
+                      ph: "発音",
+                      level: "強調レベル",
+                      src: "音声 URL",
+                      desc: "説明",
+                      clipBegin: "開始位置",
+                      clipEnd: "終了位置",
+                      speed: "速度",
+                      repeatCount: "繰り返し回数",
+                      repeatDuration: "繰り返し時間",
+                      soundLevel: "音量レベル",
+                      mark: "ブックマーク名",
+                      alias: "別名",
+                      lang: "言語",
+                      uri: "辞書 URI",
+                      typeValue: "無音の種類",
+                      value: "値",
+                      id: "埋め込み ID",
+                      speakerProfileId: "話者プロファイル ID",
+                      url: "音声変換 URL",
+                      profile: "プロファイル",
+                    } as Record<string, string>
+                  )[field.key] ?? field.label)
+                : field.label}
+              {field.key === "name" && elementLabel(element) === "voice" && voiceCatalog ? (
+                renderSelector({
+                  value: inputValue,
+                  voices: availableVoices,
+                  readOnly,
+                  locale,
+                  onChange: (value) => commit(updateOptionalElementProperty(document, path, field.key, value)),
+                })
+              ) : field.multiline ? (
                 <textarea
                   id={inputId}
                   value={inputValue}
@@ -346,12 +483,23 @@ export function VisualSsmlEditor({
   readOnly = false,
   onChange,
   onPreviewSelection,
+  locale = "en",
+  customInspectors,
+  renderVoiceSelector,
+  voiceCatalog,
+  voiceLocale,
+  voiceRegion,
+  voiceStyle,
 }: VisualSsmlEditorProps): ReactElement {
   const [selectedPath, setSelectedPath] = useState<number[] | null>(null);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const textLeaves = useMemo(() => collectTextLeaves(document.children ?? []), [document]);
   const selectedLeaf = textLeaves.find((leaf) => leaf.path.join(".") === selectedPath?.join(".")) ?? textLeaves[0];
   const selectedElement = selectedPath ? getNodeAtPath(document.children ?? [], selectedPath) : undefined;
+  const selectedCustomInspector =
+    selectedElement && isElement(selectedElement)
+      ? (customInspectors?.[elementLabel(selectedElement)] ?? customInspectors?.[selectedElement.type])
+      : undefined;
   const diagnostics = useMemo(() => validateAzureSsml(buildSsml(document)), [document]);
   const commit = (nextDocument: SsmlDocument): void => onChange?.(nextDocument);
 
@@ -399,33 +547,54 @@ export function VisualSsmlEditor({
           </ul>
         </nav>
         <div className="ssml-editor-visual-form">
-          {selectedElement && isElement(selectedElement) && selectedElement.type === "mstts:dialog" ? (
+          {selectedCustomInspector && selectedElement && isElement(selectedElement) ? (
+            selectedCustomInspector({
+              document,
+              element: selectedElement,
+              path: selectedPath ?? [],
+              readOnly,
+              onChange: commit,
+              locale,
+            })
+          ) : selectedElement && isElement(selectedElement) && selectedElement.type === "mstts:dialog" ? (
             <fieldset>
-              <legend>Dialog</legend>
-              <p>Add and edit speaker turns in this dialog.</p>
+              <legend>{localizedElementLabel(selectedElement, locale)}</legend>
+              <p>{SSML_ELEMENT_COPY[locale][elementLabel(selectedElement)]?.description}</p>
               <button
                 type="button"
                 disabled={readOnly}
                 onClick={() => commit(addDialogTurn(document, selectedPath ?? []))}
               >
-                Add turn
+                {locale === "ja" ? "ターンを追加" : "Add turn"}
               </button>
             </fieldset>
           ) : selectedElement && isElement(selectedElement) && selectedElement.type === "mstts:turn" ? (
             <fieldset>
-              <legend>Dialog turn</legend>
-              <label>
-                Voice
-                <input
-                  value={selectedElement.voice ?? ""}
-                  readOnly={readOnly}
-                  onChange={(event) =>
-                    commit(updateOptionalElementProperty(document, selectedPath ?? [], "voice", event.target.value))
-                  }
-                />
+              <legend>{localizedElementLabel(selectedElement, locale)}</legend>
+              <label htmlFor="ssml-visual-turn-voice">
+                {locale === "ja" ? "音声" : "Voice"}
+                {voiceCatalog ? (
+                  (renderVoiceSelector ?? DefaultVoiceSelector)({
+                    value: selectedElement.voice ?? "",
+                    voices: filteredVoices(voiceCatalog, voiceLocale, voiceRegion, voiceStyle),
+                    readOnly,
+                    locale,
+                    onChange: (value) =>
+                      commit(updateOptionalElementProperty(document, selectedPath ?? [], "voice", value)),
+                  })
+                ) : (
+                  <input
+                    id="ssml-visual-turn-voice"
+                    value={selectedElement.voice ?? ""}
+                    readOnly={readOnly}
+                    onChange={(event) =>
+                      commit(updateOptionalElementProperty(document, selectedPath ?? [], "voice", event.target.value))
+                    }
+                  />
+                )}
               </label>
               <label>
-                Speaker
+                {locale === "ja" ? "話者" : "Speaker"}
                 <input
                   value={selectedElement.speaker ?? ""}
                   readOnly={readOnly}
@@ -435,7 +604,7 @@ export function VisualSsmlEditor({
                 />
               </label>
               <label>
-                Turn text
+                {locale === "ja" ? "発話テキスト" : "Turn text"}
                 <textarea
                   value={
                     selectedElement.children?.filter((child): child is string => typeof child === "string").join("") ??
@@ -454,9 +623,9 @@ export function VisualSsmlEditor({
             </fieldset>
           ) : selectedElement && isElement(selectedElement) && selectedElement.type === "mstts:backgroundaudio" ? (
             <fieldset>
-              <legend>Background audio</legend>
+              <legend>{localizedElementLabel(selectedElement, locale)}</legend>
               <label>
-                Source URL
+                {locale === "ja" ? "音声 URL" : "Source URL"}
                 <input
                   value={selectedElement.src ?? ""}
                   readOnly={readOnly}
@@ -466,7 +635,7 @@ export function VisualSsmlEditor({
                 />
               </label>
               <label>
-                Volume
+                {locale === "ja" ? "音量" : "Volume"}
                 <input
                   value={selectedElement.volume === undefined ? "" : String(selectedElement.volume)}
                   readOnly={readOnly}
@@ -476,7 +645,7 @@ export function VisualSsmlEditor({
                 />
               </label>
               <label>
-                Fade in
+                {locale === "ja" ? "フェードイン" : "Fade in"}
                 <input
                   value={selectedElement.fadeIn === undefined ? "" : String(selectedElement.fadeIn)}
                   readOnly={readOnly}
@@ -486,7 +655,7 @@ export function VisualSsmlEditor({
                 />
               </label>
               <label>
-                Fade out
+                {locale === "ja" ? "フェードアウト" : "Fade out"}
                 <input
                   value={selectedElement.fadeOut === undefined ? "" : String(selectedElement.fadeOut)}
                   readOnly={readOnly}
@@ -503,6 +672,15 @@ export function VisualSsmlEditor({
               path={selectedPath ?? []}
               readOnly={readOnly}
               commit={commit}
+              locale={locale}
+              customInspector={
+                customInspectors?.[elementLabel(selectedElement)] ?? customInspectors?.[selectedElement.type]
+              }
+              renderVoiceSelector={renderVoiceSelector}
+              voiceCatalog={voiceCatalog}
+              voiceLocale={voiceLocale}
+              voiceRegion={voiceRegion}
+              voiceStyle={voiceStyle}
             />
           ) : selectedLeaf ? (
             <>

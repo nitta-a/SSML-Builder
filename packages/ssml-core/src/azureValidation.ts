@@ -45,6 +45,10 @@ export interface AzureValidationOptions {
   allowHttpAudio?: boolean;
   customVoiceStyleMap?: Record<string, readonly string[]>;
   customVoiceDefinitions?: readonly AzureVoiceDefinition[];
+  /** Host-side validation hook for URL-bearing SSML attributes. */
+  urlValidator?: AzureUrlValidator;
+  /** Alias for urlValidator retained for applications that use the longer name. */
+  customUrlValidator?: AzureUrlValidator;
   languageAliases?: Record<string, string | readonly string[]>;
   maxLength?: number;
   /** Maximum XML element nesting depth, counting `<speak>` as depth 1. */
@@ -64,6 +68,12 @@ export interface AzureValidationOptions {
   voiceCatalog?: readonly AzureVoiceDefinition[];
   voiceDefinitions?: readonly AzureVoiceDefinition[];
 }
+
+export type AzureUrlValidationResult = boolean | { valid: boolean; reason?: string };
+export type AzureUrlValidator = (
+  url: string,
+  context: { tag: string; attribute: string },
+) => AzureUrlValidationResult | Promise<AzureUrlValidationResult>;
 
 export type AzureLanguageNormalizationOptions = Pick<AzureValidationOptions, "languageAliases" | "normalizeLanguage">;
 
@@ -689,7 +699,7 @@ function validateElement(
   }
 }
 
-export function validateAzureSsml(ssml: string, options: AzureValidationOptions = {}): SsmlDiagnostic[] {
+function validateAzureSsmlStatic(ssml: string, options: AzureValidationOptions = {}): SsmlDiagnostic[] {
   const diagnostics: SsmlDiagnostic[] = [];
   if (typeof ssml !== "string") {
     return [
@@ -824,4 +834,74 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
     }
   }
   return diagnostics;
+}
+
+function urlAttributes(token: ElementToken): Array<{ attribute: string; value: string }> {
+  const tag = canonicalTagName(token.name);
+  const attributes =
+    tag === "audio" || tag === "mstts:backgroundaudio"
+      ? ["src"]
+      : tag === "lexicon"
+        ? ["uri"]
+        : tag === "mstts:voiceconversion"
+          ? ["url"]
+          : [];
+  return attributes.flatMap((attribute) => {
+    const value = attr(token, attribute);
+    return value === undefined ? [] : [{ attribute, value }];
+  });
+}
+
+/**
+ * Validates Azure SSML synchronously unless a URL validator is supplied. URL
+ * validation is asynchronous-capable so hosts can perform DNS/private-network checks.
+ */
+export function validateAzureSsml(
+  ssml: string,
+  options?: Omit<AzureValidationOptions, "urlValidator" | "customUrlValidator">,
+): SsmlDiagnostic[];
+export function validateAzureSsml(
+  ssml: string,
+  options: AzureValidationOptions & { urlValidator?: AzureUrlValidator; customUrlValidator?: AzureUrlValidator },
+): SsmlDiagnostic[] | Promise<SsmlDiagnostic[]>;
+export function validateAzureSsml(
+  ssml: string,
+  options: AzureValidationOptions = {},
+): SsmlDiagnostic[] | Promise<SsmlDiagnostic[]> {
+  const diagnostics = validateAzureSsmlStatic(ssml, options);
+  const validator = options.urlValidator ?? options.customUrlValidator;
+  if (!validator || typeof ssml !== "string") return diagnostics;
+
+  let tokens: ElementToken[];
+  try {
+    tokens = tokenizeElements(ssml);
+  } catch {
+    return diagnostics;
+  }
+  const checks = tokens.flatMap((token) =>
+    urlAttributes(token).map(async ({ attribute, value }) => {
+      try {
+        const result = await validator(value, { tag: token.name, attribute });
+        const valid = typeof result === "boolean" ? result : result.valid;
+        if (!valid) {
+          const reason = typeof result === "boolean" ? undefined : result.reason;
+          addDiagnostic(
+            diagnostics,
+            ssml,
+            token.start,
+            `<${token.name} ${attribute}> was rejected by the custom URL validator${reason ? `: ${reason}` : "."}`,
+          );
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        addDiagnostic(
+          diagnostics,
+          ssml,
+          token.start,
+          `<${token.name} ${attribute}> could not be validated by the custom URL validator: ${reason}`,
+        );
+      }
+    }),
+  );
+  return Promise.all(checks).then(() => diagnostics);
 }

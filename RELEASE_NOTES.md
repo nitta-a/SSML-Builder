@@ -1,3 +1,25 @@
+# SSML-Builder v2.13.0 Release Notes
+
+Release date: 2026-08-29
+
+v2.13.0 adds structured SSML chunk metadata, safer preflight synthesis, merged synchronization offsets, chunk progress reporting, source tracking, and extensible Japanese-localized Visual Editor controls.
+
+## Highlights
+
+- Added structured `SsmlChunk` metadata with source text ranges, inherited context, markers, and configurable background-audio replication.
+- Added chunked synthesis helpers that merge audio and accumulate boundary, viseme, and bookmark offsets.
+- Added safe preflight synthesis with asynchronous custom URL validation and clear validation/Azure error results.
+- Added chunk progress reporting and synthesis source tracking.
+- Added extensible Visual Editor inspectors, voice selector rendering, catalog filtering, and Japanese-localized controls.
+
+## Verification
+
+- `npm run format` — passed
+- `npm run lint` — passed
+- `npm test` — passed (152 tests passed; 1 live Azure test skipped without credentials)
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
 # SSML-Builder v2.12.0 Release Notes
 
 Release date: 2026-08-29

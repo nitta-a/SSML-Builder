@@ -40,7 +40,12 @@ import { InsertionPopover } from "./components/popovers/InsertionPopover";
 import { useSsmlEditorState } from "./hooks/useSsmlEditorState";
 import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
 import { editorStyles as styles } from "./styles/editorStyles";
-import { VisualSsmlEditor } from "./components/VisualSsmlEditor";
+import {
+  VisualSsmlEditor,
+  type VisualInspectorRenderer,
+  type VisualVoiceCatalogEntry,
+  type VoiceSelectorRenderProps,
+} from "./components/VisualSsmlEditor";
 const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const TIMING_POPOVER_TAGS = new Set(["break", "mstts:silence", "mstts:audioduration"]);
 const PROSODY_POPOVER_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
@@ -764,6 +769,18 @@ export interface SsmlEditorProps {
   customInsertions?: SsmlEditorCustomInsertionCollection;
   /** Adds insertion definitions without replacing built-in definitions. */
   additionalInsertions?: SsmlEditorCustomInsertionCollection;
+  /** Replaces the visual inspector for an element type or serialized tag name. */
+  customInspectors?: Readonly<Record<string, VisualInspectorRenderer>>;
+  /** Replaces the built-in voice catalog selector in visual mode. */
+  renderVoiceSelector?: (props: VoiceSelectorRenderProps) => ReactNode;
+  /** Voice metadata used by the visual selector. */
+  voiceCatalog?: readonly VisualVoiceCatalogEntry[];
+  /** Optional locale filter for the visual voice selector. */
+  voiceLocale?: string;
+  /** Optional region filter for the visual voice selector. */
+  voiceRegion?: string;
+  /** Optional style filter for the visual voice selector. */
+  voiceStyle?: string;
   /** Candidate style values shown by the built-in emotion insertion. */
   emotionStyles?: readonly string[];
   /** Class name applied to the editor container. */
@@ -865,6 +882,12 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     insertionGroups,
     customInsertions,
     additionalInsertions,
+    customInspectors,
+    renderVoiceSelector,
+    voiceCatalog,
+    voiceLocale,
+    voiceRegion,
+    voiceStyle,
     emotionStyles,
     className,
     style,
@@ -1347,6 +1370,13 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               readOnly={isReadOnly}
               onChange={commit}
               onPreviewSelection={onPreviewSelection}
+              locale={localeProp ?? languageProp}
+              customInspectors={customInspectors}
+              renderVoiceSelector={renderVoiceSelector}
+              voiceCatalog={voiceCatalog}
+              voiceLocale={voiceLocale}
+              voiceRegion={voiceRegion}
+              voiceStyle={voiceStyle}
             />
           </div>
         ) : (

@@ -9,12 +9,12 @@ test("splitSsmlDocument keeps speak, voice, and prosody context in every block",
 
   assert.ok(chunks.length > 1);
   for (const chunk of chunks) {
-    assert.ok(chunk.length <= 180);
-    const parsed = parseSsml(chunk);
-    assert.equal(buildSsml(parsed), chunk);
-    assert.match(chunk, /<voice name="ja-JP-NanamiNeural">/);
-    assert.match(chunk, /<prosody rate="slow">/);
-    assert.deepEqual(validateAzureSsml(chunk, { unknownVoicePolicy: "ignore" }), []);
+    assert.ok(chunk.ssml.length <= 180);
+    const parsed = parseSsml(chunk.ssml);
+    assert.equal(buildSsml(parsed), chunk.ssml);
+    assert.match(chunk.ssml, /<voice name="ja-JP-NanamiNeural">/);
+    assert.match(chunk.ssml, /<prosody rate="slow">/);
+    assert.deepEqual(validateAzureSsml(chunk.ssml, { unknownVoicePolicy: "ignore" }), []);
   }
 });
 
@@ -24,8 +24,8 @@ test("splitSsmlDocument splits oversized text while keeping valid XML", () => {
 
   assert.ok(chunks.length > 1);
   for (const chunk of chunks) {
-    assert.ok(chunk.length <= 220);
-    assert.doesNotThrow(() => parseSsml(chunk));
+    assert.ok(chunk.ssml.length <= 220);
+    assert.doesNotThrow(() => parseSsml(chunk.ssml));
   }
 });
 

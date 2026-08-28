@@ -240,6 +240,8 @@ const diagnostics = validateAzureSsml(ssml, {
 });
 ```
 
+`audio`、`mstts:backgroundaudio`、`lexicon`、`mstts:voiceconversion` の URL は `urlValidator`（または `customUrlValidator`）へ渡せます。Promise を返す検証関数で DNS 解決後のプライベート IP 遮断などを実装できます。
+
 `maxXmlDepth` は `<speak>` を深さ 1 として XML の過剰なネストを検出します。長文は `splitSsmlDocument` で `<p>`／`<s>` と親の `voice`、`prosody` コンテキストを保ったまま分割できます。
 
 ```ts
@@ -248,9 +250,11 @@ import { splitSsmlDocument } from "ssml-builder-js/core";
 const blocks = splitSsmlDocument(longSsml, 10_000);
 for (const block of blocks) {
   // 各 block は独立した <speak> 文書として Azure へ送信できます。
-  await client.synthesize(block);
+  await client.synthesize(block.ssml);
 }
 ```
+
+各ブロックは `SsmlChunk`（`chunkIndex`、`originalTextRange`、継承した音声/言語/韻律、内包マーク、背景音声の有無）です。`<mstts:backgroundaudio>` はデフォルトで先頭チャンクだけに含まれ、全チャンクへ複製する場合は `splitSsmlDocument(longSsml, 10_000, { replicateBackgroundAudio: true })` を指定します。
 
 Azure Speech は `<audio>` の URL を取得するため、任意の URL をそのまま受け付けるサーバーは SSRF の踏み台になり得ます。ユーザー入力の SSML を合成する場合は、HTTPS、許可オリジン、リダイレクト先、応答サイズをサーバー側でも制限し、`allowExternalAudio` だけで無制限に許可しないでください。
 
@@ -336,6 +340,8 @@ export function App() {
 - `insertionGroups`: 挿入メニューを縦線で区切るグループ設定。`toolbarGroups` を省略した場合は、この設定からツールバーの既定グループも作成されます。省略時は間・無音、声の調整、表現、読み上げに分けて表示されます
 - `emotionStyles`: `emotion` メニューに表示する音声スタイル候補
 - `customInsertions` / `additionalInsertions`: カスタム SSML 挿入定義。`customInsertions` は同じ ID の標準定義を置き換え、`additionalInsertions` は標準定義へ追加します
+- `customInspectors`: Visual Editor のタグ名ごとに Inspector を差し替えるレンダラー
+- `renderVoiceSelector`: 音声セレクターのカスタムレンダラー。`voiceCatalog` と `voiceLocale`、`voiceRegion`、`voiceStyle` で候補を絞り込めます。プレビュー音声にはバッジ情報も渡されます
 - `className` / `style`: エディター全体のクラス名とインラインスタイル
 - `toolbarClassName` / `toolbarStyle`: ツールバーのクラス名とインラインスタイル
 - `displayClassName` / `displayStyle`: 本文表示エリアのクラス名とインラインスタイル
@@ -702,6 +708,8 @@ const diagnostics = validateAzureSsml(ssml, {
 });
 ```
 
+URLs in `audio`, `mstts:backgroundaudio`, `lexicon`, and `mstts:voiceconversion` can be passed to `urlValidator` (or `customUrlValidator`). The callback may be asynchronous, making it suitable for host-side DNS/private-IP and SSRF policy checks.
+
 The catalog is represented by `AzureVoiceDefinition` with `name`, `locale`, optional `secondaryLocales`, `styles`, `supportedTags`, `unsupportedTags`, `models`, `regions`, and `status`. Pass `voiceDefinitions` (or `voiceCatalog`) to supplement or override the built-in catalog with an external definition. A tag that violates `supportedTags` or `unsupportedTags` produces `azure-unsupported-tag-for-voice` with error severity. `customVoiceStyleMap` remains supported for backward compatibility and overrides styles for the named voice. Diagnostics distinguish an unregistered voice (`azure-unknown-voice`, controlled by `unknownVoicePolicy`), an unsupported style on a registered voice (`azure-unsupported-style`), and a locale mismatch (`azure-locale-mismatch`). The `<mstts:audioduration value="10s"/>` element accepts positive `ms` or `s` values and `hh:mm:ss[.fff]` clock values.
 
 `npm run sync:voices -- --regions eastus,japaneast` fetches Azure's List Voices API for each region, deduplicates the results, and updates the generated TypeScript definitions plus `azureVoiceCatalog.json` with generation time, API version, regions, and voice count. Provide credentials through `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION(S)`, or CLI options.
@@ -734,6 +742,17 @@ const diagnostics = validateAzureSsml(ssml, {
 ```
 
 Azure Speech fetches `<audio>` URLs, so a server that accepts arbitrary user-provided SSML can become an SSRF proxy. For untrusted SSML, enforce HTTPS, an origin allowlist, redirect policy, and response-size limits on the server; do not treat `allowExternalAudio` as a substitute for those controls.
+
+Long documents can be split into independently synthesizable `SsmlChunk` values:
+
+```ts
+import { splitSsmlDocument } from "ssml-builder-js/core";
+
+const chunks = splitSsmlDocument(longSsml, 10_000);
+for (const chunk of chunks) await client.synthesize(chunk.ssml);
+```
+
+Each chunk includes `chunkIndex`, `originalTextRange`, inherited voice/language/prosody context, contained markers, and background-audio state. Background audio is placed in the first chunk by default; pass `{ replicateBackgroundAudio: true }` as the third argument to include it in every chunk.
 
 ## Using `ssml-editor-react`
 
@@ -813,6 +832,8 @@ export function App() {
 - `insertionGroups`: Groups insertion menus with vertical separators; when `toolbarGroups` is omitted, these groups also define the default toolbar groups. Menus are grouped into pauses, voice, expression, and pronunciation by default
 - `emotionStyles`: Candidate voice styles shown by the `emotion` menu
 - `customInsertions` / `additionalInsertions`: Custom SSML insertion definitions. `customInsertions` replaces a built-in definition with the same ID, while `additionalInsertions` adds definitions to the built-ins
+- `customInspectors`: Custom renderers keyed by element type or serialized tag name for the Visual Editor
+- `renderVoiceSelector`: Custom voice selector renderer. Supply `voiceCatalog` and optional `voiceLocale`, `voiceRegion`, or `voiceStyle` filters; preview status is included in each voice entry
 - `className` / `style`: A class name and inline styles for the editor container
 - `toolbarClassName` / `toolbarStyle`: A class name and inline styles for the toolbar
 - `displayClassName` / `displayStyle`: A class name and inline styles for the text display area
@@ -887,6 +908,10 @@ result.boundaries; // { text, audioOffsetMs, durationMs }[]
 result.visemes; // { visemeId, audioOffsetMs }[]
 result.bookmarks; // { name, audioOffsetMs }[]
 ```
+
+長文を分割して合成する場合は `synthesizeSsmlChunks` または `AzureTtsClient.synthesizeChunks` を使います。音声バイナリを連結し、`boundaries`、`visemes`、`bookmarks` のオフセットを累積 `durationMs` 分だけ補正します。`synthesizeSsmlSafe(client, ssml, { validation })` は検証エラー時に Azure API を呼び出さず、`status: "validation-error"` / `"azure-api-error"` / `"success"` の結果を返します。
+
+For long documents, use `synthesizeSsmlChunks` or `AzureTtsClient.synthesizeChunks`; `onProgress` reports completed chunks while audio and synchronization offsets are merged. `synthesizeSsmlSafe(client, ssml, { validation })` validates before synthesis and returns a discriminated result without calling Azure when static validation fails.
 
 The public updater CLI is `npx ssml-builder sync-voices --region eastus --output ./azure-voices.json`. It reads the key from `AZURE_SPEECH_KEY` (or `--key`) and regions from `AZURE_SPEECH_REGION(S)` (or `--region(s)`).
 
