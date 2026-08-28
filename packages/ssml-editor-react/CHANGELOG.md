@@ -1,5 +1,16 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.11.0
+
+### Minor Changes
+
+- Release v2.11.0 with Azure voice catalog APIs and synchronization tools, expanded editor voice support, and stricter background audio validation.
+
+### Patch Changes
+
+- Updated dependencies
+  - @ssml-builder-js/ssml-core@2.11.0
+
 ## 2.10.0
 
 ### Minor Changes

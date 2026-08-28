@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.11.0
+
+### Minor Changes
+
+- Release v2.11.0 with Azure voice catalog APIs and synchronization tools, expanded editor voice support, and stricter background audio validation.
+
 ## 2.10.0
 
 ### Minor Changes
