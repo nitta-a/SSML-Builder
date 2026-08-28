@@ -1,7 +1,7 @@
 import { parseSsml } from "./parser.ts";
 import { AZURE_VOICE_DEFINITIONS } from "./generated/azureVoiceDefinitions.ts";
 
-export type SsmlDiagnosticSeverity = "error" | "warning";
+export type SsmlDiagnosticSeverity = "error" | "warning" | "info";
 export type SsmlDiagnosticSource = "ssml-static-validator";
 
 export type AzureDiagnosticCode =
@@ -9,7 +9,11 @@ export type AzureDiagnosticCode =
   | "azure-unsupported-style"
   | "azure-locale-mismatch"
   | "azure-unsupported-tag-for-voice"
-  | "azure-unsupported-model-for-voice";
+  | "azure-unsupported-model-for-voice"
+  | "azure-preview-voice"
+  | "azure-deprecated-voice"
+  | "azure-preview-tag"
+  | "azure-deprecated-tag";
 
 export interface SsmlDiagnostic {
   code?: AzureDiagnosticCode;
@@ -28,6 +32,8 @@ export interface AzureVoiceDefinition {
   supportedTags?: readonly string[];
   unsupportedTags?: readonly string[];
   models?: readonly string[];
+  regions?: readonly string[];
+  status?: "ga" | "preview" | "deprecated";
 }
 
 /** Alias retained for consumers that prefer the metadata terminology. */
@@ -44,6 +50,12 @@ export interface AzureValidationOptions {
   /** Optional model identifier used to validate a voice's model compatibility. */
   model?: string;
   normalizeLanguage?: (lang: string) => string;
+  /** Overrides the built-in preview tag list for this validation run. */
+  previewTags?: readonly string[];
+  /** Adds tags that should be reported as deprecated for this validation run. */
+  deprecatedTags?: readonly string[];
+  /** Explicit tag lifecycle metadata. This takes precedence over previewTags/deprecatedTags. */
+  tagStatuses?: Readonly<Record<string, "ga" | "preview" | "deprecated">>;
   unknownVoicePolicy?: "error" | "warn" | "ignore";
   unsupportedStylePolicy?: "error" | "warn" | "ignore";
   validateNestedVoices?: boolean;
@@ -103,6 +115,22 @@ const ALLOWED_SILENCE_TYPES = new Set([
   "Enumerationcomma",
 ]);
 const ALLOWED_VISEME_TYPES = new Set(["redlips_front", "FacialExpression"]);
+const DEFAULT_PREVIEW_TAGS = new Set(["mstts:voiceconversion"]);
+
+function featureStatusForTag(
+  name: string,
+  options: AzureValidationOptions,
+): "ga" | "preview" | "deprecated" | undefined {
+  const tagName = canonicalTagName(name);
+  const configured = Object.entries(options.tagStatuses ?? {}).find(
+    ([candidate]) => canonicalTagName(candidate) === tagName,
+  )?.[1];
+  if (configured) return configured;
+  if ((options.previewTags ?? [...DEFAULT_PREVIEW_TAGS]).some((candidate) => canonicalTagName(candidate) === tagName))
+    return "preview";
+  if ((options.deprecatedTags ?? []).some((candidate) => canonicalTagName(candidate) === tagName)) return "deprecated";
+  return undefined;
+}
 
 function decodeAttribute(value: string): string {
   return value.replace(
@@ -242,9 +270,9 @@ export function isValidAzureAudioDuration(value: string): boolean {
 }
 
 function isValidAzureBackgroundAudioDuration(value: string): boolean {
-  const match = /^(\d+(?:\.\d+)?)(ms|s)?$/i.exec(value.trim());
+  const match = /^(\d+)$/.exec(value.trim());
   if (!match) return false;
-  const milliseconds = Number(match[1]) * (match[2]?.toLowerCase() === "s" ? 1000 : 1);
+  const milliseconds = Number(match[1]);
   return Number.isFinite(milliseconds) && milliseconds >= 0 && milliseconds <= 10_000;
 }
 
@@ -462,6 +490,25 @@ function validateElement(
   voiceCatalog: ReadonlyMap<string, AzureVoiceDefinition>,
 ): void {
   const name = token.name.toLowerCase();
+  const tagStatus = featureStatusForTag(token.name, options);
+  if (tagStatus === "preview")
+    addDiagnostic(
+      diagnostics,
+      source,
+      token.start,
+      `<${token.name}> is an Azure Speech preview feature and may change or require preview access.`,
+      "warning",
+      "azure-preview-tag",
+    );
+  if (tagStatus === "deprecated")
+    addDiagnostic(
+      diagnostics,
+      source,
+      token.start,
+      `<${token.name}> is deprecated by Azure Speech; migrate to a supported alternative.`,
+      "info",
+      "azure-deprecated-tag",
+    );
   if (name === "voice" && !attr(token, "name")?.trim())
     addDiagnostic(diagnostics, source, token.start, '<voice> requires a non-empty "name" attribute.');
   if (name === "break") {
@@ -679,6 +726,24 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
     const name = attr(token, "name")?.trim();
     const language = attr(token, "xml:lang")?.trim() || (speak ? attr(speak, "xml:lang")?.trim() : undefined);
     const definition = name ? voiceCatalog.get(name.toLowerCase()) : undefined;
+    if (name && definition?.status === "preview")
+      addDiagnostic(
+        diagnostics,
+        ssml,
+        token.start,
+        `Voice "${name}" is an Azure Speech preview voice and may change or require preview access.`,
+        "warning",
+        "azure-preview-voice",
+      );
+    if (name && definition?.status === "deprecated")
+      addDiagnostic(
+        diagnostics,
+        ssml,
+        token.start,
+        `Voice "${name}" is deprecated by Azure Speech; migrate to a supported voice.`,
+        "info",
+        "azure-deprecated-voice",
+      );
     if (name && !definition && policySeverity)
       addDiagnostic(
         diagnostics,

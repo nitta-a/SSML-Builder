@@ -179,7 +179,7 @@ SSML の検証は、構文、Azure 固有の静的な意味、実サービスの
 
 `voice`、`prosody`、`break`、`express-as`、`say-as`、`phoneme`、`audio`、`lang`、`mark` に加えて、`mstts:dialog`、`mstts:turn`、`mstts:backgroundaudio`、`mstts:ttsembedding`、`mstts:embedding`、`mstts:voiceconversion` を型付きで表現できます。`type: "custom"` と `name` を指定すれば、未定義の XML 要素や追加属性も扱えます。`mstts:` 要素を含むドキュメントを生成すると、必要な Azure Speech 名前空間が自動的に追加されます。
 
-`mstts:turn` は `voice` またはマルチトーカー用の `speaker` を指定でき、`mstts:ttsembedding` は `speakerProfileId`、`mstts:embedding` は `id`、`mstts:voiceconversion` は `url` と `profile` を専用プロパティで指定できます。`mstts:backgroundaudio` は `<speak>` 直下の先頭要素として 1 文書に 1 つだけ配置します。
+`mstts:turn` は `voice` またはマルチトーカー用の `speaker` を指定でき、`mstts:ttsembedding` は `speakerProfileId`、`mstts:embedding` は `id`、`mstts:voiceconversion` は `url` と `profile` を専用プロパティで指定できます。`mstts:backgroundaudio` は `<speak>` 直下の先頭要素として 1 文書に 1 つだけ配置し、`fadein`/`fadeout` は単位なしの生ミリ秒（0〜10000）で指定します。
 
 `validateAzureSsml` は Azure Speech へ送信する前に実行する事前静的チェックです。返却される診断の `source` はパッケージ側の静的解析結果であることを示し、Azure Speech サービス側でのランタイム生成結果や実際の合成可否を表すものではありません。
 
@@ -208,7 +208,7 @@ const diagnostics = validateAzureSsml(ssml, {
 });
 ```
 
-音声カタログは `AzureVoiceDefinition` の `name`、`locale`、`secondaryLocales`、`styles`、`supportedTags`、`unsupportedTags`、`models` で表現できます。`voiceDefinitions`（または `voiceCatalog`）を渡すと、組み込み台帳を外部定義で補完・上書きできます。`supportedTags`／`unsupportedTags` による音声別制約違反は `azure-unsupported-tag-for-voice` としてエラーになります。組み込み台帳にない音声は `azure-unknown-voice`（`unknownVoicePolicy` に従う）、登録済み音声への非対応スタイルは `azure-unsupported-style`、ロケール不一致は `azure-locale-mismatch` として区別されます。
+音声カタログは `AzureVoiceDefinition` の `name`、`locale`、`secondaryLocales`、`styles`、`supportedTags`、`unsupportedTags`、`models`、`regions`、`status` で表現できます。`voiceDefinitions`（または `voiceCatalog`）を渡すと、組み込み台帳を外部定義で補完・上書きできます。`supportedTags`／`unsupportedTags` による音声別制約違反は `azure-unsupported-tag-for-voice` としてエラーになります。組み込み台帳にない音声は `azure-unknown-voice`（`unknownVoicePolicy` に従う）、登録済み音声への非対応スタイルは `azure-unsupported-style`、ロケール不一致は `azure-locale-mismatch` として区別されます。
 
 `npm run sync:voices -- --regions eastus,japaneast` は Azure List Voices API をリージョンごとに取得し、重複を除いた TypeScript 音声定義と `azureVoiceCatalog.json`（生成日時、API バージョン、リージョン、収録数）を更新します。認証情報は `AZURE_SPEECH_KEY` と `AZURE_SPEECH_REGION(S)`、または CLI オプションで指定します。
 
@@ -246,6 +246,24 @@ Azure Speech は `<audio>` の URL を取得するため、任意の URL をそ�
 `SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`enableCodeLens`（デフォルトは `true`）が有効な場合、`prosody`、`break`、`mstts:audioduration` タグの上に属性編集やタグ操作の CodeLens が表示されます。`showDecorations` が有効な場合、`break` と `prosody` のタグに間やピッチ変化を示すインラインバッジが表示され、Monaco のインライン装飾も有効になります。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体、選択範囲、または現在行の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
 
 `editMode="visual"` を指定するかツールバーの **Visual** を選ぶと、XML を直接見ずに構造ツリーとパンくずから親要素を選択し、フォームで本文の変更、rate、pitch、emotion、pause、pronunciation の適用ができます。Azure の配置違反や属性エラーはビジュアル領域にも表示されます。`editMode="code"` で Monaco に戻ります。
+
+Visual Editor と Code Editor の対応要素は次のとおりです。
+
+| 要素 | Visual Editor | Code Editor |
+| --- | --- | --- |
+| `voice`、`prosody`、`break`、`express-as`、`say-as`、`phoneme` | フォーム操作・構造ツリー | 完全対応 |
+| `mstts:dialog` / `mstts:turn` | 話者ターンの追加・音声/話者/本文編集 | 完全対応・補完あり |
+| `mstts:backgroundaudio` | URL、音量、フェードイン/アウト編集 | 完全対応・補完あり |
+| `mstts:ttsembedding`、`mstts:embedding`、`mstts:voiceconversion` | 構造ツリーで保持 | 完全対応 |
+| 未定義の XML 要素 | 構造ツリーで保持 | `custom` として編集 |
+
+Azure Speech のライフサイクル対応状況は次のとおりです。GA 要素は通常の静的検証対象、プレビュー要素・音声は Warning、非推奨要素・音声は Info の診断を返します。`AzureVoiceDefinition.status` と `AzureValidationOptions.tagStatuses` で外部カタログの状態も指定できます。
+
+| 状態 | 診断 | 対象 |
+| --- | --- | --- |
+| GA | なし | 標準 SSML、`mstts:dialog`、`mstts:backgroundaudio` |
+| Preview | Warning | `mstts:voiceconversion`、`previewTags` / `tagStatuses` に指定した要素、`status: "preview"` の音声 |
+| Deprecated | Info | `deprecatedTags` / `tagStatuses`、`status: "deprecated"` の音声 |
 
 `<mstts:express-as>` の `style` 属性補完と標準の感情メニューは、カーソルまたは選択範囲を囲む最内の `<voice name="...">` が対応するスタイルだけを表示します。音声名が未指定の場合は全候補を表示し、登録済みでスタイル非対応の音声や未登録の音声では候補がないことを表示します。`emotionStyles` を指定した場合、感情メニューではその値と登録済み音声の対応スタイルの共通部分を使用します。
 
@@ -348,6 +366,19 @@ const audio = await client.synthesize(ssml);
 ```
 
 帯域幅を抑える場合は `audio-24khz-48kbitrate-mono-mp3` または `audio-16khz-32kbitrate-mono-mp3` を指定できます。
+
+最新の音声一覧は公開 API から取得できます。複数リージョンを指定した場合は音声名で重複排除され、各音声の `regions` と `metadata`（`voiceCount`、`generatedAt`、`apiVersion`、`regions`）が返ります。
+
+```ts
+import { fetchAzureVoiceCatalog } from "ssml-builder-js";
+
+const catalog = await fetchAzureVoiceCatalog({
+  apiKey: process.env.AZURE_SPEECH_KEY!,
+  region: ["eastus", "japaneast"],
+});
+```
+
+CLI では `npx ssml-builder sync-voices --region eastus --output ./azure-voices.json` を実行します。キーは `AZURE_SPEECH_KEY`（または `--key`）、リージョンは `AZURE_SPEECH_REGION(S)`（または `--region(s)`）から指定できます。
 
 ```ts
 const client = new AzureTtsClient({
@@ -629,7 +660,7 @@ SSML validation separates XML syntax, Azure-specific static semantics, and runti
 
 Typed representations are available for elements such as `voice`, `prosody`, `break`, `express-as`, `say-as`, `phoneme`, `audio`, `lang`, and `mark`, plus `mstts:dialog`, `mstts:turn`, `mstts:backgroundaudio`, `mstts:ttsembedding`, `mstts:embedding`, and `mstts:voiceconversion`. Use `type: "custom"` and `name` to handle undefined XML elements or additional attributes. When a document contains `mstts:` elements, the required Azure Speech namespace is added automatically.
 
-`mstts:turn` accepts either `voice` or the multi-talker `speaker` property. The typed extension properties include `speakerProfileId` for `mstts:ttsembedding`, `id` for `mstts:embedding`, and `url` plus `profile` for `mstts:voiceconversion`. `mstts:backgroundaudio` must be the first direct child element of `<speak>` and may appear only once per document.
+`mstts:turn` accepts either `voice` or the multi-talker `speaker` property. The typed extension properties include `speakerProfileId` for `mstts:ttsembedding`, `id` for `mstts:embedding`, and `url` plus `profile` for `mstts:voiceconversion`. `mstts:backgroundaudio` must be the first direct child element of `<speak>` and may appear only once per document; `fadein` and `fadeout` are raw milliseconds from 0 through 10000.
 
 `validateAzureSsml` is a preflight static check performed by this package before sending SSML to Azure Speech. The `source` on each returned diagnostic identifies package-side static analysis; it is independent of Azure Speech's runtime generation result and does not guarantee that synthesis will succeed.
 
@@ -654,7 +685,7 @@ const diagnostics = validateAzureSsml(ssml, {
 });
 ```
 
-The catalog is represented by `AzureVoiceDefinition` with `name`, `locale`, optional `secondaryLocales`, `styles`, `supportedTags`, `unsupportedTags`, and `models`. Pass `voiceDefinitions` (or `voiceCatalog`) to supplement or override the built-in catalog with an external definition. A tag that violates `supportedTags` or `unsupportedTags` produces `azure-unsupported-tag-for-voice` with error severity. `customVoiceStyleMap` remains supported for backward compatibility and overrides styles for the named voice. Diagnostics distinguish an unregistered voice (`azure-unknown-voice`, controlled by `unknownVoicePolicy`), an unsupported style on a registered voice (`azure-unsupported-style`), and a locale mismatch (`azure-locale-mismatch`). The `<mstts:audioduration value="10s"/>` element accepts positive `ms` or `s` values and `hh:mm:ss[.fff]` clock values.
+The catalog is represented by `AzureVoiceDefinition` with `name`, `locale`, optional `secondaryLocales`, `styles`, `supportedTags`, `unsupportedTags`, `models`, `regions`, and `status`. Pass `voiceDefinitions` (or `voiceCatalog`) to supplement or override the built-in catalog with an external definition. A tag that violates `supportedTags` or `unsupportedTags` produces `azure-unsupported-tag-for-voice` with error severity. `customVoiceStyleMap` remains supported for backward compatibility and overrides styles for the named voice. Diagnostics distinguish an unregistered voice (`azure-unknown-voice`, controlled by `unknownVoicePolicy`), an unsupported style on a registered voice (`azure-unsupported-style`), and a locale mismatch (`azure-locale-mismatch`). The `<mstts:audioduration value="10s"/>` element accepts positive `ms` or `s` values and `hh:mm:ss[.fff]` clock values.
 
 `npm run sync:voices -- --regions eastus,japaneast` fetches Azure's List Voices API for each region, deduplicates the results, and updates the generated TypeScript definitions plus `azureVoiceCatalog.json` with generation time, API version, regions, and voice count. Provide credentials through `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION(S)`, or CLI options.
 
@@ -692,6 +723,24 @@ Azure Speech fetches `<audio>` URLs, so a server that accepts arbitrary user-pro
 `SsmlEditor` accepts an `SsmlDocument` and renders only a toolbar and text display area. The toolbar applies rate, volume, and pitch settings to the selection and provides undo and redo actions. The application is responsible for selecting and displaying the voice. Monaco Editor is used for text editing, and SSML syntax is validated whenever the text changes. Syntax errors are shown with editor markers and an error message. Hovering over XML tag names or parameters shows SSML descriptions. Selecting text displays a floating action bar with the character count and preview action. When `enableCodeLens` is enabled (the default), CodeLens quick controls for editing and unwrapping `prosody` tags and editing or deleting `break` tags are shown above those tags. When `showDecorations` is enabled, inline badges for pause and pitch changes are rendered next to `break` and `prosody` tags, and Monaco inline decorations are enabled. Generated SSML is provided through `onSsmlChange` so the application can display it wherever it needs. Pass an `SsmlEditorRef` through `ref` to retrieve full, selected, or current-line SSML, and use `onSelectionChange` to observe selection text and state. The UI supports Japanese (the default) and English.
 
 Set `editMode="visual"`, or choose **Visual** in the toolbar, to edit without viewing XML source. The structured editor provides a structure tree, parent breadcrumb selection, text editing, and form actions for rate, pitch, emotion, pause, and pronunciation. Azure placement and attribute diagnostics are shown in the visual area. Choose `editMode="code"` to return to Monaco.
+
+The Visual Editor and Code Editor support the following elements:
+
+| Element | Visual Editor | Code Editor |
+| --- | --- | --- |
+| `voice`, `prosody`, `break`, `express-as`, `say-as`, `phoneme` | Form actions and structure tree | Full support |
+| `mstts:dialog` / `mstts:turn` | Add turns and edit voice, speaker, and text | Full support with completion |
+| `mstts:backgroundaudio` | Edit URL, volume, fade-in, and fade-out | Full support with completion |
+| `mstts:ttsembedding`, `mstts:embedding`, `mstts:voiceconversion` | Preserved in the structure tree | Full support |
+| Unknown XML elements | Preserved in the structure tree | Editable as `custom` |
+
+Azure lifecycle support is reported by static validation: GA elements produce no lifecycle diagnostic, preview elements and voices produce a Warning, and deprecated elements and voices produce an Info diagnostic. Use `AzureVoiceDefinition.status` and `AzureValidationOptions.tagStatuses` for external catalog metadata.
+
+| Status | Diagnostic | Examples |
+| --- | --- | --- |
+| GA | None | Standard SSML, `mstts:dialog`, `mstts:backgroundaudio` |
+| Preview | Warning | `mstts:voiceconversion`, tags listed in `previewTags` / `tagStatuses`, voices with `status: "preview"` |
+| Deprecated | Info | Tags listed in `deprecatedTags` / `tagStatuses`, voices with `status: "deprecated"` |
 
 Completion for the `<mstts:express-as>` `style` attribute and the built-in Emotion menu only show styles supported by the innermost `<voice name="...">` around the cursor or selection. When no voice name is available, all candidates are shown; a registered voice without supported styles or an explicitly unregistered voice displays an empty-state message. When `emotionStyles` is supplied, the Emotion menu uses its intersection with the registered voice's supported styles.
 
@@ -794,6 +843,19 @@ const audio = await client.synthesize(ssml);
 ```
 
 For lower bandwidth, choose `audio-24khz-48kbitrate-mono-mp3` or `audio-16khz-32kbitrate-mono-mp3`.
+
+Fetch the current voice catalog from Azure with `fetchAzureVoiceCatalog`. Multiple regions are deduplicated by voice name, and each voice includes its available `regions`; the result also contains `metadata` with `voiceCount`, `generatedAt`, `apiVersion`, and `regions`.
+
+```ts
+import { fetchAzureVoiceCatalog } from "ssml-builder-js";
+
+const catalog = await fetchAzureVoiceCatalog({
+  apiKey: process.env.AZURE_SPEECH_KEY!,
+  region: ["eastus", "japaneast"],
+});
+```
+
+The public updater CLI is `npx ssml-builder sync-voices --region eastus --output ./azure-voices.json`. It reads the key from `AZURE_SPEECH_KEY` (or `--key`) and regions from `AZURE_SPEECH_REGION(S)` (or `--region(s)`).
 
 ```ts
 const client = new AzureTtsClient({

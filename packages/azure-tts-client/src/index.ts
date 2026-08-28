@@ -6,3 +6,10 @@ export type { AzureTtsClientOptions, AzureTtsLogger, TtsConfig } from "./types.t
 export { AzureTtsError, AzureTtsSdkError } from "./errors.ts";
 export { AzureTtsClient } from "./client.ts";
 export { synthesizeSpeech } from "./synthesis.ts";
+export { fetchAzureVoiceCatalog } from "./voiceCatalog.ts";
+export type {
+  AzureVoiceCatalog,
+  AzureVoiceCatalogVoice,
+  FetchedAzureVoiceCatalogMetadata,
+  FetchAzureVoiceCatalogOptions,
+} from "./voiceCatalog.ts";

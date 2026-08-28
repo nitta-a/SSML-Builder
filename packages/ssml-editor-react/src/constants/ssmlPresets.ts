@@ -262,6 +262,7 @@ export const SAY_AS_PRESETS = [
 export const LANGUAGE_PRESETS = ["ja-JP", "en-US", "de-DE", "fr-FR"] as const;
 export const SILENCE_VALUE_PRESETS = ["300ms", "500ms", "1s"] as const;
 export const AUDIO_DURATION_PRESETS = ["5s", "10s", "30s"] as const;
+export const BACKGROUND_AUDIO_DURATION_PRESETS = ["0", "500", "1000", "3000", "10000"] as const;
 export const SILENCE_TYPE_PRESETS = [
   "Leading",
   "Tailing",
@@ -324,8 +325,8 @@ export const SSML_ATTRIBUTE_PRESETS = {
   },
   "mstts:backgroundaudio": {
     volume: PROSODY_VOLUME_PRESETS,
-    fadein: AUDIO_DURATION_PRESETS,
-    fadeout: AUDIO_DURATION_PRESETS,
+    fadein: BACKGROUND_AUDIO_DURATION_PRESETS,
+    fadeout: BACKGROUND_AUDIO_DURATION_PRESETS,
   },
   silence: {
     type: SILENCE_TYPE_PRESETS,

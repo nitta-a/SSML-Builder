@@ -60,6 +60,60 @@ function updateTextAtPath(document: SsmlDocument, path: number[], value: string)
   return { ...document, children: updateNodesAtPath(document.children ?? [], path, () => value) };
 }
 
+function getNodeAtPath(nodes: SsmlNode[], path: number[]): SsmlNode | undefined {
+  let current: SsmlNode | undefined;
+  let currentNodes = nodes;
+  for (const index of path) {
+    current = currentNodes[index];
+    if (current === undefined) return undefined;
+    if (!isElement(current)) {
+      currentNodes = [];
+    } else {
+      currentNodes = current.children ?? [];
+    }
+  }
+  return current;
+}
+
+function updateElementAtPath(
+  document: SsmlDocument,
+  path: number[],
+  update: (element: SsmlElement) => SsmlElement,
+): SsmlDocument {
+  return {
+    ...document,
+    children: updateNodesAtPath(document.children ?? [], path, (node) => (isElement(node) ? update(node) : node)),
+  };
+}
+
+function updateElementText(element: SsmlElement, value: string): SsmlElement {
+  return { ...element, children: [value] };
+}
+
+function updateOptionalElementProperty(
+  document: SsmlDocument,
+  path: number[],
+  property: "voice" | "speaker" | "src" | "volume" | "fadeIn" | "fadeOut",
+  value: string,
+): SsmlDocument {
+  return updateElementAtPath(document, path, (element) => {
+    const next = { ...element } as SsmlElement & Record<string, unknown>;
+    if (value.trim()) next[property] = value;
+    else delete next[property];
+    return next;
+  });
+}
+
+function addDialogTurn(document: SsmlDocument, path: number[]): SsmlDocument {
+  return updateElementAtPath(document, path, (element) => ({
+    ...element,
+    children: [
+      ...(element.children ?? []),
+      { type: "mstts:turn", voice: "en-US-JennyNeural", children: ["New dialog turn"] },
+    ],
+  }));
+}
+
 function wrapTextAtPath(
   document: SsmlDocument,
   path: number[],
@@ -135,6 +189,7 @@ export function VisualSsmlEditor({
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const textLeaves = useMemo(() => collectTextLeaves(document.children ?? []), [document]);
   const selectedLeaf = textLeaves.find((leaf) => leaf.path.join(".") === selectedPath?.join(".")) ?? textLeaves[0];
+  const selectedElement = selectedPath ? getNodeAtPath(document.children ?? [], selectedPath) : undefined;
   const diagnostics = useMemo(() => validateAzureSsml(buildSsml(document)), [document]);
   const commit = (nextDocument: SsmlDocument): void => onChange?.(nextDocument);
 
@@ -182,7 +237,104 @@ export function VisualSsmlEditor({
           </ul>
         </nav>
         <div className="ssml-editor-visual-form">
-          {selectedLeaf ? (
+          {selectedElement && isElement(selectedElement) && selectedElement.type === "mstts:dialog" ? (
+            <fieldset>
+              <legend>Dialog</legend>
+              <p>Add and edit speaker turns in this dialog.</p>
+              <button
+                type="button"
+                disabled={readOnly}
+                onClick={() => commit(addDialogTurn(document, selectedPath ?? []))}
+              >
+                Add turn
+              </button>
+            </fieldset>
+          ) : selectedElement && isElement(selectedElement) && selectedElement.type === "mstts:turn" ? (
+            <fieldset>
+              <legend>Dialog turn</legend>
+              <label>
+                Voice
+                <input
+                  value={selectedElement.voice ?? ""}
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(updateOptionalElementProperty(document, selectedPath ?? [], "voice", event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Speaker
+                <input
+                  value={selectedElement.speaker ?? ""}
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(updateOptionalElementProperty(document, selectedPath ?? [], "speaker", event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Turn text
+                <textarea
+                  value={
+                    selectedElement.children?.filter((child): child is string => typeof child === "string").join("") ??
+                    ""
+                  }
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(
+                      updateElementAtPath(document, selectedPath ?? [], (element) =>
+                        updateElementText(element, event.target.value),
+                      ),
+                    )
+                  }
+                />
+              </label>
+            </fieldset>
+          ) : selectedElement && isElement(selectedElement) && selectedElement.type === "mstts:backgroundaudio" ? (
+            <fieldset>
+              <legend>Background audio</legend>
+              <label>
+                Source URL
+                <input
+                  value={selectedElement.src ?? ""}
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(updateOptionalElementProperty(document, selectedPath ?? [], "src", event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Volume
+                <input
+                  value={selectedElement.volume === undefined ? "" : String(selectedElement.volume)}
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(updateOptionalElementProperty(document, selectedPath ?? [], "volume", event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Fade in
+                <input
+                  value={selectedElement.fadeIn === undefined ? "" : String(selectedElement.fadeIn)}
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(updateOptionalElementProperty(document, selectedPath ?? [], "fadeIn", event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Fade out
+                <input
+                  value={selectedElement.fadeOut === undefined ? "" : String(selectedElement.fadeOut)}
+                  readOnly={readOnly}
+                  onChange={(event) =>
+                    commit(updateOptionalElementProperty(document, selectedPath ?? [], "fadeOut", event.target.value))
+                  }
+                />
+              </label>
+            </fieldset>
+          ) : selectedLeaf ? (
             <>
               <label>
                 Text

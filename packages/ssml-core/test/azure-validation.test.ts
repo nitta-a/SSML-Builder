@@ -251,6 +251,36 @@ test("validateAzureSsml separates voice, style, and locale diagnostic codes", ()
   assert.equal(unsupportedStyle.find((diagnostic) => diagnostic.code)?.code, "azure-unsupported-style");
 });
 
+test("validateAzureSsml reports preview and deprecated lifecycle metadata", () => {
+  const diagnostics = validateAzureSsml(
+    '<speak version="1.0" xml:lang="en-US"><voice name="PreviewVoice"><mstts:ttsembedding speakerProfileId="profile">Text</mstts:ttsembedding><custom:old>Old</custom:old></voice></speak>',
+    {
+      unknownVoicePolicy: "ignore",
+      voiceDefinitions: [{ name: "PreviewVoice", locale: "en-US", status: "preview" }],
+      tagStatuses: { "custom:old": "deprecated" },
+      previewTags: ["mstts:ttsembedding"],
+    },
+  );
+  assert.equal(diagnostics.find(({ code }) => code === "azure-preview-voice")?.severity, "warning");
+  assert.equal(diagnostics.find(({ code }) => code === "azure-preview-tag")?.severity, "warning");
+  assert.equal(diagnostics.find(({ code }) => code === "azure-deprecated-tag")?.severity, "info");
+});
+
+test("validateAzureSsml accepts explicit GA lifecycle metadata without lifecycle diagnostics", () => {
+  const diagnostics = validateAzureSsml(
+    '<speak version="1.0" xml:lang="en-US"><voice name="GaVoice"><mstts:ttsembedding speakerProfileId="profile">Text</mstts:ttsembedding></voice></speak>',
+    {
+      unknownVoicePolicy: "ignore",
+      voiceDefinitions: [{ name: "GaVoice", locale: "en-US", status: "ga" }],
+      tagStatuses: { "mstts:ttsembedding": "ga" },
+    },
+  );
+  assert.equal(
+    diagnostics.some(({ code }) => code?.includes("preview") || code?.includes("deprecated")),
+    false,
+  );
+});
+
 test("validateAzureSsml validates nested voices independently and protects external audio by default", () => {
   const ssml =
     '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural">One<voice name="CustomVoice"><mstts:express-as style="custom">Two</mstts:express-as></voice></voice><audio src="https://example.test/audio.mp3"/></speak>';

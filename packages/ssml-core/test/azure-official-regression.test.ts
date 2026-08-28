@@ -24,7 +24,7 @@ test("Azure backgroundaudio sample round-trips and allows a configured origin", 
         src: "https://allowed.test/music.mp3",
         volume: "40",
         fadeIn: "0",
-        fadeOut: "10s",
+        fadeOut: "10000",
       },
       { type: "voice", name: "en-US-JennyNeural", children: ["Welcome."] },
     ],
@@ -106,4 +106,10 @@ test("Azure backgroundaudio enforces its range, position, and singleton rules", 
   assert.ok(diagnostics.some(({ message }) => message.includes("fadein")));
   assert.ok(diagnostics.some(({ message }) => message.includes("first element directly under <speak>")));
   assert.ok(diagnostics.some(({ message }) => message.includes("at most one")));
+
+  const unitSuffixed = validateAzureSsml(
+    `<speak version="1.0" xml:lang="en-US"><mstts:backgroundaudio src="https://allowed.test/a.mp3" fadein="1s"/><voice name="en-US-JennyNeural">Text</voice></speak>`,
+    { allowedAudioOrigins: ["https://allowed.test"], unknownVoicePolicy: "ignore" },
+  );
+  assert.ok(unitSuffixed.some(({ message }) => message.includes("between 0 and 10000 milliseconds")));
 });

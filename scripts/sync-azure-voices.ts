@@ -8,6 +8,7 @@ export interface AzureVoiceApiVoice {
   SecondaryLocaleList?: unknown;
   ShortName?: unknown;
   StyleList?: unknown;
+  Status?: unknown;
 }
 
 export interface AzureVoiceDefinitionRecord {
@@ -15,6 +16,8 @@ export interface AzureVoiceDefinitionRecord {
   name: string;
   secondaryLocales?: string[];
   styles?: string[];
+  regions?: string[];
+  status?: "ga" | "preview" | "deprecated";
 }
 
 export interface AzureVoiceCatalogMetadataRecord {
@@ -46,7 +49,12 @@ function stringList(value: unknown): string[] {
   return [...new Set(value.map(stringValue).filter((item): item is string => item !== undefined))];
 }
 
-export function normalizeAzureVoices(payload: unknown): AzureVoiceDefinitionRecord[] {
+function voiceStatus(value: unknown): AzureVoiceDefinitionRecord["status"] {
+  const status = stringValue(value)?.toLowerCase();
+  return status === "ga" || status === "preview" || status === "deprecated" ? status : undefined;
+}
+
+export function normalizeAzureVoices(payload: unknown, regions: readonly string[] = []): AzureVoiceDefinitionRecord[] {
   if (!Array.isArray(payload)) throw new Error("Azure voices response must be a JSON array.");
 
   const byName = new Map<string, AzureVoiceDefinitionRecord>();
@@ -57,11 +65,14 @@ export function normalizeAzureVoices(payload: unknown): AzureVoiceDefinitionReco
     if (!name || !locale) continue;
     const secondaryLocales = stringList(item.SecondaryLocaleList);
     const styles = stringList(item.StyleList);
+    const status = voiceStatus(item.Status);
     const definition: AzureVoiceDefinitionRecord = {
       name,
       locale,
       ...(secondaryLocales.length > 0 ? { secondaryLocales } : {}),
       ...(styles.length > 0 ? { styles } : {}),
+      ...(regions.length > 0 ? { regions: [...regions] } : {}),
+      ...(status ? { status } : {}),
     };
     const key = name.toLowerCase();
     if (!byName.has(key)) byName.set(key, definition);
@@ -150,7 +161,10 @@ export async function syncAzureVoices(options: CliOptions): Promise<AzureVoiceDe
     : await Promise.all(
         regions.map((region) => fetchAzureVoices(region, options.key ?? process.env.AZURE_SPEECH_KEY ?? "")),
       );
-  const definitions = normalizeAzureVoices(payloads.flatMap((payload) => (Array.isArray(payload) ? payload : [])));
+  const definitions = normalizeAzureVoices(
+    payloads.flatMap((payload) => (Array.isArray(payload) ? payload : [])),
+    regions,
+  );
   if (definitions.length === 0) throw new Error("Azure List Voices API returned no usable voice definitions.");
   if (!options.dryRun) {
     const metadata: AzureVoiceCatalogMetadataRecord = {

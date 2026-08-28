@@ -56,7 +56,7 @@ const SSML_COMPLETION_SNIPPETS = [
   },
   {
     label: "mstts:backgroundaudio",
-    insertText: `<mstts:backgroundaudio src="\${1:https://example.com/audio.mp3}" volume="\${2:-3dB}" />`,
+    insertText: `<mstts:backgroundaudio src="\${1:https://example.com/audio.mp3}" volume="\${2:70}" fadein="\${3:1000}" fadeout="\${4:1000}" />`,
   },
   {
     label: "mstts:ttsembedding",

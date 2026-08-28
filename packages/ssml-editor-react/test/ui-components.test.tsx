@@ -584,6 +584,68 @@ describe("SsmlEditor props", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ version: "1.0" }));
   });
 
+  it("adds and edits Azure dialog turns in the visual editor", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderEditor({
+      editMode: "visual",
+      onChange,
+      document: {
+        ...editorDocument,
+        children: [
+          {
+            type: "voice",
+            name: "en-US-MultiTalker-Ava-Andrew:DragonHDLatestNeural",
+            children: [
+              { type: "mstts:dialog", children: [{ type: "mstts:turn", speaker: "ava", children: ["Hello"] }] },
+            ],
+          },
+        ],
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "<mstts:dialog>" }));
+    await user.click(screen.getByRole("button", { name: "Add turn" }));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        children: [
+          expect.objectContaining({
+            children: [
+              expect.objectContaining({
+                children: expect.arrayContaining([expect.objectContaining({ type: "mstts:turn" })]),
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("edits Azure background audio settings in the visual editor", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderEditor({
+      editMode: "visual",
+      onChange,
+      document: {
+        ...editorDocument,
+        children: [
+          { type: "mstts:backgroundaudio", src: "https://allowed.test/music.mp3", volume: "50", fadeIn: "500" },
+          { type: "voice", name: "en-US-JennyNeural", children: ["Hello"] },
+        ],
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "<mstts:backgroundaudio>" }));
+    await user.clear(screen.getByRole("textbox", { name: "Volume" }));
+    await user.type(screen.getByRole("textbox", { name: "Volume" }), "70");
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        children: expect.arrayContaining([expect.objectContaining({ type: "mstts:backgroundaudio", volume: "70" })]),
+      }),
+    );
+  });
+
   it("updates toolbar and popover text when the locale changes", async () => {
     const user = userEvent.setup();
     const { rerender } = renderEditor({ locale: "ja", showToolbarLabels: true });
