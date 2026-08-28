@@ -13,7 +13,10 @@ export interface VisualVoiceCatalogEntry {
   name: string;
   locale: string;
   region?: string;
+  regions?: readonly string[];
   styles?: readonly string[];
+  supportedTags?: readonly string[];
+  unsupportedTags?: readonly string[];
   preview?: boolean;
   status?: "ga" | "preview" | "deprecated";
 }
@@ -21,6 +24,7 @@ export interface VisualVoiceCatalogEntry {
 export interface VoiceSelectorRenderProps {
   value: string;
   voices: readonly VisualVoiceCatalogEntry[];
+  selectedVoice?: VisualVoiceCatalogEntry;
   readOnly: boolean;
   locale: SsmlEditorLocale;
   onChange: (voice: string) => void;
@@ -240,28 +244,82 @@ function filteredVoices(
 ): readonly VisualVoiceCatalogEntry[] {
   return (voiceCatalog ?? []).filter((voice) => {
     if (locale && voice.locale.toLowerCase() !== locale.toLowerCase()) return false;
-    if (region && voice.region && voice.region.toLowerCase() !== region.toLowerCase()) return false;
+    const regions = [voice.region, ...(voice.regions ?? [])].filter((candidate): candidate is string =>
+      Boolean(candidate),
+    );
+    if (region && regions.length > 0 && !regions.some((candidate) => candidate.toLowerCase() === region.toLowerCase()))
+      return false;
     if (style && !voice.styles?.some((candidate) => candidate.toLowerCase() === style.toLowerCase())) return false;
     return true;
   });
 }
 
-function DefaultVoiceSelector({ value, voices, readOnly, locale, onChange }: VoiceSelectorRenderProps): ReactElement {
+function VoiceCapabilityMatrix({
+  voice,
+  locale,
+}: {
+  voice: VisualVoiceCatalogEntry;
+  locale: SsmlEditorLocale;
+}): ReactElement {
+  const status = voice.status ?? (voice.preview ? "preview" : undefined);
   return (
-    <select
-      aria-label={locale === "ja" ? "音声" : "Voice"}
-      value={value}
-      disabled={readOnly}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      <option value="">{locale === "ja" ? "音声を選択" : "Select a voice"}</option>
-      {voices.map((voice) => (
-        <option key={voice.name} value={voice.name}>
-          {voice.name}
-          {voice.preview || voice.status === "preview" ? " (preview)" : ""}
-        </option>
-      ))}
-    </select>
+    <div className="ssml-editor-voice-capabilities" data-voice-capabilities="">
+      <div>
+        {locale === "ja" ? "ステータス" : "Status"}: {status?.toUpperCase() ?? (locale === "ja" ? "GA" : "GA")}
+        {status === "preview" || status === "deprecated" ? (
+          <span role="status" aria-label={status} className="ssml-editor-voice-warning-badge">
+            {status === "preview" ? "⚠ Preview" : "⚠ Deprecated"}
+          </span>
+        ) : null}
+      </div>
+      {(voice.regions?.length || voice.region) && (
+        <div>
+          {locale === "ja" ? "リージョン" : "Regions"}:{" "}
+          {[...(voice.regions ?? []), ...(voice.region ? [voice.region] : [])]
+            .filter((region, index, all) => all.indexOf(region) === index)
+            .join(", ")}
+        </div>
+      )}
+      {voice.supportedTags && voice.supportedTags.length > 0 && (
+        <div>
+          {locale === "ja" ? "対応タグ" : "Supported tags"}: {voice.supportedTags.join(", ")}
+        </div>
+      )}
+      {voice.unsupportedTags && voice.unsupportedTags.length > 0 && (
+        <div className="ssml-editor-voice-unsupported">
+          {locale === "ja" ? "非対応タグ" : "Unsupported tags"}: {voice.unsupportedTags.join(", ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DefaultVoiceSelector({
+  value,
+  voices,
+  selectedVoice,
+  readOnly,
+  locale,
+  onChange,
+}: VoiceSelectorRenderProps): ReactElement {
+  return (
+    <>
+      <select
+        aria-label={locale === "ja" ? "音声" : "Voice"}
+        value={value}
+        disabled={readOnly}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">{locale === "ja" ? "音声を選択" : "Select a voice"}</option>
+        {voices.map((voice) => (
+          <option key={voice.name} value={voice.name}>
+            {voice.name}
+            {voice.preview || voice.status === "preview" ? " (preview)" : ""}
+          </option>
+        ))}
+      </select>
+      {selectedVoice ? <VoiceCapabilityMatrix voice={selectedVoice} locale={locale} /> : null}
+    </>
   );
 }
 
@@ -297,6 +355,9 @@ function VisualElementInspector({
   }
   const fields = getElementFields(element);
   const availableVoices = filteredVoices(voiceCatalog, voiceLocale, voiceRegion, voiceStyle);
+  const selectedVoice = voiceCatalog?.find(
+    (voice) => voice.name === (element.type === "voice" ? element.name : undefined),
+  );
   const renderSelector = renderVoiceSelector ?? DefaultVoiceSelector;
   return (
     <fieldset>
@@ -352,6 +413,7 @@ function VisualElementInspector({
                 renderSelector({
                   value: inputValue,
                   voices: availableVoices,
+                  selectedVoice,
                   readOnly,
                   locale,
                   onChange: (value) => commit(updateOptionalElementProperty(document, path, field.key, value)),
@@ -577,6 +639,7 @@ export function VisualSsmlEditor({
                   (renderVoiceSelector ?? DefaultVoiceSelector)({
                     value: selectedElement.voice ?? "",
                     voices: filteredVoices(voiceCatalog, voiceLocale, voiceRegion, voiceStyle),
+                    selectedVoice: voiceCatalog?.find((voice) => voice.name === selectedElement.voice),
                     readOnly,
                     locale,
                     onChange: (value) =>

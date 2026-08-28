@@ -10,6 +10,9 @@ export interface AzureVoiceCatalogVoice {
   locale: string;
   secondaryLocales?: readonly string[];
   styles?: readonly string[];
+  supportedTags?: readonly string[];
+  unsupportedTags?: readonly string[];
+  models?: readonly string[];
   regions: readonly string[];
   status?: "ga" | "preview" | "deprecated";
 }
@@ -33,6 +36,9 @@ interface AzureVoiceApiRecord {
   ShortName?: unknown;
   Status?: unknown;
   StyleList?: unknown;
+  SupportedTags?: unknown;
+  UnsupportedTags?: unknown;
+  Models?: unknown;
 }
 
 function stringValue(value: unknown): string | undefined {
@@ -92,6 +98,9 @@ export async function fetchAzureVoiceCatalog(options: FetchAzureVoiceCatalogOpti
       const secondaryLocales = stringList(record.SecondaryLocaleList);
       const styles = stringList(record.StyleList);
       const status = normalizeStatus(record.Status);
+      const supportedTags = stringList(record.SupportedTags);
+      const unsupportedTags = stringList(record.UnsupportedTags);
+      const models = stringList(record.Models);
       const merged: AzureVoiceCatalogVoice = {
         name: existing?.name ?? name,
         locale: existing?.locale ?? locale,
@@ -101,6 +110,12 @@ export async function fetchAzureVoiceCatalog(options: FetchAzureVoiceCatalogOpti
       if (mergedSecondaryLocales.length > 0) merged.secondaryLocales = mergedSecondaryLocales;
       const mergedStyles = [...new Set([...(existing?.styles ?? []), ...styles])];
       if (mergedStyles.length > 0) merged.styles = mergedStyles;
+      const mergedSupportedTags = [...new Set([...(existing?.supportedTags ?? []), ...supportedTags])];
+      if (mergedSupportedTags.length > 0) merged.supportedTags = mergedSupportedTags;
+      const mergedUnsupportedTags = [...new Set([...(existing?.unsupportedTags ?? []), ...unsupportedTags])];
+      if (mergedUnsupportedTags.length > 0) merged.unsupportedTags = mergedUnsupportedTags;
+      const mergedModels = [...new Set([...(existing?.models ?? []), ...models])];
+      if (mergedModels.length > 0) merged.models = mergedModels;
       if (status) merged.status = status;
       else if (existing?.status) merged.status = existing.status;
       voices.set(key, merged);

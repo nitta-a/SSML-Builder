@@ -1,3 +1,25 @@
+# SSML-Builder v2.14.0 Release Notes
+
+Release date: 2026-08-29
+
+v2.14.0 adds container-aware audio merging, preflight-validated SSML chunk synthesis, structured progress events, source mapping metadata, controlled URL validation, and voice capability details in the Visual Editor.
+
+## Highlights
+
+- Added safe merging for PCM WAV and MP3 audio buffers, with explicit rejection of formats that require re-multiplexing.
+- Added chunk synthesis preflight validation, chunk-addressable validation errors, and structured lifecycle progress events.
+- Added source mapping metadata to synchronization events, including chunk indexes, source node paths, and original text ranges.
+- Added URL validation deduplication, caching, bounded concurrency, cancellation, and timeout controls.
+- Added voice capability details, regions, supported tags, and lifecycle status to the Visual Editor.
+
+## Verification
+
+- `npm run format` — passed
+- `npm run lint` — passed
+- `npm test` — passed
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
 # SSML-Builder v2.13.0 Release Notes
 
 Release date: 2026-08-29

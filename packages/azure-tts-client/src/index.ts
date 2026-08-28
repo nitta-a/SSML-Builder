@@ -12,14 +12,22 @@ export type {
   SsmlSynthesisChunk,
   SynthesisProgressEvent,
   SynthesizeChunksOptions,
+  SynthesisChunkStatus,
   TtsConfig,
 } from "./types.ts";
-export { AzureTtsError, AzureTtsSdkError } from "./errors.ts";
+export { AzureTtsError, AzureTtsSdkError, UnsupportedMergeFormatError } from "./errors.ts";
 export { AzureTtsClient } from "./client.ts";
 export { synthesizeSpeech } from "./synthesis.ts";
 export { synthesizeSsml } from "./synthesis.ts";
-export { mergeSynthesisResults, synthesizeSsmlChunks } from "./synthesis.ts";
-export { synthesizeSsmlSafe } from "./safe.ts";
+export {
+  canMergeAudioFormat,
+  mergeAudioBuffers,
+  mergeSynthesisResults,
+  resolveMergeAudioFormat,
+  synthesizeSsmlChunks,
+} from "./synthesis.ts";
+export type { MergeAudioFormat } from "./synthesis.ts";
+export { ChunkValidationError, synthesizeSsmlChunksSafe, synthesizeSsmlSafe } from "./safe.ts";
 export type {
   AzureApiErrorResult,
   Result,
@@ -28,6 +36,8 @@ export type {
   Success,
   SynthesisResult,
   SynthesizeSsmlSafeOptions,
+  SsmlSynthesisChunksSafeResult,
+  SynthesizeSsmlChunksSafeOptions,
   ValidationErrorResult,
 } from "./safe.ts";
 export { fetchAzureVoiceCatalog } from "./voiceCatalog.ts";

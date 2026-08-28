@@ -37,6 +37,10 @@ test("mergeSynthesisResults concatenates audio and offsets synchronization event
     [50, 125],
   );
   assert.deepEqual(result.boundaries?.[1]?.textRange, { start: 3, end: 6 });
+  assert.equal(result.boundaries?.[0]?.chunkIndex, 0);
+  assert.equal(result.boundaries?.[1]?.chunkIndex, 1);
+  assert.equal(result.boundaries?.[1]?.chunkAudioOffsetMs, 10);
+  assert.deepEqual(result.boundaries?.[1]?.originalTextRange, { start: 3, end: 6 });
 });
 
 test("synthesizeSsmlSafe blocks invalid SSML without calling the client", async () => {

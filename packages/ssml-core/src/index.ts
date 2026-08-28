@@ -32,6 +32,7 @@ export type {
 } from "./migration.ts";
 export {
   areAzureLanguagesEquivalent,
+  createAzureUrlValidatorRunner,
   isValidAzureAudioDuration,
   normalizeAzureLanguage,
   validateAzureSsml,
@@ -42,6 +43,7 @@ export type {
   AzureDiagnosticCode,
   AzureLanguageNormalizationOptions,
   AzureUrlValidationResult,
+  AzureUrlValidationRunnerOptions,
   AzureUrlValidator,
   AzureValidationOptions,
   AzureSsmlValidationOptions,

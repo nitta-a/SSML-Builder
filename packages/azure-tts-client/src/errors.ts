@@ -25,6 +25,17 @@ export class AzureTtsSdkError extends AzureTtsError {
   }
 }
 
+/** Thrown when audio buffers require container re-multiplexing before they can be merged. */
+export class UnsupportedMergeFormatError extends Error {
+  readonly format: string;
+
+  constructor(format: string) {
+    super(`Audio format "${format}" cannot be safely concatenated; container re-multiplexing is required.`);
+    this.name = "UnsupportedMergeFormatError";
+    this.format = format;
+  }
+}
+
 export function createSpeechSdkError(error: unknown): AzureTtsSdkError {
   const message = error instanceof Error ? error.message : String(error);
   return new AzureTtsSdkError(message);

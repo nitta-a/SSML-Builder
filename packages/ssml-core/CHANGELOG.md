@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.14.0
+
+### Minor Changes
+
+- Add safe container-aware audio merging, preflight-validated SSML chunk synthesis with structured progress events, source mapping metadata, controlled URL validation, and voice capability details in the Visual Editor.
+
 ## 2.13.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 import { synthesizeSpeech, synthesizeSsml, synthesizeSsmlChunks } from "./synthesis.ts";
-import { synthesizeSsmlSafe } from "./safe.ts";
-import type { SynthesizeSsmlSafeOptions } from "./safe.ts";
+import { synthesizeSsmlChunksSafe, synthesizeSsmlSafe } from "./safe.ts";
+import type { SynthesizeSsmlChunksSafeOptions, SynthesizeSsmlSafeOptions } from "./safe.ts";
 import type {
   AzureTtsClientOptions,
   SsmlSynthesisChunk,
@@ -53,5 +53,23 @@ export class AzureTtsClient {
 
   async synthesizeSsmlSafe(ssml: string, options: SynthesizeSsmlSafeOptions = {}) {
     return synthesizeSsmlSafe(this, ssml, options);
+  }
+
+  async synthesizeChunksSafe(
+    chunks: readonly (SsmlSynthesisChunk | string)[],
+    options: SynthesizeSsmlChunksSafeOptions = {},
+  ) {
+    return synthesizeSsmlChunksSafe(this, chunks, {
+      ...options,
+      outputFormat: options.outputFormat ?? this.#options.outputFormat,
+      onProgress: options.onProgress ?? this.#options.onProgress,
+    });
+  }
+
+  async synthesizeSsmlChunksSafe(
+    chunks: readonly (SsmlSynthesisChunk | string)[],
+    options: SynthesizeSsmlChunksSafeOptions = {},
+  ) {
+    return this.synthesizeChunksSafe(chunks, options);
   }
 }

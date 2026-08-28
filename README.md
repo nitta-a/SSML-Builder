@@ -911,7 +911,15 @@ result.bookmarks; // { name, audioOffsetMs }[]
 
 長文を分割して合成する場合は `synthesizeSsmlChunks` または `AzureTtsClient.synthesizeChunks` を使います。音声バイナリを連結し、`boundaries`、`visemes`、`bookmarks` のオフセットを累積 `durationMs` 分だけ補正します。`synthesizeSsmlSafe(client, ssml, { validation })` は検証エラー時に Azure API を呼び出さず、`status: "validation-error"` / `"azure-api-error"` / `"success"` の結果を返します。
 
+v2.14.0 では `synthesizeSsmlChunksSafe(client, chunks, options)` が全チャンクを事前検証し、エラー時に `ChunkValidationError.chunkIndex` を返します。`onProgress` には `chunkIndex`、`originalTextRange`、`status`、`durationMs`、`error` が含まれます。`mergeAudioBuffers(buffers, format)` は PCM WAV のヘッダーを再構築し、MP3 の ID3 タグを除去して結合します。Ogg/WebM など安全に連結できない形式は `UnsupportedMergeFormatError` になります。同期イベントには `chunkIndex`、`sourceNodePath`、`originalTextRange`、`chunkAudioOffsetMs` が付与されます。
+
+`validateAzureSsml` の `urlValidation` オプションは URL の重複排除、キャッシュ、`concurrency`、`signal`、`timeoutMs` を制御します。
+
 For long documents, use `synthesizeSsmlChunks` or `AzureTtsClient.synthesizeChunks`; `onProgress` reports completed chunks while audio and synchronization offsets are merged. `synthesizeSsmlSafe(client, ssml, { validation })` validates before synthesis and returns a discriminated result without calling Azure when static validation fails.
+
+In v2.14.0, `synthesizeSsmlChunksSafe(client, chunks, options)` validates every chunk before contacting Azure and returns a `ChunkValidationError` with its `chunkIndex` when validation fails. `onProgress` events include `chunkIndex`, `originalTextRange`, `status`, `durationMs`, and `error`. `mergeAudioBuffers(buffers, format)` rebuilds PCM WAV headers and strips ID3 tags from MP3 streams; formats such as Ogg and WebM throw `UnsupportedMergeFormatError` because they require re-multiplexing. Synchronization events retain `chunkIndex`, `sourceNodePath`, `originalTextRange`, and `chunkAudioOffsetMs`.
+
+The `urlValidation` option of `validateAzureSsml` provides URL deduplication, in-memory caching, bounded `concurrency`, `signal`, and `timeoutMs` controls.
 
 The public updater CLI is `npx ssml-builder sync-voices --region eastus --output ./azure-voices.json`. It reads the key from `AZURE_SPEECH_KEY` (or `--key`) and regions from `AZURE_SPEECH_REGION(S)` (or `--region(s)`).
 

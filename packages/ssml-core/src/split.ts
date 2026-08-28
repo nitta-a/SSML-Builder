@@ -22,6 +22,8 @@ export interface SsmlChunk {
   inheritedContext: SsmlChunkContext;
   containedMarks: string[];
   hasBackgroundAudio: boolean;
+  /** Best-effort path to the first source element represented by this chunk. */
+  sourceNodePath?: string[];
 }
 
 export interface SplitSsmlOptions {
@@ -145,6 +147,37 @@ function collectInheritedContext(nodes: SsmlNode[]): SsmlChunkContext {
   return context;
 }
 
+function elementName(node: SsmlElement): string {
+  return node.type === "custom" || node.type === "element" ? node.name : node.type;
+}
+
+function findSourceNodePath(nodes: SsmlNode[], targetOffset: number): string[] | undefined {
+  let textOffset = 0;
+  let firstPath: string[] | undefined;
+  let foundPath: string[] | undefined;
+  const visit = (node: SsmlNode, path: string[]): void => {
+    if (typeof node === "string" || node.type === "text") {
+      const text = typeof node === "string" ? node : node.value;
+      if (text && firstPath === undefined) firstPath = [...path];
+      if (text && foundPath === undefined && targetOffset < textOffset + text.length) foundPath = [...path];
+      textOffset += text.length;
+      return;
+    }
+    node.children?.forEach((child, index) => {
+      const childPath =
+        typeof child === "string" || child.type === "text" ? path : [...path, `${elementName(child)}[${index}]`];
+      visit(child, childPath);
+    });
+  };
+  nodes.forEach((node, index) => {
+    if (!foundPath) {
+      if (typeof node === "string" || node.type === "text") visit(node, ["speak"]);
+      else visit(node, ["speak", `${elementName(node)}[${index}]`]);
+    }
+  });
+  return foundPath ?? firstPath;
+}
+
 function createChunk(
   document: SsmlDocument,
   nodes: SsmlNode[],
@@ -169,6 +202,7 @@ function createChunk(
     hasBackgroundAudio: chunkNodes.some(
       (node) => typeof node !== "string" && node.type !== "text" && node.type === "mstts:backgroundaudio",
     ),
+    sourceNodePath: findSourceNodePath(document.children ?? [], textStart),
   };
 }
 

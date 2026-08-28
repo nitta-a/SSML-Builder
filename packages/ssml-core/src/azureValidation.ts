@@ -49,6 +49,13 @@ export interface AzureValidationOptions {
   urlValidator?: AzureUrlValidator;
   /** Alias for urlValidator retained for applications that use the longer name. */
   customUrlValidator?: AzureUrlValidator;
+  /** Controls deduplication, caching, cancellation, and concurrency for URL checks. */
+  urlValidation?: AzureUrlValidationRunnerOptions;
+  /** Flat aliases retained for callers that prefer not to nest URL runner options. */
+  urlValidatorConcurrency?: number;
+  urlValidatorTimeoutMs?: number;
+  urlValidatorSignal?: AbortSignal;
+  urlValidatorCache?: Map<string, AzureUrlValidationResult>;
   languageAliases?: Record<string, string | readonly string[]>;
   maxLength?: number;
   /** Maximum XML element nesting depth, counting `<speak>` as depth 1. */
@@ -74,6 +81,87 @@ export type AzureUrlValidator = (
   url: string,
   context: { tag: string; attribute: string },
 ) => AzureUrlValidationResult | Promise<AzureUrlValidationResult>;
+
+export interface AzureUrlValidationRunnerOptions {
+  concurrency?: number;
+  cache?: Map<string, AzureUrlValidationResult>;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
+
+/** Wraps a URL validator with URL deduplication, bounded concurrency, caching, and cancellation. */
+export function createAzureUrlValidatorRunner(
+  validator: AzureUrlValidator,
+  options: AzureUrlValidationRunnerOptions = {},
+): AzureUrlValidator {
+  if (typeof validator !== "function") throw new TypeError("A URL validator function is required.");
+  const concurrency =
+    options.concurrency === undefined
+      ? Infinity
+      : Number.isFinite(options.concurrency)
+        ? Math.max(1, Math.floor(options.concurrency))
+        : Infinity;
+  const cache = options.cache ?? new Map<string, AzureUrlValidationResult>();
+  const inFlight = new Map<string, Promise<AzureUrlValidationResult>>();
+  const waiters: Array<() => void> = [];
+  let active = 0;
+
+  const acquire = async (): Promise<void> => {
+    if (active < concurrency) {
+      active += 1;
+      return;
+    }
+    await new Promise<void>((resolve) => waiters.push(resolve));
+    active += 1;
+  };
+  const release = (): void => {
+    active -= 1;
+    waiters.shift()?.();
+  };
+  const check = async (url: string, context: { tag: string; attribute: string }): Promise<AzureUrlValidationResult> => {
+    if (options.signal?.aborted) throw new Error("URL validation was aborted.");
+    const cached = cache.get(url);
+    if (cached !== undefined) return cached;
+    const existing = inFlight.get(url);
+    if (existing) return existing;
+    const promise = (async () => {
+      await acquire();
+      try {
+        if (options.signal?.aborted) throw new Error("URL validation was aborted.");
+        const validation = Promise.resolve(validator(url, context));
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let abortHandler: (() => void) | undefined;
+        const cancellation = new Promise<AzureUrlValidationResult>((_resolve, reject) => {
+          abortHandler = () => reject(new Error("URL validation was aborted."));
+          options.signal?.addEventListener("abort", abortHandler, { once: true });
+          if (options.timeoutMs !== undefined && options.timeoutMs > 0) {
+            timer = setTimeout(
+              () => reject(new Error(`URL validation timed out after ${options.timeoutMs} ms.`)),
+              options.timeoutMs,
+            );
+          }
+        });
+        try {
+          const result = await (timer || abortHandler ? Promise.race([validation, cancellation]) : validation);
+          cache.set(url, result);
+          return result;
+        } finally {
+          if (timer) clearTimeout(timer);
+          if (abortHandler) options.signal?.removeEventListener("abort", abortHandler);
+        }
+      } finally {
+        release();
+      }
+    })();
+    inFlight.set(url, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlight.delete(url);
+    }
+  };
+  return (url, context) => check(url, context);
+}
 
 export type AzureLanguageNormalizationOptions = Pick<AzureValidationOptions, "languageAliases" | "normalizeLanguage">;
 
@@ -871,6 +959,14 @@ export function validateAzureSsml(
   const diagnostics = validateAzureSsmlStatic(ssml, options);
   const validator = options.urlValidator ?? options.customUrlValidator;
   if (!validator || typeof ssml !== "string") return diagnostics;
+  const runnerOptions = options.urlValidation ?? {};
+  const boundedValidator = createAzureUrlValidatorRunner(validator, {
+    ...runnerOptions,
+    ...(options.urlValidatorConcurrency !== undefined ? { concurrency: options.urlValidatorConcurrency } : {}),
+    ...(options.urlValidatorTimeoutMs !== undefined ? { timeoutMs: options.urlValidatorTimeoutMs } : {}),
+    ...(options.urlValidatorSignal ? { signal: options.urlValidatorSignal } : {}),
+    ...(options.urlValidatorCache ? { cache: options.urlValidatorCache } : {}),
+  });
 
   let tokens: ElementToken[];
   try {
@@ -881,7 +977,7 @@ export function validateAzureSsml(
   const checks = tokens.flatMap((token) =>
     urlAttributes(token).map(async ({ attribute, value }) => {
       try {
-        const result = await validator(value, { tag: token.name, attribute });
+        const result = await boundedValidator(value, { tag: token.name, attribute });
         const valid = typeof result === "boolean" ? result : result.valid;
         if (!valid) {
           const reason = typeof result === "boolean" ? undefined : result.reason;

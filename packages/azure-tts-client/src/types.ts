@@ -1,3 +1,5 @@
+import type { SsmlTextRange } from "@ssml-builder-js/ssml-core";
+
 export interface TtsConfig {
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -7,15 +9,28 @@ export interface TtsConfig {
   outputFormat?: string;
   /** Original plain-text range represented by this synthesis request. */
   sourceTextRange?: { start: number; end: number };
-  /** Reports completion of a chunk when using synthesizeSsmlChunks. */
-  onProgress?: (event: { currentChunk: number; totalChunks: number; percent: number }) => void;
+  /** Reports chunk lifecycle events when using chunk synthesis. */
+  onProgress?: (event: SynthesisProgressEvent) => void;
+  /** Metadata used to map synchronization events back to the source document. */
+  chunkIndex?: number;
+  sourceNodePath?: string[];
 }
+
+export type SynthesisChunkStatus = "pending" | "synthesizing" | "success" | "failed";
 
 export interface SsmlSynthesisBoundary {
   text: string;
   audioOffsetMs: number;
   durationMs: number;
   textRange?: { start: number; end: number };
+  /** Chunk that produced this event. */
+  chunkIndex?: number;
+  /** Path of the source SSML node, when available. */
+  sourceNodePath?: string[];
+  /** Original text range represented by this event. */
+  originalTextRange?: SsmlTextRange;
+  /** Audio offset within the originating chunk before merge. */
+  chunkAudioOffsetMs?: number;
   requestId?: string;
 }
 
@@ -23,6 +38,10 @@ export interface SsmlSynthesisViseme {
   visemeId: number;
   audioOffsetMs: number;
   textRange?: { start: number; end: number };
+  chunkIndex?: number;
+  sourceNodePath?: string[];
+  originalTextRange?: SsmlTextRange;
+  chunkAudioOffsetMs?: number;
   requestId?: string;
 }
 
@@ -30,6 +49,10 @@ export interface SsmlSynthesisBookmark {
   name: string;
   audioOffsetMs: number;
   textRange?: { start: number; end: number };
+  chunkIndex?: number;
+  sourceNodePath?: string[];
+  originalTextRange?: SsmlTextRange;
+  chunkAudioOffsetMs?: number;
   requestId?: string;
 }
 
@@ -53,6 +76,7 @@ export interface SsmlSynthesisResult {
 export interface SsmlSynthesisChunk {
   ssml: string;
   originalTextRange?: { start: number; end: number };
+  sourceNodePath?: string[];
 }
 
 export interface SynthesizeChunksOptions {
@@ -60,9 +84,15 @@ export interface SynthesizeChunksOptions {
 }
 
 export interface SynthesisProgressEvent {
+  /** 1-based completed chunk count retained for backward compatibility. */
   currentChunk: number;
   totalChunks: number;
   percent: number;
+  chunkIndex: number;
+  originalTextRange?: SsmlTextRange;
+  status: SynthesisChunkStatus;
+  durationMs: number;
+  error?: unknown;
 }
 
 export interface AzureTtsLogger {
