@@ -53,7 +53,7 @@
     "node": ">=22.6.0"
   },
   "scripts": {
-    "prebuild": "npm run build --workspaces --if-present",
+    "prebuild": "npm run build --workspace @ssml-builder-js/ssml-core && npm run build --workspace @ssml-builder-js/azure-tts-client && npm run build --workspace @ssml-builder-js/ssml-editor-elements && npm run build --workspace @ssml-builder-js/ssml-editor-react && npm run build --workspace playground",
     "build": "tsup",
     "check": "biome check .",
     "changeset": "changeset",
@@ -62,6 +62,7 @@
     "lint": "biome check .",
     "release": "npm run build && changeset publish && node scripts/publish-root-if-needed.js",
     "sync:voices": "node scripts/sync-azure-voices.ts",
+    "pretest": "npm run build --workspace @ssml-builder-js/ssml-core",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "version-packages": "changeset version && node scripts/sync-root-version.js"
