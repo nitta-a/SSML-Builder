@@ -134,6 +134,7 @@ export interface SsmlDialogNode extends SsmlElementBase {
 export interface SsmlTurnNode extends SsmlElementBase {
   type: "mstts:turn";
   voice?: string;
+  speaker?: string;
 }
 
 export interface SsmlBackgroundAudioNode extends SsmlElementBase {
@@ -149,14 +150,20 @@ export interface SsmlBackgroundAudioNode extends SsmlElementBase {
 
 export interface MsttsTtsEmbeddingElement extends SsmlElementBase {
   type: "mstts:ttsembedding";
+  speakerProfileId?: string;
 }
 
 export interface MsttsEmbeddingElement extends SsmlElementBase {
   type: "mstts:embedding";
+  id?: string;
+  speakerProfileId?: string;
 }
 
 export interface MsttsVoiceConversionElement extends SsmlElementBase {
   type: "mstts:voiceconversion";
+  url?: string;
+  profile?: string;
+  speakerProfileId?: string;
 }
 
 export type SsmlTtsEmbeddingNode = MsttsTtsEmbeddingElement;

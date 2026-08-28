@@ -584,7 +584,9 @@ function convertElement(node: XmlElementNode): SsmlElement {
     case SSML_TAGS.MSTTS_TURN: {
       const element: SsmlTurnNode = { type: SSML_TAGS.MSTTS_TURN };
       const voice = readAttribute(attributes, SSML_ATTRS.VOICE);
+      const speaker = readAttribute(attributes, SSML_ATTRS.SPEAKER);
       if (voice !== undefined) element.voice = voice;
+      if (speaker !== undefined) element.speaker = speaker;
       return finishElement(element, node, attributes);
     }
     case SSML_TAGS.MSTTS_BACKGROUND_AUDIO: {
@@ -601,14 +603,26 @@ function convertElement(node: XmlElementNode): SsmlElement {
     }
     case SSML_TAGS.MSTTS_TTS_EMBEDDING: {
       const element: MsttsTtsEmbeddingElement = { type: SSML_TAGS.MSTTS_TTS_EMBEDDING };
+      const speakerProfileId = readAttribute(attributes, SSML_ATTRS.SPEAKER_PROFILE_ID);
+      if (speakerProfileId !== undefined) element.speakerProfileId = speakerProfileId;
       return finishElement(element, node, attributes);
     }
     case SSML_TAGS.MSTTS_EMBEDDING: {
       const element: MsttsEmbeddingElement = { type: SSML_TAGS.MSTTS_EMBEDDING };
+      const id = readAttribute(attributes, SSML_ATTRS.ID);
+      const speakerProfileId = readAttribute(attributes, SSML_ATTRS.SPEAKER_PROFILE_ID);
+      if (id !== undefined) element.id = id;
+      if (speakerProfileId !== undefined) element.speakerProfileId = speakerProfileId;
       return finishElement(element, node, attributes);
     }
     case SSML_TAGS.MSTTS_VOICE_CONVERSION: {
       const element: MsttsVoiceConversionElement = { type: SSML_TAGS.MSTTS_VOICE_CONVERSION };
+      const url = readAttribute(attributes, SSML_ATTRS.URL);
+      const profile = readAttribute(attributes, SSML_ATTRS.PROFILE);
+      const speakerProfileId = readAttribute(attributes, SSML_ATTRS.SPEAKER_PROFILE_ID);
+      if (url !== undefined) element.url = url;
+      if (profile !== undefined) element.profile = profile;
+      if (speakerProfileId !== undefined) element.speakerProfileId = speakerProfileId;
       return finishElement(element, node, attributes);
     }
     default: {

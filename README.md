@@ -91,7 +91,7 @@ Pages Router と App Router のどちらでも、Monaco を `next/dynamic` の `
 "use client";
 import dynamic from "next/dynamic";
 const SsmlEditor = dynamic(
-  () => import("@ssml-builder-js/ssml-editor-react").then(({ SsmlEditor }) => SsmlEditor),
+  () => import("ssml-builder-js/react").then(({ SsmlEditor }) => SsmlEditor),
   { ssr: false },
 );
 
@@ -178,6 +178,8 @@ SSML の検証は、構文、Azure 固有の静的な意味、実サービスの
 | ランタイム | `AzureTtsClient.synthesize` / Azure Speech API | アカウント、リージョン、キー、最新の音声・スタイル提供状況、サービス側の SSML 制約、通信状態 | 静的検証の代替ではないため、入力検証や SSRF 対策を自動で補完しない |
 
 `voice`、`prosody`、`break`、`express-as`、`say-as`、`phoneme`、`audio`、`lang`、`mark` に加えて、`mstts:dialog`、`mstts:turn`、`mstts:backgroundaudio`、`mstts:ttsembedding`、`mstts:embedding`、`mstts:voiceconversion` を型付きで表現できます。`type: "custom"` と `name` を指定すれば、未定義の XML 要素や追加属性も扱えます。`mstts:` 要素を含むドキュメントを生成すると、必要な Azure Speech 名前空間が自動的に追加されます。
+
+`mstts:turn` は `voice` またはマルチトーカー用の `speaker` を指定でき、`mstts:ttsembedding` は `speakerProfileId`、`mstts:embedding` は `id`、`mstts:voiceconversion` は `url` と `profile` を専用プロパティで指定できます。`mstts:backgroundaudio` は `<speak>` 直下の先頭要素として 1 文書に 1 つだけ配置します。
 
 `validateAzureSsml` は Azure Speech へ送信する前に実行する事前静的チェックです。返却される診断の `source` はパッケージ側の静的解析結果であることを示し、Azure Speech サービス側でのランタイム生成結果や実際の合成可否を表すものではありません。
 
@@ -378,8 +380,8 @@ Next.js Route Handler ではキーをブラウザへ渡さず、サーバー側�
 
 ```ts
 // app/api/synthesize/route.ts
-import { AzureTtsClient, AzureTtsError } from "@ssml-builder-js/azure-tts-client";
-import { validateAzureSsml, validateSsml } from "@ssml-builder-js/ssml-core";
+import { AzureTtsClient, AzureTtsError } from "ssml-builder-js";
+import { validateAzureSsml, validateSsml } from "ssml-builder-js/core";
 
 export const runtime = "nodejs";
 
@@ -539,7 +541,7 @@ For both the Pages Router and App Router, keep Monaco in a client-only module wi
 "use client";
 import dynamic from "next/dynamic";
 const SsmlEditor = dynamic(
-  () => import("@ssml-builder-js/ssml-editor-react").then(({ SsmlEditor }) => SsmlEditor),
+  () => import("ssml-builder-js/react").then(({ SsmlEditor }) => SsmlEditor),
   { ssr: false },
 );
 
@@ -626,6 +628,8 @@ SSML validation separates XML syntax, Azure-specific static semantics, and runti
 | Runtime | `AzureTtsClient.synthesize` / Azure Speech API | Account, region, key, current voice/style availability, service-side SSML constraints, and network state | It does not replace input validation or automatically provide SSRF protection |
 
 Typed representations are available for elements such as `voice`, `prosody`, `break`, `express-as`, `say-as`, `phoneme`, `audio`, `lang`, and `mark`, plus `mstts:dialog`, `mstts:turn`, `mstts:backgroundaudio`, `mstts:ttsembedding`, `mstts:embedding`, and `mstts:voiceconversion`. Use `type: "custom"` and `name` to handle undefined XML elements or additional attributes. When a document contains `mstts:` elements, the required Azure Speech namespace is added automatically.
+
+`mstts:turn` accepts either `voice` or the multi-talker `speaker` property. The typed extension properties include `speakerProfileId` for `mstts:ttsembedding`, `id` for `mstts:embedding`, and `url` plus `profile` for `mstts:voiceconversion`. `mstts:backgroundaudio` must be the first direct child element of `<speak>` and may appear only once per document.
 
 `validateAzureSsml` is a preflight static check performed by this package before sending SSML to Azure Speech. The `source` on each returned diagnostic identifies package-side static analysis; it is independent of Azure Speech's runtime generation result and does not guarantee that synthesis will succeed.
 
@@ -822,8 +826,8 @@ Keep the subscription key on the server by using a Next.js Route Handler (or an 
 
 ```ts
 // app/api/synthesize/route.ts
-import { AzureTtsClient, AzureTtsError } from "@ssml-builder-js/azure-tts-client";
-import { validateAzureSsml, validateSsml } from "@ssml-builder-js/ssml-core";
+import { AzureTtsClient, AzureTtsError } from "ssml-builder-js";
+import { validateAzureSsml, validateSsml } from "ssml-builder-js/core";
 
 export const runtime = "nodejs";
 

@@ -22,7 +22,7 @@ test("parseSsml and buildSsml round-trip Azure dialog extensions as typed nodes"
       {
         type: "mstts:turn",
         voice: "en-US-JennyNeural",
-        children: ["Hello ", { type: "mstts:embedding", attributes: { id: "speaker-1" }, children: ["there"] }],
+        children: ["Hello ", { type: "mstts:embedding", id: "speaker-1", children: ["there"] }],
       },
     ],
   });
@@ -34,6 +34,33 @@ test("parseSsml and buildSsml round-trip Azure dialog extensions as typed nodes"
     fadeOut: "500ms",
   });
 
+  assert.deepEqual(parseSsml(buildSsml(document)), document);
+});
+
+test("parseSsml and buildSsml preserve dedicated Azure extension attributes", () => {
+  const document = parseSsml(
+    `${prefix}<voice name="en-US-JennyNeural"><mstts:ttsembedding speakerProfileId="speaker-1">Text</mstts:ttsembedding><mstts:embedding id="embedding-1" speakerProfileId="speaker-2">More</mstts:embedding><mstts:voiceconversion url="https://allowed.test/source.wav" profile="profile-1" speakerProfileId="speaker-3"/></voice>${suffix}`,
+  );
+
+  assert.deepEqual(document.children?.[0], {
+    type: "voice",
+    name: "en-US-JennyNeural",
+    children: [
+      { type: "mstts:ttsembedding", speakerProfileId: "speaker-1", children: ["Text"] },
+      {
+        type: "mstts:embedding",
+        id: "embedding-1",
+        speakerProfileId: "speaker-2",
+        children: ["More"],
+      },
+      {
+        type: "mstts:voiceconversion",
+        url: "https://allowed.test/source.wav",
+        profile: "profile-1",
+        speakerProfileId: "speaker-3",
+      },
+    ],
+  });
   assert.deepEqual(parseSsml(buildSsml(document)), document);
 });
 

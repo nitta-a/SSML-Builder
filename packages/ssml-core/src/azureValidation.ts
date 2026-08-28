@@ -58,6 +58,7 @@ export type AzureSsmlValidationOptions = AzureValidationOptions;
 
 interface ElementToken {
   attributes: Map<string, string>;
+  childElementIndex?: number;
   end: number;
   parentName?: string;
   name: string;
@@ -125,7 +126,7 @@ function findTagEnd(source: string, start: number): number {
 
 function tokenizeElements(source: string): ElementToken[] {
   const tokens: ElementToken[] = [];
-  const openElements: Array<{ name: string; voiceName?: string }> = [];
+  const openElements: Array<{ childElementCount: number; name: string; voiceName?: string }> = [];
   let index = 0;
   while (index < source.length) {
     const start = source.indexOf("<", index);
@@ -165,6 +166,8 @@ function tokenizeElements(source: string): ElementToken[] {
     }
     const selfClosing = /\/\s*>$/.test(raw);
     const parent = openElements[openElements.length - 1];
+    const childElementIndex = parent?.childElementCount;
+    if (parent) parent.childElementCount += 1;
     const parentVoiceName = [...openElements].reverse().find((element) => element.voiceName)?.voiceName;
     const tokenName = nameMatch[1];
     const tokenVoiceName =
@@ -175,6 +178,7 @@ function tokenizeElements(source: string): ElementToken[] {
           : parentVoiceName;
     tokens.push({
       attributes,
+      childElementIndex,
       end,
       name: tokenName,
       parentName: parent?.name,
@@ -184,6 +188,7 @@ function tokenizeElements(source: string): ElementToken[] {
     });
     if (!selfClosing) {
       openElements.push({
+        childElementCount: 0,
         name: tokenName,
         voiceName: tokenVoiceName,
       });
@@ -234,6 +239,13 @@ export function isValidAzureAudioDuration(value: string): boolean {
   const clock = /^(\d{2,}):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?$/.exec(trimmed);
   if (!clock) return false;
   return Number(clock[1]) > 0 || Number(clock[2]) > 0 || Number(clock[3]) > 0 || Number(clock[4] ?? 0) > 0;
+}
+
+function isValidAzureBackgroundAudioDuration(value: string): boolean {
+  const match = /^(\d+(?:\.\d+)?)(ms|s)?$/i.exec(value.trim());
+  if (!match) return false;
+  const milliseconds = Number(match[1]) * (match[2]?.toLowerCase() === "s" ? 1000 : 1);
+  return Number.isFinite(milliseconds) && milliseconds >= 0 && milliseconds <= 10_000;
 }
 
 function attr(token: ElementToken, name: string): string | undefined {
@@ -422,9 +434,17 @@ function validateAudioSource(
   }
   if (parsed.protocol !== "https:" && !(options.allowHttpAudio && parsed.protocol === "http:"))
     addDiagnostic(diagnostics, source, token.start, `<${elementName} src> must use HTTPS.`);
-  if (options.allowedAudioOrigins && !options.allowedAudioOrigins.includes(parsed.origin))
+  const isAllowedOrigin =
+    options.allowedAudioOrigins?.some((allowedOrigin) => {
+      try {
+        return new URL(allowedOrigin).origin === parsed.origin;
+      } catch {
+        return allowedOrigin === parsed.origin;
+      }
+    }) ?? false;
+  if (options.allowedAudioOrigins && !isAllowedOrigin)
     addDiagnostic(diagnostics, source, token.start, `<${elementName} src> origin "${parsed.origin}" is not allowed.`);
-  else if (!options.allowExternalAudio)
+  else if (!isAllowedOrigin && !options.allowExternalAudio)
     addDiagnostic(
       diagnostics,
       source,
@@ -567,28 +587,40 @@ function validateElement(
     validateAudioSource(token, source, diagnostics, options, "audio");
   }
   if (name === "mstts:turn") {
-    if (!attr(token, "voice")?.trim())
-      addDiagnostic(diagnostics, source, token.start, '<mstts:turn> requires a non-empty "voice" attribute.');
+    if (!attr(token, "voice")?.trim() && !attr(token, "speaker")?.trim())
+      addDiagnostic(
+        diagnostics,
+        source,
+        token.start,
+        '<mstts:turn> requires a non-empty "voice" or "speaker" attribute.',
+      );
     if (token.parentName?.toLowerCase() !== "mstts:dialog")
       addDiagnostic(diagnostics, source, token.start, "<mstts:turn> is only allowed directly inside <mstts:dialog>.");
   }
   if (name === "mstts:backgroundaudio") {
     validateAudioSource(token, source, diagnostics, options, "mstts:backgroundaudio");
     const volume = attr(token, "volume");
-    if (volume && !/^(silent|x-soft|soft|medium|loud|x-loud|[+-]?\d+(?:\.\d+)?(?:dB|%))$/i.test(volume.trim()))
+    if (volume !== undefined && (!/^\d+(?:\.\d+)?$/.test(volume.trim()) || Number(volume) > 100))
       addDiagnostic(diagnostics, source, token.start, `Unsupported <mstts:backgroundaudio volume> value "${volume}".`);
     for (const [attribute, value] of [
       ["fadein", attr(token, "fadein")],
       ["fadeout", attr(token, "fadeout")],
     ] as const) {
-      if (value && !isValidAzureAudioDuration(value))
+      if (value !== undefined && !isValidAzureBackgroundAudioDuration(value))
         addDiagnostic(
           diagnostics,
           source,
           token.start,
-          `<mstts:backgroundaudio ${attribute}> must be a positive duration such as "500ms" or "10s".`,
+          `<mstts:backgroundaudio ${attribute}> must be between 0 and 10000 milliseconds, for example "500ms" or "10s".`,
         );
     }
+    if (token.parentName?.toLowerCase() !== "speak" || token.childElementIndex !== 0)
+      addDiagnostic(
+        diagnostics,
+        source,
+        token.start,
+        "<mstts:backgroundaudio> must be the first element directly under <speak>.",
+      );
     if (!token.selfClosing)
       addDiagnostic(diagnostics, source, token.start, "<mstts:backgroundaudio> must be self-closing.");
   }
@@ -621,6 +653,16 @@ export function validateAzureSsml(ssml: string, options: AzureValidationOptions 
   const tokens = tokenizeElements(ssml);
   const speak = tokens.find((token) => token.name.toLowerCase() === "speak");
   const voices = tokens.filter((token) => token.name.toLowerCase() === "voice");
+  const backgroundAudioTokens = tokens.filter((token) => token.name.toLowerCase() === "mstts:backgroundaudio");
+  for (const [index, token] of backgroundAudioTokens.entries()) {
+    if (index > 0)
+      addDiagnostic(
+        diagnostics,
+        ssml,
+        token.start,
+        "An SSML document can contain at most one <mstts:backgroundaudio> element.",
+      );
+  }
   if (!speak || voices.length === 0)
     addDiagnostic(
       diagnostics,

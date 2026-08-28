@@ -145,12 +145,25 @@ function elementAttributes(element: SsmlElement): Record<string, string> {
       break;
     case "mstts:turn":
       addAttribute(attributes, "voice", element.voice);
+      addAttribute(attributes, "speaker", element.speaker);
       break;
     case "mstts:backgroundaudio":
       addAttribute(attributes, "src", element.src);
       addAttribute(attributes, "volume", element.volume);
       addAttribute(attributes, "fadein", element.fadeIn ?? element.fadein);
       addAttribute(attributes, "fadeout", element.fadeOut ?? element.fadeout);
+      break;
+    case "mstts:ttsembedding":
+      addAttribute(attributes, "speakerProfileId", element.speakerProfileId);
+      break;
+    case "mstts:embedding":
+      addAttribute(attributes, "id", element.id);
+      addAttribute(attributes, "speakerProfileId", element.speakerProfileId);
+      break;
+    case "mstts:voiceconversion":
+      addAttribute(attributes, "url", element.url);
+      addAttribute(attributes, "profile", element.profile);
+      addAttribute(attributes, "speakerProfileId", element.speakerProfileId);
       break;
   }
   return Object.fromEntries(Object.entries(attributes).map(([name, value]) => [name, String(value)]));
