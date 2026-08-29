@@ -1,3 +1,25 @@
+# SSML-Builder v2.15.0 Release Notes
+
+Release date: 2026-08-29
+
+v2.15.0 adds strict audio merge formats, discriminated synthesis errors, per-event source mappings, abortable URL validation, external audio muxers, and live Visual Editor voice capability warnings.
+
+## Highlights
+
+- Added explicit audio merge format handling and clear errors for unsupported container formats.
+- Added discriminated synthesis and chunk validation results with source-aware progress and synchronization metadata.
+- Added abortable, timeout-aware URL validation with controlled concurrency and caching.
+- Added external audio muxer support for formats that require container-aware merging.
+- Added Visual Editor voice capability warnings and richer voice metadata display.
+
+## Verification
+
+- `npm run format` — passed
+- `npm run lint` — passed
+- `npm test` — passed
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
 # SSML-Builder v2.14.0 Release Notes
 
 Release date: 2026-08-29

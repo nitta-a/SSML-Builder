@@ -31,7 +31,7 @@ const validSsml = (text: string) =>
   `<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural">${text}</voice></speak>`;
 
 test("mergeAudioBuffers rebuilds one valid WAV header", () => {
-  const merged = mergeAudioBuffers([wav([1, 2]), wav([3, 4, 5])], "riff-16khz-16bit-mono-pcm");
+  const merged = mergeAudioBuffers([wav([1, 2]), wav([3, 4, 5])], { format: "riff-16khz-16bit-mono-pcm" });
   const bytes = new Uint8Array(merged);
   const view = new DataView(merged);
   assert.equal(new TextDecoder().decode(bytes.slice(0, 4)), "RIFF");
@@ -51,14 +51,18 @@ test("mergeAudioBuffers removes per-buffer ID3 tags from MP3 streams", () => {
   second.set(tag);
   second[tag.length] = 3;
   assert.deepEqual(
-    [...new Uint8Array(mergeAudioBuffers([first.buffer, second.buffer], "audio-16khz-128kbitrate-mono-mp3"))],
+    [
+      ...new Uint8Array(
+        mergeAudioBuffers([first.buffer, second.buffer], { format: "audio-16khz-128kbitrate-mono-mp3" }),
+      ),
+    ],
     [1, 2, 3],
   );
 });
 
 test("mergeAudioBuffers rejects container formats that require remultiplexing", () => {
   assert.throws(
-    () => mergeAudioBuffers([new ArrayBuffer(1)], "webm-24khz-16bit-mono-opus"),
+    () => mergeAudioBuffers([new ArrayBuffer(1)], { format: "webm-24khz-16bit-mono-opus" }),
     (error: unknown) => error instanceof UnsupportedMergeFormatError,
   );
 });

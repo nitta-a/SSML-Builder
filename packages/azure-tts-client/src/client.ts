@@ -6,6 +6,7 @@ import type {
   SsmlSynthesisChunk,
   SsmlSynthesisResult,
   SynthesizeChunksOptions,
+  TtsConfig,
 } from "./types.ts";
 
 const ENDPOINT_TEMPLATE = "https://{region}.tts.speech.microsoft.com/cognitiveservices/v1";
@@ -26,12 +27,22 @@ export class AzureTtsClient {
     return synthesizeSpeech(ssml, config);
   }
 
-  async synthesizeSsml(ssml: string): Promise<SsmlSynthesisResult> {
+  async synthesizeSsml(ssml: string, options: Partial<TtsConfig> = {}): Promise<SsmlSynthesisResult> {
     const { region, subscriptionKey, outputFormat, signal, timeoutMs } = this.#options;
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     this.#options.logger?.debug?.("Using Azure TTS endpoint:", endpoint);
 
-    return synthesizeSsml(ssml, { endpoint, region, subscriptionKey, outputFormat, signal, timeoutMs });
+    return synthesizeSsml(ssml, {
+      endpoint,
+      region,
+      subscriptionKey,
+      outputFormat: options.outputFormat ?? outputFormat,
+      signal: options.signal ?? signal,
+      timeoutMs: options.timeoutMs ?? timeoutMs,
+      sourceNodePath: options.sourceNodePath,
+      sourceTextSegments: options.sourceTextSegments,
+      sourceMarkers: options.sourceMarkers,
+    });
   }
 
   async synthesizeChunks(
@@ -44,9 +55,10 @@ export class AzureTtsClient {
       endpoint,
       region,
       subscriptionKey,
-      outputFormat,
-      signal,
-      timeoutMs,
+      outputFormat: options.outputFormat ?? outputFormat,
+      signal: options.signal ?? signal,
+      timeoutMs: options.timeoutMs ?? timeoutMs,
+      sourceNodePath: options.sourceNodePath,
       onProgress: options.onProgress ?? this.#options.onProgress,
     });
   }
@@ -62,6 +74,8 @@ export class AzureTtsClient {
     return synthesizeSsmlChunksSafe(this, chunks, {
       ...options,
       outputFormat: options.outputFormat ?? this.#options.outputFormat,
+      signal: options.signal ?? this.#options.signal,
+      timeoutMs: options.timeoutMs ?? this.#options.timeoutMs,
       onProgress: options.onProgress ?? this.#options.onProgress,
     });
   }

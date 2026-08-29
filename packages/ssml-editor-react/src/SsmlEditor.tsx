@@ -781,6 +781,10 @@ export interface SsmlEditorProps {
   voiceRegion?: string;
   /** Optional style filter for the visual voice selector. */
   voiceStyle?: string;
+  /** Selected Azure voice model used for live capability validation. */
+  voiceModel?: string;
+  /** Alias for voiceModel. */
+  model?: string;
   /** Candidate style values shown by the built-in emotion insertion. */
   emotionStyles?: readonly string[];
   /** Class name applied to the editor container. */
@@ -888,6 +892,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     voiceLocale,
     voiceRegion,
     voiceStyle,
+    voiceModel,
+    model,
     emotionStyles,
     className,
     style,
@@ -1377,6 +1383,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               voiceLocale={voiceLocale}
               voiceRegion={voiceRegion}
               voiceStyle={voiceStyle}
+              voiceModel={voiceModel}
+              model={model}
             />
           </div>
         ) : (

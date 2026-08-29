@@ -6,6 +6,7 @@ import {
   type SsmlDocument,
   type SsmlElement,
   type SsmlNode,
+  type SsmlDiagnostic,
 } from "@ssml-builder-js/ssml-core";
 import { SSML_ELEMENT_COPY, type SsmlEditorLocale } from "../locales";
 
@@ -17,6 +18,7 @@ export interface VisualVoiceCatalogEntry {
   styles?: readonly string[];
   supportedTags?: readonly string[];
   unsupportedTags?: readonly string[];
+  models?: readonly string[];
   preview?: boolean;
   status?: "ga" | "preview" | "deprecated";
 }
@@ -53,6 +55,10 @@ export interface VisualSsmlEditorProps {
   voiceLocale?: string;
   voiceRegion?: string;
   voiceStyle?: string;
+  /** Selected Azure voice model used for live capability validation. */
+  voiceModel?: string;
+  /** Alias for voiceModel. */
+  model?: string;
 }
 
 interface TextLeaf {
@@ -294,6 +300,51 @@ function VoiceCapabilityMatrix({
   );
 }
 
+function diagnosticMatchesElement(diagnostic: SsmlDiagnostic, element: SsmlElement): boolean {
+  const name = elementLabel(element).toLowerCase().replace("expressas", "mstts:express-as");
+  if (diagnostic.code === "azure-unsupported-style") return name === "mstts:express-as" || name === "express-as";
+  if (diagnostic.code === "azure-unsupported-tag-for-voice") {
+    return (
+      diagnostic.message.toLowerCase().includes(`<${name}>`) ||
+      diagnostic.message.toLowerCase().includes(`<${name.replace("mstts:", "")}>`)
+    );
+  }
+  if (diagnostic.code === "azure-locale-mismatch" || diagnostic.code === "azure-unsupported-model-for-voice")
+    return name === "voice" || name === "mstts:turn";
+  return false;
+}
+
+function elementWarnings(diagnostics: readonly SsmlDiagnostic[], element: SsmlElement): readonly SsmlDiagnostic[] {
+  return diagnostics.filter((diagnostic) => diagnosticMatchesElement(diagnostic, element));
+}
+
+function fieldWarnings(
+  diagnostics: readonly SsmlDiagnostic[],
+  element: SsmlElement,
+  field: VisualElementField,
+): readonly SsmlDiagnostic[] {
+  return elementWarnings(diagnostics, element).filter((diagnostic) => {
+    if (diagnostic.code === "azure-unsupported-style") return field.key === "style";
+    return field.key === "name" || field.key === "voice";
+  });
+}
+
+function WarningBadge({ messages }: { messages: readonly SsmlDiagnostic[] }): ReactElement | null {
+  if (messages.length === 0) return null;
+  return (
+    <span
+      role="status"
+      aria-label={messages.map((message) => message.message).join(" ")}
+      title={messages.map((message) => message.message).join(" ")}
+      data-ssml-warning-badge=""
+      data-testid="ssml-editor-warning-badge"
+      className="ssml-editor-warning-badge"
+    >
+      ⚠
+    </span>
+  );
+}
+
 function DefaultVoiceSelector({
   value,
   voices,
@@ -336,6 +387,7 @@ function VisualElementInspector({
   voiceLocale,
   voiceRegion,
   voiceStyle,
+  diagnostics,
 }: {
   document: SsmlDocument;
   element: SsmlElement;
@@ -349,6 +401,7 @@ function VisualElementInspector({
   voiceLocale?: string;
   voiceRegion?: string;
   voiceStyle?: string;
+  diagnostics: readonly SsmlDiagnostic[];
 }): ReactElement {
   if (customInspector) {
     return <>{customInspector({ document, element, path, readOnly, onChange: commit, locale })}</>;
@@ -361,7 +414,9 @@ function VisualElementInspector({
   const renderSelector = renderVoiceSelector ?? DefaultVoiceSelector;
   return (
     <fieldset>
-      <legend>{`<${elementLabel(element)}>`}</legend>
+      <legend>
+        {`<${elementLabel(element)}>`} <WarningBadge messages={elementWarnings(diagnostics, element)} />
+      </legend>
       {fields.length === 0 ? (
         <p>This element is preserved in the visual tree. Edit its attributes in Code mode.</p>
       ) : (
@@ -409,6 +464,7 @@ function VisualElementInspector({
                     } as Record<string, string>
                   )[field.key] ?? field.label)
                 : field.label}
+              <WarningBadge messages={fieldWarnings(diagnostics, element, field)} />
               {field.key === "name" && elementLabel(element) === "voice" && voiceCatalog ? (
                 renderSelector({
                   value: inputValue,
@@ -509,11 +565,13 @@ function TreeNode({
   path,
   selectedPath,
   onSelect,
+  getWarnings,
 }: {
   node: SsmlNode;
   path: number[];
   selectedPath: number[] | null;
   onSelect: (path: number[]) => void;
+  getWarnings: (element: SsmlElement) => readonly SsmlDiagnostic[];
 }): ReactElement | null {
   if (!isElement(node)) return null;
   const name = elementLabel(node);
@@ -522,6 +580,7 @@ function TreeNode({
     <li>
       <button type="button" aria-current={isSelected ? "true" : undefined} onClick={() => onSelect(path)}>
         {`<${name}>`}
+        <WarningBadge messages={getWarnings(node)} />
       </button>
       {(node.children ?? []).length > 0 && (
         <ul>
@@ -532,6 +591,7 @@ function TreeNode({
               path={[...path, index]}
               selectedPath={selectedPath}
               onSelect={onSelect}
+              getWarnings={getWarnings}
             />
           ))}
         </ul>
@@ -552,6 +612,8 @@ export function VisualSsmlEditor({
   voiceLocale,
   voiceRegion,
   voiceStyle,
+  voiceModel,
+  model,
 }: VisualSsmlEditorProps): ReactElement {
   const [selectedPath, setSelectedPath] = useState<number[] | null>(null);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
@@ -562,7 +624,27 @@ export function VisualSsmlEditor({
     selectedElement && isElement(selectedElement)
       ? (customInspectors?.[elementLabel(selectedElement)] ?? customInspectors?.[selectedElement.type])
       : undefined;
-  const diagnostics = useMemo(() => validateAzureSsml(buildSsml(document)), [document]);
+  const validationOptions = useMemo(
+    () => ({
+      model: voiceModel ?? model,
+      customVoiceDefinitions: voiceCatalog?.map((voice) => ({
+        name: voice.name,
+        locale: voice.locale,
+        regions: voice.regions ?? (voice.region ? [voice.region] : undefined),
+        styles: voice.styles,
+        supportedTags: voice.supportedTags,
+        unsupportedTags: voice.unsupportedTags,
+        models: voice.models,
+        status: voice.status ?? (voice.preview ? "preview" : "ga"),
+      })),
+    }),
+    [model, voiceCatalog, voiceModel],
+  );
+  const diagnostics = useMemo(
+    () => validateAzureSsml(buildSsml(document), validationOptions) as SsmlDiagnostic[],
+    [document, validationOptions],
+  );
+  const getWarnings = (element: SsmlElement): readonly SsmlDiagnostic[] => elementWarnings(diagnostics, element);
   const commit = (nextDocument: SsmlDocument): void => onChange?.(nextDocument);
 
   const applyWrapper = (tag: SsmlElement["type"], attributes: Record<string, string>): void => {
@@ -604,6 +686,7 @@ export function VisualSsmlEditor({
                 path={[index]}
                 selectedPath={selectedPath}
                 onSelect={setSelectedPath}
+                getWarnings={getWarnings}
               />
             ))}
           </ul>
@@ -635,6 +718,7 @@ export function VisualSsmlEditor({
               <legend>{localizedElementLabel(selectedElement, locale)}</legend>
               <label htmlFor="ssml-visual-turn-voice">
                 {locale === "ja" ? "音声" : "Voice"}
+                <WarningBadge messages={elementWarnings(diagnostics, selectedElement)} />
                 {voiceCatalog ? (
                   (renderVoiceSelector ?? DefaultVoiceSelector)({
                     value: selectedElement.voice ?? "",
@@ -744,6 +828,7 @@ export function VisualSsmlEditor({
               voiceLocale={voiceLocale}
               voiceRegion={voiceRegion}
               voiceStyle={voiceStyle}
+              diagnostics={diagnostics}
             />
           ) : selectedLeaf ? (
             <>

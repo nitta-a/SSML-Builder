@@ -18,7 +18,14 @@ export { parseSsml } from "./parser.ts";
 export { validateSsml } from "./validation.ts";
 export type { SsmlValidationError } from "./validation.ts";
 export { extractSsmlText, mapSsmlTextNodes } from "./textNodes.ts";
-export type { MapSsmlTextNodesOptions, SsmlTextNodeContext } from "./textNodes.ts";
+export type {
+  MapSsmlTextNodesOptions,
+  SsmlSourceMap,
+  SsmlSourceMarker,
+  SsmlSourceTextSegment,
+  SsmlTextNodeContext,
+} from "./textNodes.ts";
+export { getSsmlSourceMap } from "./textNodes.ts";
 export {
   extractSsmlTranslatableText,
   fromPlainTextToSsml,

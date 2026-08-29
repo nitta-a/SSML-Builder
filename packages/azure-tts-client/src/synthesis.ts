@@ -1,9 +1,35 @@
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
-import { createSpeechSdkError, UnsupportedMergeFormatError } from "./errors.ts";
+import { getSsmlSourceMap } from "@ssml-builder-js/ssml-core";
+import {
+  MergeError,
+  SynthesisCancelledError,
+  SynthesisTimeoutError,
+  toSynthesisError,
+  UnsupportedMergeFormatError,
+} from "./errors.ts";
+import { resolveMimeType, type AzureTtsOutputFormat } from "./outputFormats.ts";
 import { createSpeechConfig } from "./speechConfig.ts";
-import type { SsmlSynthesisChunk, SsmlSynthesisResult, SynthesisProgressEvent, TtsConfig } from "./types.ts";
+import type {
+  MergedSynthesisResult,
+  SsmlSynthesisChunk,
+  SsmlSynthesisResult,
+  SynthesisProgressEvent,
+  TtsConfig,
+} from "./types.ts";
 
 export type MergeAudioFormat = "wav" | "mp3" | "raw";
+
+export interface MergeAudioOptions {
+  format: AzureTtsOutputFormat;
+}
+
+export interface MergeSynthesisOptions extends MergeAudioOptions {
+  customMerger?: (buffers: ArrayBuffer[], format: string) => Promise<ArrayBuffer> | ArrayBuffer;
+}
+
+type AsyncMergeSynthesisOptions = MergeSynthesisOptions & {
+  customMerger: NonNullable<MergeSynthesisOptions["customMerger"]>;
+};
 
 function ascii(bytes: Uint8Array, offset: number, value: string): boolean {
   return [...value].every((character, index) => bytes[offset + index] === character.charCodeAt(0));
@@ -154,28 +180,36 @@ export function canMergeAudioFormat(format: string): boolean {
 }
 
 /** Merges audio buffers while preserving the invariants of supported containers. */
-export function mergeAudioBuffers(buffers: readonly ArrayBuffer[], format: string): ArrayBuffer {
-  if (isWavFormat(format)) return mergeWavBuffers(buffers);
-  if (isMp3Format(format)) {
-    const parts = buffers.map(stripMp3Tags);
-    const output = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
-    let offset = 0;
-    for (const part of parts) {
-      output.set(part, offset);
-      offset += part.byteLength;
+export function mergeAudioBuffers(buffers: readonly ArrayBuffer[], options: MergeAudioOptions): ArrayBuffer;
+export function mergeAudioBuffers(buffers: readonly ArrayBuffer[], options: MergeAudioOptions | string): ArrayBuffer {
+  const format = typeof options === "string" ? options : options?.format;
+  if (!format) throw new UnsupportedMergeFormatError("");
+  try {
+    if (isWavFormat(format)) return mergeWavBuffers(buffers);
+    if (isMp3Format(format)) {
+      const parts = buffers.map(stripMp3Tags);
+      const output = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
+      let offset = 0;
+      for (const part of parts) {
+        output.set(part, offset);
+        offset += part.byteLength;
+      }
+      return output.buffer;
     }
-    return output.buffer;
-  }
-  if (isRawFormat(format)) {
-    const output = new Uint8Array(buffers.reduce((total, buffer) => total + buffer.byteLength, 0));
-    let offset = 0;
-    for (const buffer of buffers) {
-      output.set(new Uint8Array(buffer), offset);
-      offset += buffer.byteLength;
+    if (isRawFormat(format)) {
+      const output = new Uint8Array(buffers.reduce((total, buffer) => total + buffer.byteLength, 0));
+      let offset = 0;
+      for (const buffer of buffers) {
+        output.set(new Uint8Array(buffer), offset);
+        offset += buffer.byteLength;
+      }
+      return output.buffer;
     }
-    return output.buffer;
+    throw new UnsupportedMergeFormatError(format);
+  } catch (error) {
+    if (error instanceof UnsupportedMergeFormatError || error instanceof MergeError) throw error;
+    throw new MergeError(`Audio buffers could not be merged for format "${format}".`, error);
   }
-  throw new UnsupportedMergeFormatError(format);
 }
 
 function closeSpeechResources(speechConfig: SpeechSDK.SpeechConfig, synthesizer: SpeechSDK.SpeechSynthesizer): void {
@@ -192,7 +226,7 @@ const ticksToMilliseconds = (ticks: number): number => Math.max(0, ticks) / 10_0
 
 export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<SsmlSynthesisResult> {
   if (config.signal?.aborted) {
-    throw createSpeechSdkError("Speech synthesis was cancelled.");
+    throw new SynthesisCancelledError();
   }
 
   const speechConfig = createSpeechConfig(config);
@@ -217,24 +251,118 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
       settled = true;
       cleanup();
       closeResources();
-      reject(createSpeechSdkError(error));
+      reject(toSynthesisError(error));
     };
 
     const boundaries: SsmlSynthesisResult["boundaries"] = [];
     const visemes: SsmlSynthesisResult["visemes"] = [];
     const bookmarks: SsmlSynthesisResult["bookmarks"] = [];
+    let sourceEventCursor = 0;
+    let generatedSourceMap: ReturnType<typeof getSsmlSourceMap> | undefined;
+    if (!config.sourceTextSegments && !config.sourceMarkers) {
+      try {
+        generatedSourceMap = getSsmlSourceMap(ssml);
+      } catch {
+        generatedSourceMap = undefined;
+      }
+    }
+    const sourceBaseOffset = config.sourceTextRange?.start ?? 0;
+    const sourceSegments =
+      config.sourceTextSegments ??
+      generatedSourceMap?.segments.map((segment) => ({
+        ...segment,
+        range: {
+          start: segment.range.start + sourceBaseOffset,
+          end: segment.range.end + sourceBaseOffset,
+        },
+        sourceNodePath: [...segment.sourceNodePath],
+      })) ??
+      [];
+    const sourceMarkers =
+      config.sourceMarkers ??
+      generatedSourceMap?.markers.map((marker) => ({
+        ...marker,
+        originalTextRange: {
+          start: marker.originalTextRange.start + sourceBaseOffset,
+          end: marker.originalTextRange.end + sourceBaseOffset,
+        },
+        sourceNodePath: [...marker.sourceNodePath],
+      })) ??
+      [];
+    const sourceText = sourceSegments.map((segment) => segment.text).join("");
+    const mapSourceEvent = (
+      text: string | undefined,
+      offsetHint: number | undefined,
+      markerName?: string,
+    ): {
+      textRange?: { start: number; end: number };
+      originalTextRange?: { start: number; end: number };
+      sourceNodePath?: string[];
+    } => {
+      const marker = markerName ? sourceMarkers.find((candidate) => candidate.name === markerName) : undefined;
+      if (marker) {
+        return {
+          originalTextRange: { ...marker.originalTextRange },
+          sourceNodePath: [...marker.sourceNodePath],
+          textRange: { ...marker.originalTextRange },
+        };
+      }
+      if (sourceSegments.length === 0 && !config.sourceTextRange && !config.sourceNodePath) return {};
+      const value = text ?? "";
+      let localStart = Number.isFinite(offsetHint) && (offsetHint ?? 0) >= 0 ? (offsetHint as number) : -1;
+      if (value && localStart >= 0 && sourceText.slice(localStart, localStart + value.length) !== value)
+        localStart = -1;
+      if (localStart < 0 || localStart > sourceText.length) {
+        localStart = value ? sourceText.indexOf(value, sourceEventCursor) : sourceEventCursor;
+        if (localStart < 0) localStart = value ? sourceText.indexOf(value) : sourceEventCursor;
+      }
+      localStart = Math.max(0, localStart);
+      const localEnd = Math.min(sourceText.length, localStart + value.length);
+      sourceEventCursor = Math.max(sourceEventCursor, localEnd);
+      const baseStart = config.sourceTextRange?.start ?? sourceSegments[0]?.range.start ?? 0;
+      const fallbackRange = { start: baseStart + localStart, end: baseStart + localEnd };
+      const segment =
+        sourceSegments.find(({ range }) => range.start <= fallbackRange.start && range.end > fallbackRange.start) ??
+        sourceSegments.find(({ range }) => range.end > fallbackRange.start) ??
+        (value.length === 0
+          ? sourceSegments.find(({ range }) => range.start <= fallbackRange.start && range.end >= fallbackRange.start)
+          : undefined);
+      return {
+        originalTextRange: { ...fallbackRange },
+        textRange: { ...fallbackRange },
+        ...(segment
+          ? { sourceNodePath: [...segment.sourceNodePath] }
+          : config.sourceNodePath
+            ? { sourceNodePath: [...config.sourceNodePath] }
+            : {}),
+      };
+    };
     synthesizer.wordBoundary = (_sender, event) => {
       boundaries.push({
         text: event.text,
         audioOffsetMs: ticksToMilliseconds(event.audioOffset),
         durationMs: ticksToMilliseconds(event.duration),
+        ...mapSourceEvent(
+          event.text,
+          (event as SpeechSDK.SpeechSynthesisWordBoundaryEventArgs & { textOffset?: number }).textOffset,
+        ),
       });
     };
     synthesizer.visemeReceived = (_sender, event) => {
-      visemes.push({ visemeId: event.visemeId, audioOffsetMs: ticksToMilliseconds(event.audioOffset) });
+      const eventWithOffset = event as SpeechSDK.SpeechSynthesisVisemeEventArgs & { textOffset?: number };
+      visemes.push({
+        visemeId: event.visemeId,
+        audioOffsetMs: ticksToMilliseconds(event.audioOffset),
+        ...mapSourceEvent(undefined, eventWithOffset.textOffset),
+      });
     };
     synthesizer.bookmarkReached = (_sender, event) => {
-      bookmarks.push({ name: event.text, audioOffsetMs: ticksToMilliseconds(event.audioOffset) });
+      const eventWithOffset = event as SpeechSDK.SpeechSynthesisBookmarkEventArgs & { textOffset?: number };
+      bookmarks.push({
+        name: event.text,
+        audioOffsetMs: ticksToMilliseconds(event.audioOffset),
+        ...mapSourceEvent(undefined, eventWithOffset.textOffset, event.text),
+      });
     };
 
     const cb = (result: SpeechSDK.SpeechSynthesisResult) => {
@@ -258,8 +386,10 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
       const requestId = (result as SpeechSDK.SpeechSynthesisResult & { resultId?: string }).resultId;
       const addSourceMetadata = <T extends { audioOffsetMs: number }>(event: T): T => ({
         ...event,
-        ...(config.sourceTextRange ? { textRange: { ...config.sourceTextRange } } : {}),
-        ...(config.sourceTextRange ? { originalTextRange: { ...config.sourceTextRange } } : {}),
+        ...(config.sourceTextRange && !("textRange" in event) ? { textRange: { ...config.sourceTextRange } } : {}),
+        ...(config.sourceTextRange && !("originalTextRange" in event)
+          ? { originalTextRange: { ...config.sourceTextRange } }
+          : {}),
         ...(config.chunkIndex !== undefined ? { chunkIndex: config.chunkIndex } : {}),
         ...(config.sourceNodePath ? { sourceNodePath: [...config.sourceNodePath] } : {}),
         ...(requestId ? { requestId } : {}),
@@ -282,12 +412,12 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
 
     try {
       if (config.signal) {
-        abortHandler = () => rejectWithError("Speech synthesis was cancelled.");
+        abortHandler = () => rejectWithError(new SynthesisCancelledError());
         config.signal.addEventListener("abort", abortHandler, { once: true });
       }
       if (config.timeoutMs !== undefined && config.timeoutMs > 0) {
         timeout = setTimeout(
-          () => rejectWithError(`Speech synthesis timed out after ${config.timeoutMs} ms.`),
+          () => rejectWithError(new SynthesisTimeoutError(`Speech synthesis timed out after ${config.timeoutMs} ms.`)),
           config.timeoutMs,
         );
       }
@@ -334,7 +464,11 @@ export async function synthesizeSsmlChunks(
       const result = await synthesizeSsml(input.ssml, {
         ...config,
         ...(input.originalTextRange ? { sourceTextRange: input.originalTextRange } : {}),
-        ...(input.sourceNodePath ? { sourceNodePath: input.sourceNodePath } : {}),
+        ...((input.sourceNodePath ?? config.sourceNodePath)
+          ? { sourceNodePath: [...(input.sourceNodePath ?? config.sourceNodePath ?? [])] }
+          : {}),
+        ...(input.sourceTextSegments ? { sourceTextSegments: input.sourceTextSegments } : {}),
+        ...(input.sourceMarkers ? { sourceMarkers: input.sourceMarkers } : {}),
         chunkIndex: index,
         onProgress: undefined,
       });
@@ -362,32 +496,23 @@ export async function synthesizeSsmlChunks(
       throw error;
     }
   }
-  return mergeSynthesisResults(results, config.outputFormat ?? "audio-16khz-128kbitrate-mono-mp3");
+  return mergeSynthesisResults(results, {
+    format: (config.outputFormat ?? "audio-16khz-128kbitrate-mono-mp3") as AzureTtsOutputFormat,
+  });
 }
 
 /** Concatenates audio buffers and shifts all synchronization events by prior chunk durations. */
-export function mergeSynthesisResults(results: readonly SsmlSynthesisResult[], format?: string): SsmlSynthesisResult {
-  const audioData = format
-    ? new Uint8Array(
-        mergeAudioBuffers(
-          results.map((result) => result.audioData),
-          format,
-        ),
-      )
-    : new Uint8Array(results.reduce((total, result) => total + result.audioData.byteLength, 0));
-  if (!format) {
-    let offset = 0;
-    for (const result of results) {
-      audioData.set(new Uint8Array(result.audioData), offset);
-      offset += result.audioData.byteLength;
-    }
-  }
+function createMergedResult(
+  results: readonly SsmlSynthesisResult[],
+  audioData: ArrayBuffer,
+  format: string,
+): MergedSynthesisResult {
   const boundaries: NonNullable<SsmlSynthesisResult["boundaries"]> = [];
   const visemes: NonNullable<SsmlSynthesisResult["visemes"]> = [];
   const bookmarks: NonNullable<SsmlSynthesisResult["bookmarks"]> = [];
   let durationOffset = 0;
 
-  for (const result of results) {
+  for (const [resultIndex, result] of results.entries()) {
     const chunkBoundaries =
       result.boundaries && result.boundaries.length > 0
         ? result.boundaries
@@ -400,7 +525,7 @@ export function mergeSynthesisResults(results: readonly SsmlSynthesisResult[], f
         ...boundary,
         audioOffsetMs: boundary.audioOffsetMs + durationOffset,
         chunkAudioOffsetMs: boundary.chunkAudioOffsetMs ?? boundary.audioOffsetMs,
-        ...(boundary.chunkIndex === undefined ? { chunkIndex: results.indexOf(result) } : {}),
+        ...(boundary.chunkIndex === undefined ? { chunkIndex: resultIndex } : {}),
         ...(boundary.sourceNodePath ? { sourceNodePath: [...boundary.sourceNodePath] } : {}),
         ...(originalTextRange ? { originalTextRange: { ...originalTextRange } } : {}),
         ...(textRange ? { textRange: { ...textRange } } : {}),
@@ -415,7 +540,7 @@ export function mergeSynthesisResults(results: readonly SsmlSynthesisResult[], f
         ...viseme,
         audioOffsetMs: viseme.audioOffsetMs + durationOffset,
         chunkAudioOffsetMs: viseme.chunkAudioOffsetMs ?? viseme.audioOffsetMs,
-        ...(viseme.chunkIndex === undefined ? { chunkIndex: results.indexOf(result) } : {}),
+        ...(viseme.chunkIndex === undefined ? { chunkIndex: resultIndex } : {}),
         ...(viseme.sourceNodePath ? { sourceNodePath: [...viseme.sourceNodePath] } : {}),
         ...(originalTextRange ? { originalTextRange: { ...originalTextRange } } : {}),
         ...(textRange ? { textRange: { ...textRange } } : {}),
@@ -430,7 +555,7 @@ export function mergeSynthesisResults(results: readonly SsmlSynthesisResult[], f
         ...bookmark,
         audioOffsetMs: bookmark.audioOffsetMs + durationOffset,
         chunkAudioOffsetMs: bookmark.chunkAudioOffsetMs ?? bookmark.audioOffsetMs,
-        ...(bookmark.chunkIndex === undefined ? { chunkIndex: results.indexOf(result) } : {}),
+        ...(bookmark.chunkIndex === undefined ? { chunkIndex: resultIndex } : {}),
         ...(bookmark.sourceNodePath ? { sourceNodePath: [...bookmark.sourceNodePath] } : {}),
         ...(originalTextRange ? { originalTextRange: { ...originalTextRange } } : {}),
         ...(textRange ? { textRange: { ...textRange } } : {}),
@@ -441,14 +566,52 @@ export function mergeSynthesisResults(results: readonly SsmlSynthesisResult[], f
   }
 
   return {
-    audioData: audioData.buffer,
+    audioData,
     durationMs: durationOffset,
+    mimeType: resolveMimeType(format),
     ...(boundaries.length > 0 ? { boundaries, wordBoundary: boundaries, wordBoundaries: boundaries } : {}),
     ...(visemes.length > 0 ? { visemes } : {}),
     ...(bookmarks.length > 0 ? { bookmarks } : {}),
     ...(results.length === 1 && results[0]?.requestId ? { requestId: results[0].requestId } : {}),
     ...(results.length === 1 && results[0]?.textRange ? { textRange: { ...results[0].textRange } } : {}),
   };
+}
+
+export function mergeSynthesisResults(
+  results: readonly SsmlSynthesisResult[],
+  options: AsyncMergeSynthesisOptions,
+): Promise<MergedSynthesisResult>;
+export function mergeSynthesisResults(
+  results: readonly SsmlSynthesisResult[],
+  options: MergeAudioOptions,
+): MergedSynthesisResult;
+export function mergeSynthesisResults(
+  results: readonly SsmlSynthesisResult[],
+  options: MergeSynthesisOptions | string,
+): SsmlSynthesisResult | Promise<SsmlSynthesisResult> {
+  const resolvedOptions: MergeSynthesisOptions =
+    typeof options === "string" ? { format: options as AzureTtsOutputFormat } : options;
+  const format = resolvedOptions?.format;
+  if (!format) throw new UnsupportedMergeFormatError("");
+  const buffers = results.map((result) => result.audioData);
+  if (resolvedOptions.customMerger) {
+    return Promise.resolve()
+      .then(() => resolvedOptions.customMerger?.(buffers, format))
+      .then((merged) => {
+        if (!merged) throw new MergeError("The custom audio merger returned no audio buffer.");
+        return createMergedResult(results, merged, format);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof UnsupportedMergeFormatError || error instanceof MergeError) throw error;
+        throw new MergeError(`Custom audio merger failed for format "${format}".`, error);
+      });
+  }
+  try {
+    return createMergedResult(results, mergeAudioBuffers(buffers, { format }), format);
+  } catch (error) {
+    if (error instanceof UnsupportedMergeFormatError || error instanceof MergeError) throw error;
+    throw new MergeError(`Audio buffers could not be merged for format "${format}".`, error);
+  }
 }
 
 /** Backward-compatible audio-only synthesis helper. */

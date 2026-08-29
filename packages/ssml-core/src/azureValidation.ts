@@ -47,6 +47,8 @@ export interface AzureValidationOptions {
   customVoiceDefinitions?: readonly AzureVoiceDefinition[];
   /** Host-side validation hook for URL-bearing SSML attributes. */
   urlValidator?: AzureUrlValidator;
+  /** Source path associated with a chunk being validated. */
+  sourceNodePath?: readonly string[];
   /** Alias for urlValidator retained for applications that use the longer name. */
   customUrlValidator?: AzureUrlValidator;
   /** Controls deduplication, caching, cancellation, and concurrency for URL checks. */
@@ -79,7 +81,8 @@ export interface AzureValidationOptions {
 export type AzureUrlValidationResult = boolean | { valid: boolean; reason?: string };
 export type AzureUrlValidator = (
   url: string,
-  context: { tag: string; attribute: string },
+  context: { tag: string; attribute: string; sourceNodePath?: readonly string[] },
+  signal: AbortSignal,
 ) => AzureUrlValidationResult | Promise<AzureUrlValidationResult>;
 
 export interface AzureUrlValidationRunnerOptions {
@@ -106,34 +109,55 @@ export function createAzureUrlValidatorRunner(
   const waiters: Array<() => void> = [];
   let active = 0;
 
-  const acquire = async (): Promise<void> => {
+  const configuredSignal = options.signal ?? new AbortController().signal;
+  const acquire = async (signal: AbortSignal): Promise<void> => {
+    if (signal.aborted) throw new Error("URL validation was aborted.");
     if (active < concurrency) {
       active += 1;
       return;
     }
-    await new Promise<void>((resolve) => waiters.push(resolve));
+    await new Promise<void>((resolve, reject) => {
+      let waiter: () => void;
+      const abortHandler = () => {
+        const index = waiters.indexOf(waiter);
+        if (index >= 0) waiters.splice(index, 1);
+        signal.removeEventListener("abort", abortHandler);
+        reject(new Error("URL validation was aborted."));
+      };
+      signal.addEventListener("abort", abortHandler, { once: true });
+      waiter = () => {
+        signal.removeEventListener("abort", abortHandler);
+        resolve();
+      };
+      waiters.push(waiter);
+    });
     active += 1;
   };
   const release = (): void => {
     active -= 1;
     waiters.shift()?.();
   };
-  const check = async (url: string, context: { tag: string; attribute: string }): Promise<AzureUrlValidationResult> => {
-    if (options.signal?.aborted) throw new Error("URL validation was aborted.");
-    const cached = cache.get(url);
+  const check = async (
+    url: string,
+    context: { tag: string; attribute: string; sourceNodePath?: readonly string[] },
+    signal = configuredSignal,
+  ): Promise<AzureUrlValidationResult> => {
+    if (signal.aborted) throw new Error("URL validation was aborted.");
+    const key = `${context.tag}:${context.attribute}:${url}`;
+    const cached = cache.get(key);
     if (cached !== undefined) return cached;
-    const existing = inFlight.get(url);
+    const existing = inFlight.get(key);
     if (existing) return existing;
     const promise = (async () => {
-      await acquire();
+      await acquire(signal);
       try {
-        if (options.signal?.aborted) throw new Error("URL validation was aborted.");
-        const validation = Promise.resolve(validator(url, context));
+        if (signal.aborted) throw new Error("URL validation was aborted.");
+        const validation = Promise.resolve(validator(url, context, signal));
         let timer: ReturnType<typeof setTimeout> | undefined;
         let abortHandler: (() => void) | undefined;
         const cancellation = new Promise<AzureUrlValidationResult>((_resolve, reject) => {
           abortHandler = () => reject(new Error("URL validation was aborted."));
-          options.signal?.addEventListener("abort", abortHandler, { once: true });
+          signal.addEventListener("abort", abortHandler, { once: true });
           if (options.timeoutMs !== undefined && options.timeoutMs > 0) {
             timer = setTimeout(
               () => reject(new Error(`URL validation timed out after ${options.timeoutMs} ms.`)),
@@ -143,24 +167,24 @@ export function createAzureUrlValidatorRunner(
         });
         try {
           const result = await (timer || abortHandler ? Promise.race([validation, cancellation]) : validation);
-          cache.set(url, result);
+          cache.set(key, result);
           return result;
         } finally {
           if (timer) clearTimeout(timer);
-          if (abortHandler) options.signal?.removeEventListener("abort", abortHandler);
+          if (abortHandler) signal.removeEventListener("abort", abortHandler);
         }
       } finally {
         release();
       }
     })();
-    inFlight.set(url, promise);
+    inFlight.set(key, promise);
     try {
       return await promise;
     } finally {
-      inFlight.delete(url);
+      inFlight.delete(key);
     }
   };
-  return (url, context) => check(url, context);
+  return (url, context, signal) => check(url, context, signal ?? configuredSignal);
 }
 
 export type AzureLanguageNormalizationOptions = Pick<AzureValidationOptions, "languageAliases" | "normalizeLanguage">;
@@ -967,6 +991,7 @@ export function validateAzureSsml(
     ...(options.urlValidatorSignal ? { signal: options.urlValidatorSignal } : {}),
     ...(options.urlValidatorCache ? { cache: options.urlValidatorCache } : {}),
   });
+  const validationSignal = options.urlValidatorSignal ?? options.urlValidation?.signal ?? new AbortController().signal;
 
   let tokens: ElementToken[];
   try {
@@ -977,7 +1002,11 @@ export function validateAzureSsml(
   const checks = tokens.flatMap((token) =>
     urlAttributes(token).map(async ({ attribute, value }) => {
       try {
-        const result = await boundedValidator(value, { tag: token.name, attribute });
+        const result = await boundedValidator(
+          value,
+          { tag: token.name, attribute, ...(options.sourceNodePath ? { sourceNodePath: options.sourceNodePath } : {}) },
+          validationSignal,
+        );
         const valid = typeof result === "boolean" ? result : result.valid;
         if (!valid) {
           const reason = typeof result === "boolean" ? undefined : result.reason;

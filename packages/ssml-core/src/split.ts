@@ -1,6 +1,8 @@
 import { buildSsml } from "./builder.ts";
+import { getSsmlSourceMap } from "./textNodes.ts";
 import { parseSsml } from "./parser.ts";
 import type { SsmlDocument, SsmlElement, SsmlNode } from "./types.ts";
+import type { SsmlSourceMap, SsmlSourceMarker, SsmlSourceTextSegment } from "./textNodes.ts";
 
 const DEFAULT_MAX_LENGTH = 10_000;
 
@@ -24,6 +26,10 @@ export interface SsmlChunk {
   hasBackgroundAudio: boolean;
   /** Best-effort path to the first source element represented by this chunk. */
   sourceNodePath?: string[];
+  /** Exact source segments represented by this chunk, used for event mapping. */
+  sourceTextSegments?: SsmlSourceTextSegment[];
+  /** Exact marker locations represented by this chunk, used for bookmark mapping. */
+  sourceMarkers?: SsmlSourceMarker[];
 }
 
 export interface SplitSsmlOptions {
@@ -185,6 +191,8 @@ function createChunk(
   textStart: number,
   backgroundAudio: SsmlNode | undefined,
   replicateBackgroundAudio: boolean,
+  sourceMap: SsmlSourceMap,
+  includeEndMarkers: boolean,
 ): SsmlChunk {
   const chunkNodes =
     backgroundAudio && (replicateBackgroundAudio || chunkIndex === 0) ? [backgroundAudio, ...nodes] : nodes;
@@ -203,6 +211,29 @@ function createChunk(
       (node) => typeof node !== "string" && node.type !== "text" && node.type === "mstts:backgroundaudio",
     ),
     sourceNodePath: findSourceNodePath(document.children ?? [], textStart),
+    sourceTextSegments: sourceMap.segments
+      .filter(({ range }) => range.end > textStart && range.start < textStart + text.length)
+      .map((segment) => {
+        const start = Math.max(segment.range.start, textStart);
+        const end = Math.min(segment.range.end, textStart + text.length);
+        return {
+          text: segment.text.slice(start - segment.range.start, end - segment.range.start),
+          range: { start, end },
+          sourceNodePath: [...segment.sourceNodePath],
+        };
+      }),
+    sourceMarkers: sourceMap.markers
+      .filter(
+        ({ originalTextRange }) =>
+          originalTextRange.start >= textStart &&
+          (originalTextRange.start < textStart + text.length ||
+            (includeEndMarkers && originalTextRange.start === textStart + text.length)),
+      )
+      .map((marker) => ({
+        ...marker,
+        originalTextRange: { ...marker.originalTextRange },
+        sourceNodePath: [...marker.sourceNodePath],
+      })),
   };
 }
 
@@ -223,12 +254,13 @@ export function splitSsmlDocument(
     throw new RangeError("maxLength must be a positive integer");
   }
   const document = parseSsml(ssml);
+  const sourceMap = getSsmlSourceMap(ssml);
   const backgroundAudio = (document.children ?? []).find(
     (node): node is SsmlElement =>
       typeof node !== "string" && node.type !== "text" && node.type === "mstts:backgroundaudio",
   );
   if (ssml.length <= resolvedMaxLength) {
-    return [createChunk(document, document.children ?? [], 0, 0, backgroundAudio, true)];
+    return [createChunk(document, document.children ?? [], 0, 0, backgroundAudio, true, sourceMap, true)];
   }
 
   const contentChildren = (document.children ?? []).filter((node) => node !== backgroundAudio);
@@ -255,7 +287,16 @@ export function splitSsmlDocument(
   }
   if (group.length > 0) chunks.push(group);
   if (chunks.length === 0) {
-    const result = createChunk(document, [], 0, 0, backgroundAudio, resolvedOptions.replicateBackgroundAudio ?? false);
+    const result = createChunk(
+      document,
+      [],
+      0,
+      0,
+      backgroundAudio,
+      resolvedOptions.replicateBackgroundAudio ?? false,
+      sourceMap,
+      true,
+    );
     if (result.ssml.length > resolvedMaxLength) {
       throw new RangeError("maxLength is too small to contain the SSML document wrapper");
     }
@@ -270,6 +311,8 @@ export function splitSsmlDocument(
       textStart,
       backgroundAudio,
       resolvedOptions.replicateBackgroundAudio ?? false,
+      sourceMap,
+      chunkIndex === chunks.length - 1,
     );
     textStart = result.originalTextRange.end;
     return result;

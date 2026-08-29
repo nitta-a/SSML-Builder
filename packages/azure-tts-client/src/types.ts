@@ -1,4 +1,5 @@
-import type { SsmlTextRange } from "@ssml-builder-js/ssml-core";
+import type { SsmlSourceMarker, SsmlSourceTextSegment, SsmlTextRange } from "@ssml-builder-js/ssml-core";
+import type { AzureTtsOutputFormat } from "./outputFormats.ts";
 
 export interface TtsConfig {
   signal?: AbortSignal;
@@ -14,6 +15,9 @@ export interface TtsConfig {
   /** Metadata used to map synchronization events back to the source document. */
   chunkIndex?: number;
   sourceNodePath?: string[];
+  /** Exact source text segments used to map individual Azure events. */
+  sourceTextSegments?: SsmlSourceTextSegment[];
+  sourceMarkers?: SsmlSourceMarker[];
 }
 
 export type SynthesisChunkStatus = "pending" | "synthesizing" | "success" | "failed";
@@ -71,16 +75,28 @@ export interface SsmlSynthesisResult {
   requestId?: string;
   /** Original plain-text range represented by the result. */
   textRange?: { start: number; end: number };
+  /** MIME type of a result produced by an explicit merge operation. */
+  mimeType?: string;
+}
+
+export interface MergedSynthesisResult extends SsmlSynthesisResult {
+  mimeType: string;
 }
 
 export interface SsmlSynthesisChunk {
   ssml: string;
   originalTextRange?: { start: number; end: number };
   sourceNodePath?: string[];
+  sourceTextSegments?: SsmlSourceTextSegment[];
+  sourceMarkers?: SsmlSourceMarker[];
 }
 
 export interface SynthesizeChunksOptions {
   onProgress?: (event: SynthesisProgressEvent) => void;
+  outputFormat?: AzureTtsOutputFormat | string;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  sourceNodePath?: string[];
 }
 
 export interface SynthesisProgressEvent {

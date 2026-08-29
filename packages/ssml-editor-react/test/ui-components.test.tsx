@@ -724,6 +724,34 @@ describe("SsmlEditor props", () => {
     );
   });
 
+  it("shows live capability warning badges for model, locale, and style mismatches", () => {
+    renderEditor({
+      editMode: "visual",
+      model: "neural-v2",
+      document: {
+        ...editorDocument,
+        children: [
+          {
+            type: "voice",
+            name: "en-US-ExampleNeural",
+            children: [{ type: "mstts:express-as", style: "sad", children: ["Hello"] }],
+          },
+        ],
+      },
+      voiceCatalog: [
+        {
+          name: "en-US-ExampleNeural",
+          locale: "ja-JP",
+          styles: ["cheerful"],
+          models: ["neural-v1"],
+          supportedTags: ["mstts:express-as"],
+        },
+      ],
+    });
+
+    expect(screen.getAllByTestId("ssml-editor-warning-badge").length).toBeGreaterThan(0);
+  });
+
   it("updates toolbar and popover text when the locale changes", async () => {
     const user = userEvent.setup();
     const { rerender } = renderEditor({ locale: "ja", showToolbarLabels: true });

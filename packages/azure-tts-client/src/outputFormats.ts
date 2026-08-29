@@ -2,7 +2,7 @@ import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 
 export const DEFAULT_OUTPUT_FORMAT = "audio-16khz-128kbitrate-mono-mp3";
 
-const OUTPUT_FORMATS: Record<string, SpeechSDK.SpeechSynthesisOutputFormat> = {
+const OUTPUT_FORMATS = {
   "raw-8khz-8bit-mono-mulaw": SpeechSDK.SpeechSynthesisOutputFormat.Raw8Khz8BitMonoMULaw,
   "riff-16khz-16kbps-mono-siren": SpeechSDK.SpeechSynthesisOutputFormat.Riff16Khz16KbpsMonoSiren,
   "audio-16khz-16kbps-mono-siren": SpeechSDK.SpeechSynthesisOutputFormat.Audio16Khz16KbpsMonoSiren,
@@ -42,10 +42,21 @@ const OUTPUT_FORMATS: Record<string, SpeechSDK.SpeechSynthesisOutputFormat> = {
   "riff-44100hz-16bit-mono-pcm": SpeechSDK.SpeechSynthesisOutputFormat.Riff44100Hz16BitMonoPcm,
   "amr-wb-16000hz": SpeechSDK.SpeechSynthesisOutputFormat.AmrWb16000Hz,
   "g722-16khz-64kbps": SpeechSDK.SpeechSynthesisOutputFormat.G72216Khz64Kbps,
-};
+} satisfies Record<string, SpeechSDK.SpeechSynthesisOutputFormat>;
+
+export type AzureTtsOutputFormat = keyof typeof OUTPUT_FORMATS;
+
+export function resolveMimeType(outputFormat: string): string {
+  if (/(?:wav|wave|riff)/i.test(outputFormat)) return "audio/wav";
+  if (/(?:mp3|mpeg)/i.test(outputFormat)) return "audio/mpeg";
+  if (/ogg/i.test(outputFormat)) return "audio/ogg";
+  if (/webm/i.test(outputFormat)) return "audio/webm";
+  if (/raw/i.test(outputFormat)) return "audio/L16";
+  return "application/octet-stream";
+}
 
 export function resolveOutputFormat(outputFormat: string): SpeechSDK.SpeechSynthesisOutputFormat {
-  const resolvedFormat = OUTPUT_FORMATS[outputFormat];
+  const resolvedFormat = (OUTPUT_FORMATS as Record<string, SpeechSDK.SpeechSynthesisOutputFormat>)[outputFormat];
   if (resolvedFormat === undefined) {
     throw new Error(`Unsupported Azure Speech output format: ${outputFormat}`);
   }

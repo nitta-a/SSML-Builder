@@ -7,6 +7,25 @@ export interface SsmlTextNodeContext {
   path: string[];
 }
 
+export interface SsmlSourceTextSegment {
+  text: string;
+  range: { start: number; end: number };
+  sourceNodePath: string[];
+}
+
+export interface SsmlSourceMarker {
+  kind: "mark" | "bookmark";
+  name: string;
+  originalTextRange: { start: number; end: number };
+  sourceNodePath: string[];
+}
+
+export interface SsmlSourceMap {
+  text: string;
+  segments: SsmlSourceTextSegment[];
+  markers: SsmlSourceMarker[];
+}
+
 export interface MapSsmlTextNodesOptions {
   /** Element names whose text should not be passed to the transform. */
   skipTags?: readonly string[];
@@ -152,6 +171,99 @@ function collectTextNodes(source: string): TextNodeRecord[] {
   }
 
   return nodes;
+}
+
+interface SourceMapElement {
+  name: string;
+  path: string[];
+  nextChildIndex: number;
+}
+
+function collectSourceMap(source: string): SsmlSourceMap {
+  const segments: SsmlSourceTextSegment[] = [];
+  const markers: SsmlSourceMarker[] = [];
+  const elements: SourceMapElement[] = [];
+  let textOffset = 0;
+  let index = 0;
+  const textParts: string[] = [];
+
+  const addText = (value: string): void => {
+    if (!value) return;
+    const parent = elements[elements.length - 1];
+    if (parent) parent.nextChildIndex += 1;
+    const sourceNodePath = parent?.path ?? ["speak"];
+    const start = textOffset;
+    textOffset += value.length;
+    textParts.push(value);
+    segments.push({ text: value, range: { start, end: textOffset }, sourceNodePath: [...sourceNodePath] });
+  };
+
+  while (index < source.length) {
+    if (source[index] !== "<") {
+      const end = source.indexOf("<", index);
+      const textEnd = end === -1 ? source.length : end;
+      addText(decodeXmlText(source.slice(index, textEnd)));
+      index = textEnd;
+      continue;
+    }
+    if (source.startsWith("<!--", index)) {
+      const end = source.indexOf("-->", index + 4);
+      index = end === -1 ? source.length : end + 3;
+      continue;
+    }
+    if (source.startsWith("<![CDATA[", index)) {
+      const contentStart = index + 9;
+      const end = source.indexOf("]]>", contentStart);
+      const contentEnd = end === -1 ? source.length : end;
+      addText(source.slice(contentStart, contentEnd));
+      index = end === -1 ? source.length : end + 3;
+      continue;
+    }
+    if (source.startsWith("<?", index)) {
+      const end = source.indexOf("?>", index + 2);
+      index = end === -1 ? source.length : end + 2;
+      continue;
+    }
+
+    const end = findTagEnd(source, index + 1);
+    const rawTag = source.slice(index, end + 1);
+    if (rawTag.startsWith("</")) {
+      elements.pop();
+      index = end + 1;
+      continue;
+    }
+    const name = readTagName(rawTag);
+    if (!name) {
+      index = end + 1;
+      continue;
+    }
+    const parent = elements[elements.length - 1];
+    const childIndex = parent?.nextChildIndex ?? 0;
+    if (parent) parent.nextChildIndex += 1;
+    const path = parent ? [...parent.path, `${name}[${childIndex}]`] : [name];
+    const attributes = readTagAttributes(rawTag, name);
+    const normalizedName = name.toLowerCase();
+    if (normalizedName === "mark" || normalizedName === "bookmark") {
+      const markerName = attributes[normalizedName === "mark" ? "name" : "mark"];
+      if (markerName) {
+        markers.push({
+          kind: normalizedName,
+          name: markerName,
+          originalTextRange: { start: textOffset, end: textOffset },
+          sourceNodePath: [...path],
+        });
+      }
+    }
+    if (!/\/\s*>$/.test(rawTag)) elements.push({ name, path, nextChildIndex: 0 });
+    index = end + 1;
+  }
+  return { text: textParts.join(""), segments, markers };
+}
+
+/** Returns decoded source text segments and marker locations with indexed SSML paths. */
+export function getSsmlSourceMap(ssml: string): SsmlSourceMap {
+  parseSsml(ssml);
+  return collectSourceMap(ssml);
 }
 
 export function extractSsmlText(ssml: string): string[] {

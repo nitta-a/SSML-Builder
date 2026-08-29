@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.15.0
+
+### Minor Changes
+
+- Add strict audio merge formats, discriminated synthesis errors, per-event source mappings, abortable URL validation, external audio muxers, and live Visual Editor voice capability warnings.
+
 ## 2.14.0
 
 ### Minor Changes

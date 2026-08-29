@@ -1,5 +1,19 @@
 # playground
 
+## 2.15.0
+
+### Minor Changes
+
+- Add strict audio merge formats, discriminated synthesis errors, per-event source mappings, abortable URL validation, external audio muxers, and live Visual Editor voice capability warnings.
+
+### Patch Changes
+
+- Updated dependencies
+  - @ssml-builder-js/ssml-editor-react@2.15.0
+  - @ssml-builder-js/ssml-core@2.15.0
+  - @ssml-builder-js/azure-tts-client@2.15.0
+  - @ssml-builder-js/ssml-editor-elements@2.15.0
+
 ## 2.14.0
 
 ### Patch Changes

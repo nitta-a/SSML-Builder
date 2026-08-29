@@ -240,7 +240,7 @@ const diagnostics = validateAzureSsml(ssml, {
 });
 ```
 
-`audio`、`mstts:backgroundaudio`、`lexicon`、`mstts:voiceconversion` の URL は `urlValidator`（または `customUrlValidator`）へ渡せます。Promise を返す検証関数で DNS 解決後のプライベート IP 遮断などを実装できます。
+`audio`、`mstts:backgroundaudio`、`lexicon`、`mstts:voiceconversion` の URL は `urlValidator`（または `customUrlValidator`）へ渡せます。コールバックは `(url, context, signal)` を受け取り、Promise を返す検証関数で DNS 解決後のプライベート IP 遮断などを実装できます。検証キャッシュはタグ・属性・URL ごとに分離されます。
 
 `maxXmlDepth` は `<speak>` を深さ 1 として XML の過剰なネストを検出します。長文は `splitSsmlDocument` で `<p>`／`<s>` と親の `voice`、`prosody` コンテキストを保ったまま分割できます。
 
@@ -342,6 +342,7 @@ export function App() {
 - `customInsertions` / `additionalInsertions`: カスタム SSML 挿入定義。`customInsertions` は同じ ID の標準定義を置き換え、`additionalInsertions` は標準定義へ追加します
 - `customInspectors`: Visual Editor のタグ名ごとに Inspector を差し替えるレンダラー
 - `renderVoiceSelector`: 音声セレクターのカスタムレンダラー。`voiceCatalog` と `voiceLocale`、`voiceRegion`、`voiceStyle` で候補を絞り込めます。プレビュー音声にはバッジ情報も渡されます
+- `voiceModel`（または `model`）: 選択中の Azure 音声モデル。音声カタログの対応モデル、SSML タグ、スタイル、ロケールとの不整合を Visual Editor にリアルタイム表示します
 - `className` / `style`: エディター全体のクラス名とインラインスタイル
 - `toolbarClassName` / `toolbarStyle`: ツールバーのクラス名とインラインスタイル
 - `displayClassName` / `displayStyle`: 本文表示エリアのクラス名とインラインスタイル
@@ -708,7 +709,7 @@ const diagnostics = validateAzureSsml(ssml, {
 });
 ```
 
-URLs in `audio`, `mstts:backgroundaudio`, `lexicon`, and `mstts:voiceconversion` can be passed to `urlValidator` (or `customUrlValidator`). The callback may be asynchronous, making it suitable for host-side DNS/private-IP and SSRF policy checks.
+URLs in `audio`, `mstts:backgroundaudio`, `lexicon`, and `mstts:voiceconversion` can be passed to `urlValidator` (or `customUrlValidator`). The callback receives `(url, context, signal)` and may be asynchronous, making it suitable for host-side DNS/private-IP and SSRF policy checks. Validation cache entries are isolated by tag, attribute, and URL.
 
 The catalog is represented by `AzureVoiceDefinition` with `name`, `locale`, optional `secondaryLocales`, `styles`, `supportedTags`, `unsupportedTags`, `models`, `regions`, and `status`. Pass `voiceDefinitions` (or `voiceCatalog`) to supplement or override the built-in catalog with an external definition. A tag that violates `supportedTags` or `unsupportedTags` produces `azure-unsupported-tag-for-voice` with error severity. `customVoiceStyleMap` remains supported for backward compatibility and overrides styles for the named voice. Diagnostics distinguish an unregistered voice (`azure-unknown-voice`, controlled by `unknownVoicePolicy`), an unsupported style on a registered voice (`azure-unsupported-style`), and a locale mismatch (`azure-locale-mismatch`). The `<mstts:audioduration value="10s"/>` element accepts positive `ms` or `s` values and `hh:mm:ss[.fff]` clock values.
 
@@ -834,6 +835,7 @@ export function App() {
 - `customInsertions` / `additionalInsertions`: Custom SSML insertion definitions. `customInsertions` replaces a built-in definition with the same ID, while `additionalInsertions` adds definitions to the built-ins
 - `customInspectors`: Custom renderers keyed by element type or serialized tag name for the Visual Editor
 - `renderVoiceSelector`: Custom voice selector renderer. Supply `voiceCatalog` and optional `voiceLocale`, `voiceRegion`, or `voiceStyle` filters; preview status is included in each voice entry
+- `voiceModel` (or `model`): Selected Azure voice model. The Visual Editor reports live mismatches between the catalog's supported models, SSML tags, styles, and locale
 - `className` / `style`: A class name and inline styles for the editor container
 - `toolbarClassName` / `toolbarStyle`: A class name and inline styles for the toolbar
 - `displayClassName` / `displayStyle`: A class name and inline styles for the text display area
@@ -911,13 +913,13 @@ result.bookmarks; // { name, audioOffsetMs }[]
 
 長文を分割して合成する場合は `synthesizeSsmlChunks` または `AzureTtsClient.synthesizeChunks` を使います。音声バイナリを連結し、`boundaries`、`visemes`、`bookmarks` のオフセットを累積 `durationMs` 分だけ補正します。`synthesizeSsmlSafe(client, ssml, { validation })` は検証エラー時に Azure API を呼び出さず、`status: "validation-error"` / `"azure-api-error"` / `"success"` の結果を返します。
 
-v2.14.0 では `synthesizeSsmlChunksSafe(client, chunks, options)` が全チャンクを事前検証し、エラー時に `ChunkValidationError.chunkIndex` を返します。`onProgress` には `chunkIndex`、`originalTextRange`、`status`、`durationMs`、`error` が含まれます。`mergeAudioBuffers(buffers, format)` は PCM WAV のヘッダーを再構築し、MP3 の ID3 タグを除去して結合します。Ogg/WebM など安全に連結できない形式は `UnsupportedMergeFormatError` になります。同期イベントには `chunkIndex`、`sourceNodePath`、`originalTextRange`、`chunkAudioOffsetMs` が付与されます。
+v2.15.0 では `synthesizeSsmlChunksSafe(client, chunks, options)` が全チャンクを事前検証し、`outputFormat`、`signal`、`timeoutMs`、`sourceNodePath` を各合成へ伝播します。`mergeAudioBuffers(buffers, { format })` と `mergeSynthesisResults(results, { format })` は形式指定を必須とし、結合結果には `mimeType` が含まれます。Ogg/WebM などは `customMerger` で外部 Muxer に委譲できます。エラーは `validation-error`、`azure-api-error`、`merge-error`、`unsupported-format-error`、`cancelled`、`timeout` の判別可能な `kind` を持ちます。同期イベントは個別の `sourceNodePath` と `originalTextRange` にマッピングされ、URL 検証コールバックには `AbortSignal` が渡されます。
 
 `validateAzureSsml` の `urlValidation` オプションは URL の重複排除、キャッシュ、`concurrency`、`signal`、`timeoutMs` を制御します。
 
 For long documents, use `synthesizeSsmlChunks` or `AzureTtsClient.synthesizeChunks`; `onProgress` reports completed chunks while audio and synchronization offsets are merged. `synthesizeSsmlSafe(client, ssml, { validation })` validates before synthesis and returns a discriminated result without calling Azure when static validation fails.
 
-In v2.14.0, `synthesizeSsmlChunksSafe(client, chunks, options)` validates every chunk before contacting Azure and returns a `ChunkValidationError` with its `chunkIndex` when validation fails. `onProgress` events include `chunkIndex`, `originalTextRange`, `status`, `durationMs`, and `error`. `mergeAudioBuffers(buffers, format)` rebuilds PCM WAV headers and strips ID3 tags from MP3 streams; formats such as Ogg and WebM throw `UnsupportedMergeFormatError` because they require re-multiplexing. Synchronization events retain `chunkIndex`, `sourceNodePath`, `originalTextRange`, and `chunkAudioOffsetMs`.
+In v2.15.0, `synthesizeSsmlChunksSafe(client, chunks, options)` validates every chunk before contacting Azure and propagates `outputFormat`, `signal`, `timeoutMs`, and `sourceNodePath` to each synthesis. `mergeAudioBuffers(buffers, { format })` and `mergeSynthesisResults(results, { format })` require an explicit format and merged results expose `mimeType`. Ogg and WebM can be delegated to an external Muxer through `customMerger`. Errors have discriminated `kind` values: `validation-error`, `azure-api-error`, `merge-error`, `unsupported-format-error`, `cancelled`, and `timeout`. Synchronization events receive individual `sourceNodePath` and `originalTextRange` mappings, and URL validators receive an `AbortSignal`.
 
 The `urlValidation` option of `validateAzureSsml` provides URL deduplication, in-memory caching, bounded `concurrency`, `signal`, and `timeoutMs` controls.
 

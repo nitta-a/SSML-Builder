@@ -5,22 +5,29 @@ import { mergeSynthesisResults, synthesizeSsmlSafe } from "../src/index.ts";
 const audio = (values: number[]): ArrayBuffer => Uint8Array.from(values).buffer;
 
 test("mergeSynthesisResults concatenates audio and offsets synchronization events", () => {
-  const result = mergeSynthesisResults([
-    {
-      audioData: audio([1, 2]),
-      durationMs: 100,
-      boundaries: [{ text: "one", audioOffsetMs: 20, durationMs: 30, textRange: { start: 0, end: 3 }, requestId: "a" }],
-      visemes: [{ visemeId: 1, audioOffsetMs: 40 }],
-      bookmarks: [{ name: "first", audioOffsetMs: 50 }],
-    },
-    {
-      audioData: audio([3, 4, 5]),
-      durationMs: 250,
-      boundaries: [{ text: "two", audioOffsetMs: 10, durationMs: 20, textRange: { start: 3, end: 6 }, requestId: "b" }],
-      visemes: [{ visemeId: 2, audioOffsetMs: 15 }],
-      bookmarks: [{ name: "second", audioOffsetMs: 25 }],
-    },
-  ]);
+  const result = mergeSynthesisResults(
+    [
+      {
+        audioData: audio([1, 2]),
+        durationMs: 100,
+        boundaries: [
+          { text: "one", audioOffsetMs: 20, durationMs: 30, textRange: { start: 0, end: 3 }, requestId: "a" },
+        ],
+        visemes: [{ visemeId: 1, audioOffsetMs: 40 }],
+        bookmarks: [{ name: "first", audioOffsetMs: 50 }],
+      },
+      {
+        audioData: audio([3, 4, 5]),
+        durationMs: 250,
+        boundaries: [
+          { text: "two", audioOffsetMs: 10, durationMs: 20, textRange: { start: 3, end: 6 }, requestId: "b" },
+        ],
+        visemes: [{ visemeId: 2, audioOffsetMs: 15 }],
+        bookmarks: [{ name: "second", audioOffsetMs: 25 }],
+      },
+    ],
+    { format: "audio-16khz-128kbitrate-mono-mp3" },
+  );
 
   assert.deepEqual([...new Uint8Array(result.audioData)], [1, 2, 3, 4, 5]);
   assert.equal(result.durationMs, 350);
