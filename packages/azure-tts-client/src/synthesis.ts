@@ -8,6 +8,7 @@ import {
   SynthesisTimeoutError,
   toSynthesisError,
   UnsupportedMergeFormatError,
+  getRetryAfterDelayMs,
 } from "./errors.ts";
 import { DEFAULT_OUTPUT_FORMAT, resolveMimeType, type AzureTtsOutputFormat } from "./outputFormats.ts";
 import { createSpeechConfig } from "./speechConfig.ts";
@@ -19,6 +20,8 @@ import type {
   SynthesisProgressEvent,
   TtsConfig,
   RetryOptions,
+  CustomAudioMerger,
+  PostMergeValidator,
 } from "./types.ts";
 
 export type MergeAudioFormat = "wav" | "mp3" | "raw";
@@ -31,15 +34,9 @@ export interface MergeAudioOptions {
 
 export type InputAudioSpecs = AudioSpecification[];
 
-export interface CustomMergerContext {
-  format: string;
-  outputMimeType: string;
-  inputSpecs: InputAudioSpecs;
-  signal: AbortSignal;
-}
-
 export interface MergeSynthesisOptions extends MergeAudioOptions {
-  customMerger?: (buffers: ArrayBuffer[], context: CustomMergerContext) => Promise<ArrayBuffer> | ArrayBuffer;
+  customMerger?: CustomAudioMerger;
+  postMergeValidator?: PostMergeValidator;
 }
 
 type AsyncMergeSynthesisOptions = MergeSynthesisOptions & {
@@ -124,6 +121,18 @@ function formatAudioSpecification(format: string): AudioSpecification {
         : /pcm|mulaw|alaw|siren/i.test(format)
           ? "pcm"
           : "unknown";
+  const bitDepthMatch = /(\d+)bit/i.exec(format);
+  const container = /(?:wav|wave|riff)/i.test(format)
+    ? "riff-wave"
+    : /mp3|mpeg/i.test(format)
+      ? "mp3-raw"
+      : /ogg/i.test(format)
+        ? "ogg"
+        : /webm/i.test(format)
+          ? "webm"
+          : /raw/i.test(format)
+            ? "raw"
+            : undefined;
   return {
     format,
     mimeType: resolveMimeType(format),
@@ -131,6 +140,9 @@ function formatAudioSpecification(format: string): AudioSpecification {
     sampleRate,
     channels,
     ...(bitrate ? { bitrate } : {}),
+    ...(bitDepthMatch?.[1] ? { bitDepth: Number(bitDepthMatch[1]) } : {}),
+    ...(container ? { container } : {}),
+    isVbr: /vbr/i.test(format),
     isCompressed: codec === "mp3" || codec === "opus" || codec === "silk",
   };
 }
@@ -167,6 +179,8 @@ function parseMp3Specification(buffer: ArrayBuffer, format: string): AudioSpecif
       sampleRate,
       channels: (bytes[index + 3] ?? 0) >> 6 === 3 ? 1 : 2,
       bitrate: bitrateKbps * 1000,
+      container: "mp3-raw",
+      isVbr: false,
       isCompressed: true,
     };
   }
@@ -190,6 +204,9 @@ export function inspectAudioSpecification(buffer: ArrayBuffer, format: string): 
       sampleRate,
       channels,
       ...(sampleRate && channels && bitsPerSample ? { bitrate: sampleRate * channels * bitsPerSample } : {}),
+      bitDepth: bitsPerSample,
+      container: "riff-wave",
+      isVbr: false,
       isCompressed: formatCode !== 1,
     };
   }
@@ -204,7 +221,10 @@ function validateAudioSpecifications(specs: readonly AudioSpecification[]): void
     (spec) =>
       spec.sampleRate !== first.sampleRate ||
       spec.channels !== first.channels ||
-      (first.bitrate !== undefined && spec.bitrate !== undefined && spec.bitrate !== first.bitrate),
+      (first.bitrate !== undefined && spec.bitrate !== undefined && spec.bitrate !== first.bitrate) ||
+      (first.bitDepth !== undefined && spec.bitDepth !== undefined && spec.bitDepth !== first.bitDepth) ||
+      (first.container !== undefined && spec.container !== undefined && spec.container !== first.container) ||
+      (first.isVbr !== undefined && spec.isVbr !== undefined && spec.isVbr !== first.isVbr),
   );
   if (mismatch)
     throw new AudioFormatMismatchError(
@@ -448,9 +468,7 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
         };
       }
       if (sourceSegments.length === 0 && !config.sourceTextRange && !config.sourceNodePath) {
-        const unmapped: { mappingStatus: "unmapped" } = { mappingStatus: "unmapped" };
-        Object.defineProperty(unmapped, "mappingStatus", { value: "unmapped", enumerable: false });
-        return unmapped;
+        return { mappingStatus: "unmapped" };
       }
       const value = text ?? "";
       let localStart = Number.isFinite(offsetHint) && (offsetHint ?? 0) >= 0 ? (offsetHint as number) : -1;
@@ -546,8 +564,13 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
           ...(config.sourceNodePath ? { sourceNodePath: [...config.sourceNodePath] } : {}),
           ...(requestId ? { requestId } : {}),
         } as T;
-        if (event.mappingStatus === "unmapped")
+        if (event.mappingStatus === "unmapped") {
           Object.defineProperty(mapped, "mappingStatus", { value: "unmapped", enumerable: false });
+          Object.defineProperty(mapped, "toJSON", {
+            value: () => ({ ...mapped, mappingStatus: "unmapped" }),
+            enumerable: false,
+          });
+        }
         return mapped;
       };
       const sourceBoundaries = boundaries.map((boundary) => addSourceMetadata(boundary));
@@ -573,10 +596,11 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
         abortHandler = () => rejectWithError(new SynthesisCancelledError());
         config.signal.addEventListener("abort", abortHandler, { once: true });
       }
-      if (config.timeoutMs !== undefined && config.timeoutMs > 0) {
+      const timeoutMs = config.timeouts?.perChunkMs ?? config.timeoutMs;
+      if (timeoutMs !== undefined && timeoutMs > 0) {
         timeout = setTimeout(
-          () => rejectWithError(new SynthesisTimeoutError(`Speech synthesis timed out after ${config.timeoutMs} ms.`)),
-          config.timeoutMs,
+          () => rejectWithError(new SynthesisTimeoutError(`Speech synthesis timed out after ${timeoutMs} ms.`)),
+          timeoutMs,
         );
       }
       synthesizer.speakSsmlAsync(ssml, cb, rejectWithError);
@@ -597,7 +621,9 @@ function isRetryableSynthesisError(error: unknown): boolean {
   return /network|connection|connect|socket|fetch failed|econn|etimedout|temporar|transient|unavailable/i.test(message);
 }
 
-function retryDelay(options: RetryOptions, retryAttempt: number): number {
+function retryDelay(options: RetryOptions, retryAttempt: number, error?: unknown): number {
+  const retryAfterMs = getRetryAfterDelayMs(error);
+  if (retryAfterMs !== undefined) return retryAfterMs;
   const base = Math.min(options.maxDelayMs, options.initialDelayMs * 2 ** Math.max(0, retryAttempt - 1));
   return Math.floor(Math.random() * (base + 1));
 }
@@ -639,6 +665,7 @@ async function synthesizeWithRetry(
         maxRetries: Math.max(0, Math.floor(retryOptions.maxRetries)),
         initialDelayMs: Math.max(0, retryOptions.initialDelayMs),
         maxDelayMs: Math.max(0, retryOptions.maxDelayMs),
+        shouldRetry: retryOptions.shouldRetry,
       }
     : undefined;
   let attempt = 0;
@@ -647,12 +674,66 @@ async function synthesizeWithRetry(
     try {
       return await synthesizeSsml(ssml, config);
     } catch (error) {
-      if (!options || attempt >= options.maxRetries || !isRetryableSynthesisError(error)) throw error;
+      if (
+        !options ||
+        attempt >= options.maxRetries ||
+        !(options.shouldRetry?.(error, attempt + 1) ?? isRetryableSynthesisError(error))
+      )
+        throw error;
       attempt += 1;
-      const delayMs = retryDelay(options, attempt);
+      const delayMs = retryDelay(options, attempt, error);
       onRetry(attempt, delayMs);
       await waitForRetry(delayMs, config.signal);
     }
+  }
+}
+
+interface AbortScope {
+  signal: AbortSignal;
+  timedOut: () => boolean;
+  dispose: () => void;
+  abort: () => void;
+}
+
+function createAbortScope(parent: AbortSignal | undefined, timeoutMs: number | undefined): AbortScope {
+  const controller = new AbortController();
+  let didTimeout = false;
+  const onAbort = () => controller.abort();
+  if (parent?.aborted) controller.abort();
+  parent?.addEventListener("abort", onAbort, { once: true });
+  const timer =
+    timeoutMs !== undefined && timeoutMs > 0
+      ? setTimeout(() => {
+          didTimeout = true;
+          controller.abort();
+        }, timeoutMs)
+      : undefined;
+  return {
+    signal: controller.signal,
+    timedOut: () => didTimeout,
+    dispose: () => {
+      if (timer) clearTimeout(timer);
+      parent?.removeEventListener("abort", onAbort);
+    },
+    abort: () => controller.abort(),
+  };
+}
+
+async function synthesizeChunkWithTimeout(
+  ssml: string,
+  config: TtsConfig,
+  retryOptions: RetryOptions | undefined,
+  timeoutMs: number | undefined,
+  onRetry: (retryAttempt: number, nextRetryDelayMs: number) => void,
+): Promise<SsmlSynthesisResult> {
+  const scope = createAbortScope(config.signal, timeoutMs);
+  try {
+    return await synthesizeWithRetry(ssml, { ...config, signal: scope.signal }, retryOptions, onRetry);
+  } catch (error) {
+    if (scope.timedOut()) throw new SynthesisTimeoutError(`Speech synthesis timed out after ${timeoutMs} ms.`);
+    throw error;
+  } finally {
+    scope.dispose();
   }
 }
 
@@ -663,6 +744,16 @@ export async function synthesizeSsmlChunks(
 ): Promise<SsmlSynthesisResult> {
   const results: Array<SsmlSynthesisResult | undefined> = new Array(chunks.length);
   const totalChunks = chunks.length;
+  const cachedChunks = new Map((config.resumeChunks ?? []).map((chunk) => [chunk.chunkIndex, chunk]));
+  for (const [index, cached] of cachedChunks) {
+    if (index >= 0 && index < totalChunks) results[index] = cached;
+  }
+  const requestedIndices = config.resumeChunkIndices
+    ? new Set(config.resumeChunkIndices.filter((index) => index >= 0 && index < totalChunks))
+    : undefined;
+  const shouldSynthesize = (index: number): boolean =>
+    !cachedChunks.has(index) && (requestedIndices === undefined || requestedIndices.has(index));
+  const scope = createAbortScope(config.signal, config.timeouts?.totalJobMs);
   const report = (event: SynthesisProgressEvent): void => config.onProgress?.(event);
   for (const [index, chunk] of chunks.entries()) {
     const input = typeof chunk === "string" ? { ssml: chunk } : chunk;
@@ -676,13 +767,17 @@ export async function synthesizeSsmlChunks(
       durationMs: 0,
     });
   }
-  let completed = 0;
+  let completed = [...results].filter((result) => result !== undefined).length;
   let nextIndex = 0;
   const concurrency = resolveConcurrency(config.concurrency, chunks.length);
+  let firstError: unknown;
+  const failedIndices = new Set<number>();
   const worker = async (): Promise<void> => {
     while (true) {
       const index = nextIndex++;
       if (index >= chunks.length) return;
+      if (!shouldSynthesize(index)) continue;
+      if (firstError && config.cancelOnFailure !== false) return;
       const chunk = chunks[index];
       const input = typeof chunk === "string" ? { ssml: chunk } : chunk;
       report({
@@ -696,10 +791,11 @@ export async function synthesizeSsmlChunks(
       });
       const startedAt = Date.now();
       try {
-        const result = await synthesizeWithRetry(
+        const result = await synthesizeChunkWithTimeout(
           input.ssml,
           {
             ...config,
+            signal: scope.signal,
             ...(input.originalTextRange ? { sourceTextRange: input.originalTextRange } : {}),
             ...((input.sourceNodePath ?? config.sourceNodePath)
               ? { sourceNodePath: [...(input.sourceNodePath ?? config.sourceNodePath ?? [])] }
@@ -710,6 +806,7 @@ export async function synthesizeSsmlChunks(
             onProgress: undefined,
           },
           config.retryOptions,
+          config.timeouts?.chunkWithRetriesMs ?? config.timeouts?.perChunkMs ?? config.timeoutMs,
           (retryAttempt, nextRetryDelayMs) =>
             report({
               currentChunk: completed,
@@ -736,6 +833,7 @@ export async function synthesizeSsmlChunks(
           durationMs: Date.now() - startedAt,
         });
       } catch (error) {
+        failedIndices.add(index);
         report({
           currentChunk: completed,
           totalChunks,
@@ -746,16 +844,38 @@ export async function synthesizeSsmlChunks(
           durationMs: Date.now() - startedAt,
           error,
         });
-        throw error;
+        firstError ??= scope.timedOut()
+          ? new SynthesisTimeoutError(`Speech synthesis timed out after ${config.timeouts?.totalJobMs} ms.`)
+          : error;
+        if (config.cancelOnFailure !== false) scope.abort();
+        return;
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, () => worker()));
-  const orderedResults = results.filter((result): result is SsmlSynthesisResult => result !== undefined);
-  return mergeSynthesisResults(orderedResults, {
-    format: (config.outputFormat ?? DEFAULT_OUTPUT_FORMAT) as AzureTtsOutputFormat,
-    signal: config.signal,
-  });
+  try {
+    await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, () => worker()));
+    if (firstError) throw firstError;
+    const orderedResults = results.filter((result): result is SsmlSynthesisResult => result !== undefined);
+    return await mergeSynthesisResults(orderedResults, {
+      format: (config.outputFormat ?? DEFAULT_OUTPUT_FORMAT) as AzureTtsOutputFormat,
+      signal: scope.signal,
+      customMerger: config.customMerger,
+      outputMimeType: config.outputMimeType,
+      postMergeValidator: config.postMergeValidator,
+    });
+  } catch (error) {
+    const partial = {
+      synthesizedChunks: results.flatMap((result, chunkIndex) => (result ? [{ ...result, chunkIndex }] : [])),
+      completedChunks: results.flatMap((result, chunkIndex) => (result ? [{ ...result, chunkIndex }] : [])),
+      pendingChunkIndices: chunks.flatMap((_chunk, chunkIndex) => (results[chunkIndex] ? [] : [chunkIndex])),
+      failedChunkIndices: [...failedIndices],
+      totalChunks,
+    };
+    if (error && typeof error === "object") (error as { partialResult?: unknown }).partialResult = partial;
+    throw error;
+  } finally {
+    scope.dispose();
+  }
 }
 
 /** Concatenates audio buffers and shifts all synchronization events by prior chunk durations. */
@@ -847,6 +967,10 @@ export function mergeSynthesisResults(
 ): Promise<MergedSynthesisResult>;
 export function mergeSynthesisResults(
   results: readonly SsmlSynthesisResult[],
+  options: MergeSynthesisOptions,
+): MergedSynthesisResult | Promise<MergedSynthesisResult>;
+export function mergeSynthesisResults(
+  results: readonly SsmlSynthesisResult[],
   options: MergeAudioOptions,
 ): MergedSynthesisResult;
 export function mergeSynthesisResults(
@@ -880,13 +1004,24 @@ export function mergeSynthesisResults(
         )
           throw new MergeError("The custom audio merger returned an invalid audio buffer.");
         if (signal.aborted) throw new SynthesisCancelledError();
-        return createMergedResult(
+        const result = createMergedResult(
           results,
           merged,
           format,
           inspectAudioSpecification(merged, format),
           resolvedOptions.outputMimeType,
         );
+        return Promise.resolve(
+          resolvedOptions.postMergeValidator?.(result, {
+            format,
+            outputMimeType: resolvedOptions.outputMimeType ?? resolveMimeType(format),
+            inputSpecs,
+            signal,
+          }),
+        ).then((valid) => {
+          if (valid === false) throw new MergeError("The post-merge validator rejected the merged audio.");
+          return result;
+        });
       })
       .catch((error: unknown) => {
         if (error instanceof UnsupportedMergeFormatError || isAudioFormatMismatch(error) || error instanceof MergeError)
@@ -895,13 +1030,28 @@ export function mergeSynthesisResults(
       });
   }
   try {
-    return createMergedResult(
+    const result = createMergedResult(
       results,
       mergeAudioBuffers(buffers, { format }),
       format,
       inputSpecs[0],
       resolvedOptions.outputMimeType,
     );
+    if (resolvedOptions.postMergeValidator) {
+      const validation = resolvedOptions.postMergeValidator(result, {
+        format,
+        outputMimeType: resolvedOptions.outputMimeType ?? resolveMimeType(format),
+        inputSpecs,
+        signal,
+      });
+      if (validation instanceof Promise)
+        return validation.then((valid) => {
+          if (valid === false) throw new MergeError("The post-merge validator rejected the merged audio.");
+          return result;
+        });
+      if (validation === false) throw new MergeError("The post-merge validator rejected the merged audio.");
+    }
+    return result;
   } catch (error) {
     if (error instanceof UnsupportedMergeFormatError || isAudioFormatMismatch(error) || error instanceof MergeError)
       throw error;

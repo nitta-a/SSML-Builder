@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.17.0
+
+### Minor Changes
+
+- Add resilient chunk synthesis with aggregate validation diagnostics, custom merge/post-merge hooks, Retry-After-aware retries, structured timeouts, cancellation/resume partial results, expanded audio specifications, and voice-capability-aware Visual Editor controls.
+
 ## 2.16.0
 
 ### Minor Changes

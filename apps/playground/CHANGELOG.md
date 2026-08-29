@@ -1,5 +1,15 @@
 # playground
 
+## 2.17.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @ssml-builder-js/azure-tts-client@2.17.0
+  - @ssml-builder-js/ssml-core@2.17.0
+  - @ssml-builder-js/ssml-editor-react@2.17.0
+  - @ssml-builder-js/ssml-editor-elements@2.17.0
+
 ## 2.16.0
 
 ### Patch Changes

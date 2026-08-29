@@ -1,6 +1,6 @@
 {
   "name": "ssml-builder-js",
-  "version": "2.16.0",
+  "version": "2.17.0",
   "description": "SSML building utilities, a React editor, and an Azure Text-to-Speech client",
   "license": "MIT",
   "repository": {

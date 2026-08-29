@@ -19,16 +19,16 @@ export class AzureTtsClient {
   }
 
   async synthesize(ssml: string): Promise<ArrayBuffer> {
-    const { region, subscriptionKey, outputFormat, signal, timeoutMs } = this.#options;
+    const { region, subscriptionKey, outputFormat, signal, timeoutMs, timeouts } = this.#options;
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     this.#options.logger?.debug?.("Using Azure TTS endpoint:", endpoint);
 
-    const config = { endpoint, region, subscriptionKey, outputFormat, signal, timeoutMs };
+    const config = { endpoint, region, subscriptionKey, outputFormat, signal, timeoutMs, timeouts };
     return synthesizeSpeech(ssml, config);
   }
 
   async synthesizeSsml(ssml: string, options: Partial<TtsConfig> = {}): Promise<SsmlSynthesisResult> {
-    const { region, subscriptionKey, outputFormat, signal, timeoutMs } = this.#options;
+    const { region, subscriptionKey, outputFormat, signal, timeoutMs, timeouts } = this.#options;
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     this.#options.logger?.debug?.("Using Azure TTS endpoint:", endpoint);
 
@@ -39,6 +39,7 @@ export class AzureTtsClient {
       outputFormat: options.outputFormat ?? outputFormat,
       signal: options.signal ?? signal,
       timeoutMs: options.timeoutMs ?? timeoutMs,
+      timeouts: options.timeouts ?? timeouts,
       sourceNodePath: options.sourceNodePath,
       sourceTextSegments: options.sourceTextSegments,
       sourceMarkers: options.sourceMarkers,
@@ -49,7 +50,7 @@ export class AzureTtsClient {
     chunks: readonly (SsmlSynthesisChunk | string)[],
     options: SynthesizeChunksOptions = {},
   ): Promise<SsmlSynthesisResult> {
-    const { region, subscriptionKey, outputFormat, signal, timeoutMs } = this.#options;
+    const { region, subscriptionKey, outputFormat, signal, timeoutMs, timeouts } = this.#options;
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     return synthesizeSsmlChunks(chunks, {
       endpoint,
@@ -58,10 +59,17 @@ export class AzureTtsClient {
       outputFormat: options.outputFormat ?? outputFormat,
       signal: options.signal ?? signal,
       timeoutMs: options.timeoutMs ?? timeoutMs,
+      timeouts: options.timeouts ?? timeouts,
       sourceNodePath: options.sourceNodePath,
       onProgress: options.onProgress ?? this.#options.onProgress,
       concurrency: options.concurrency ?? this.#options.concurrency,
       retryOptions: options.retryOptions ?? this.#options.retryOptions,
+      cancelOnFailure: options.cancelOnFailure,
+      resumeChunks: options.resumeChunks,
+      resumeChunkIndices: options.resumeChunkIndices,
+      customMerger: options.customMerger,
+      outputMimeType: options.outputMimeType,
+      postMergeValidator: options.postMergeValidator,
     });
   }
 
@@ -78,6 +86,7 @@ export class AzureTtsClient {
       outputFormat: options.outputFormat ?? this.#options.outputFormat,
       signal: options.signal ?? this.#options.signal,
       timeoutMs: options.timeoutMs ?? this.#options.timeoutMs,
+      timeouts: options.timeouts ?? this.#options.timeouts,
       onProgress: options.onProgress ?? this.#options.onProgress,
       concurrency: options.concurrency ?? this.#options.concurrency,
       retryOptions: options.retryOptions ?? this.#options.retryOptions,

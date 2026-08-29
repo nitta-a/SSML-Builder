@@ -13,15 +13,57 @@ export class AzureTtsError extends Error {
   readonly statusText: string;
   readonly responseBody: string;
   readonly requestId: string | null;
+  readonly retryAfterMs?: number;
 
-  constructor(status: number, statusText: string, responseBody: string, requestId: string | null) {
+  constructor(
+    status: number,
+    statusText: string,
+    responseBody: string,
+    requestId: string | null,
+    responseHeaders?: Headers | Readonly<Record<string, string>>,
+  ) {
     super(`Azure TTS request failed: ${status} ${statusText}`);
     this.name = "AzureTtsError";
     this.status = status;
     this.statusText = statusText;
     this.responseBody = responseBody;
     this.requestId = requestId;
+    const value =
+      responseHeaders instanceof Headers
+        ? responseHeaders.get("retry-after")
+        : (responseHeaders?.["retry-after"] ?? responseHeaders?.["Retry-After"]);
+    const seconds = value ? Number(value.trim()) : NaN;
+    const date = value ? Date.parse(value) : NaN;
+    if (Number.isFinite(seconds) && seconds >= 0) this.retryAfterMs = seconds * 1000;
+    else if (Number.isFinite(date)) this.retryAfterMs = Math.max(0, date - Date.now());
   }
+}
+
+/** Reads Retry-After from an error-like value, returning milliseconds when present. */
+export function getRetryAfterDelayMs(error: unknown): number | undefined {
+  if (error instanceof AzureTtsError && error.retryAfterMs !== undefined) return error.retryAfterMs;
+  if (!error || typeof error !== "object") return undefined;
+  const candidate = error as { retryAfterMs?: unknown; headers?: unknown; response?: unknown };
+  if (typeof candidate.retryAfterMs === "number" && candidate.retryAfterMs >= 0) return candidate.retryAfterMs;
+  const headers = candidate.headers ?? (candidate.response as { headers?: unknown } | undefined)?.headers;
+  if (headers instanceof Headers) {
+    const value = headers.get("retry-after");
+    if (!value) return undefined;
+    const seconds = Number(value.trim());
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+    const date = Date.parse(value);
+    return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
+  }
+  if (headers && typeof headers === "object") {
+    const value =
+      (headers as Record<string, unknown>)["retry-after"] ?? (headers as Record<string, unknown>)["Retry-After"];
+    if (typeof value !== "string") return undefined;
+    const seconds = Number(value.trim());
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+    const date = Date.parse(value);
+    return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
+  }
+  return undefined;
 }
 
 export class AzureTtsSdkError extends AzureTtsError {

@@ -17,6 +17,13 @@ export type {
   SynthesizeChunksOptions,
   SynthesisChunkStatus,
   RetryOptions,
+  SynthesisTimeouts,
+  SynthesizedChunk,
+  PartialChunkSynthesisResult,
+  PartialSynthesisResult,
+  CustomMergerContext,
+  CustomAudioMerger,
+  PostMergeValidator,
   TtsConfig,
 } from "./types.ts";
 export {
@@ -27,6 +34,7 @@ export {
   SynthesisCancelledError,
   SynthesisTimeoutError,
   UnsupportedMergeFormatError,
+  getRetryAfterDelayMs,
 } from "./errors.ts";
 export type { AzureTtsSynthesisError, SynthesisErrorKind } from "./errors.ts";
 export { AzureTtsClient } from "./client.ts";
@@ -41,7 +49,6 @@ export {
   synthesizeSsmlChunks,
 } from "./synthesis.ts";
 export type {
-  CustomMergerContext,
   InputAudioSpecs,
   MergeAudioFormat,
   MergeAudioOptions,
@@ -49,7 +56,12 @@ export type {
 } from "./synthesis.ts";
 export { DEFAULT_OUTPUT_FORMAT, resolveMimeType } from "./outputFormats.ts";
 export type { AzureTtsOutputFormat } from "./outputFormats.ts";
-export { ChunkValidationError, synthesizeSsmlChunksSafe, synthesizeSsmlSafe } from "./safe.ts";
+export {
+  BatchChunkValidationError,
+  ChunkValidationError,
+  synthesizeSsmlChunksSafe,
+  synthesizeSsmlSafe,
+} from "./safe.ts";
 export type {
   AzureApiErrorResult,
   Result,
@@ -62,6 +74,7 @@ export type {
   SsmlSynthesisChunksSafeResult,
   SynthesizeSsmlChunksSafeOptions,
   ValidationErrorResult,
+  ChunkDiagnostics,
 } from "./safe.ts";
 export { fetchAzureVoiceCatalog } from "./voiceCatalog.ts";
 export type {

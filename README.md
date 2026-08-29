@@ -165,7 +165,7 @@ const parsed = parseSsml(ssml);
 | `fromPlainTextToSsml(text, options?)` | プレーンテキストを `<speak>`、段落 `<p>`、文 `<s>` を含む SSML に変換 |
 | `validateSsmlStructureIntegrity(original, translated)` | 翻訳前後のタグ階層・タグ名・属性の一致を検証 |
 | `validateAzureSsml(xml, options?)` | Azure Speech 向けの意味検証結果を Diagnostic 配列で返す（各診断に `source: "ssml-static-validator"` を付与） |
-| `getAzureVoiceCatalogMetadata()` / `getBuiltInVoiceCatalogMetadata()` | 組み込み音声カタログの生成日時、API バージョン、リージョン、収録数を返す |
+| `getAzureVoiceCatalogMetadata()` / `getBuiltInVoiceCatalogMetadata()` | 組み込み音声カタログの生成日時、API バージョン、リージョン、収録数、有効期限、リージョン差分を返す |
 
 ### 3段階の検証モデル
 
@@ -670,7 +670,7 @@ The main `buildSsml` and `parseSsml` signatures are:
 | `fromPlainTextToSsml(text, options?)` | Converts plain text into an initial `<speak>` document containing paragraphs (`<p>`) and sentences (`<s>`) |
 | `validateSsmlStructureIntegrity(original, translated)` | Checks that tag hierarchy, element names, and attributes are unchanged after translation |
 | `validateAzureSsml(xml, options?)` | Returns Azure Speech semantic-validation diagnostics (each diagnostic has `source: "ssml-static-validator"`) |
-| `getAzureVoiceCatalogMetadata()` / `getBuiltInVoiceCatalogMetadata()` | Returns generation time, API version, regions, and voice count for the bundled voice catalog |
+| `getAzureVoiceCatalogMetadata()` / `getBuiltInVoiceCatalogMetadata()` | Returns generation time, API version, regions, voice count, expiry, and known regional differences for the bundled voice catalog |
 
 ### Three-stage validation model
 
@@ -917,6 +917,8 @@ result.bookmarks; // { name, audioOffsetMs }[]
 
 v2.16.0 では `concurrency` と `retryOptions`（429/5xx・ネットワーク障害のみ、Jitter 付き指数バックオフ）でチャンク合成を制御できます。`onProgress` には `retryAttempt`、`nextRetryDelayMs`、`isRetrying` が追加され、結合は常に `chunkIndex` 順です。`SsmlSynthesisResult.audioSpec` は WAV/MP3 ヘッダーから音声仕様を抽出し、チャンク間の仕様不一致は `AudioFormatMismatchError` になります。同期イベントには `mappingStatus`、Azure 診断には `nodePath`、`range`、`tagName`、`attributeName`、`voiceName`、`chunkIndex` が含まれます。`validateAzureSsmlChunks` は URL 検証プールを全チャンクで共有し、カスタム結合器には `inputSpecs` と `signal` を渡します。
 
+v2.17.0 では `customMerger`、`outputMimeType`、`postMergeValidator` をチャンク合成の末尾まで構成でき、`BatchChunkValidationError` が全チャンクの診断と総エラー数を返します。`cancelOnFailure` と `resumeChunks` により成功済みバイナリを再利用でき、`timeouts`（URL 検証、チャンク、リトライ込みチャンク、ジョブ全体）を個別に設定できます。429 の `Retry-After` は指数バックオフより優先されます。`AudioSpecification` には `bitDepth`、`container`、`isVbr` が追加され、同期 `mappingStatus` は JSON 化後も保持されます。
+
 `validateAzureSsml` の `urlValidation` オプションは URL の重複排除、キャッシュ、`concurrency`、`signal`、`timeoutMs` を制御します。
 
 For long documents, use `synthesizeSsmlChunks` or `AzureTtsClient.synthesizeChunks`; `onProgress` reports completed chunks while audio and synchronization offsets are merged. `synthesizeSsmlSafe(client, ssml, { validation })` validates before synthesis and returns a discriminated result without calling Azure when static validation fails.
@@ -924,6 +926,8 @@ For long documents, use `synthesizeSsmlChunks` or `AzureTtsClient.synthesizeChun
 In v2.15.0, `synthesizeSsmlChunksSafe(client, chunks, options)` validates every chunk before contacting Azure and propagates `outputFormat`, `signal`, `timeoutMs`, and `sourceNodePath` to each synthesis. `mergeAudioBuffers(buffers, { format })` and `mergeSynthesisResults(results, { format })` require an explicit format and merged results expose `mimeType`. Ogg and WebM can be delegated to an external Muxer through `customMerger`. Errors have discriminated `kind` values: `validation-error`, `azure-api-error`, `merge-error`, `unsupported-format-error`, `cancelled`, and `timeout`. Synchronization events receive individual `sourceNodePath` and `originalTextRange` mappings, and URL validators receive an `AbortSignal`.
 
 In v2.16.0, use `concurrency` and `retryOptions` to control chunk synthesis; only 429/5xx and network failures are retried with jittered exponential backoff. Progress events include `retryAttempt`, `nextRetryDelayMs`, and `isRetrying`, while merging always follows `chunkIndex` order. `SsmlSynthesisResult.audioSpec` is extracted from WAV/MP3 headers, and incompatible chunk specs throw `AudioFormatMismatchError`. Synchronization events include `mappingStatus`, diagnostics include structured node/range/tag/attribute/voice/chunk fields, `validateAzureSsmlChunks` shares one URL validation pool, and custom mergers receive `inputSpecs` and an `AbortSignal`.
+
+In v2.17.0, configure `customMerger`, `outputMimeType`, and `postMergeValidator` through the chunk synthesis pipeline. `BatchChunkValidationError` aggregates diagnostics and the total error count for every invalid chunk. `cancelOnFailure` and `resumeChunks` allow successful binary chunks to be reused, while `timeouts` independently bounds URL validation, individual chunks, retries, and the total job. HTTP 429 `Retry-After` takes priority over exponential backoff. `AudioSpecification` now includes `bitDepth`, `container`, and `isVbr`, and `mappingStatus` remains present after JSON serialization.
 
 The `urlValidation` option of `validateAzureSsml` provides URL deduplication, in-memory caching, bounded `concurrency`, `signal`, and `timeoutMs` controls.
 

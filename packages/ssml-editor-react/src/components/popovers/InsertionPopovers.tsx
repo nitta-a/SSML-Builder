@@ -11,6 +11,8 @@ export interface InsertionPopoversProps {
   toolbarButtonStyle: CSSProperties;
   emptyOptionsMessage: string;
   isReadOnly: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
   openPopoverId: string | null;
   menuPosition: { top: number; left: number } | null;
   menuRef: Ref<HTMLDivElement>;

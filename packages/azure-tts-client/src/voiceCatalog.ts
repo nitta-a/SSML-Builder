@@ -22,6 +22,8 @@ export interface FetchedAzureVoiceCatalogMetadata {
   generatedAt: string;
   apiVersion: string;
   regions: readonly string[];
+  expiresAt?: string;
+  regionDiffs?: Readonly<Record<string, readonly string[]>>;
 }
 
 export interface AzureVoiceCatalog {
@@ -130,6 +132,8 @@ export async function fetchAzureVoiceCatalog(options: FetchAzureVoiceCatalogOpti
       generatedAt: new Date().toISOString(),
       apiVersion: AZURE_VOICE_API_VERSION,
       regions,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      regionDiffs: {},
     },
   };
 }

@@ -17,6 +17,8 @@ export interface InsertionPopoverProps {
   toolbarButtonStyle: CSSProperties;
   emptyOptionsMessage: string;
   isReadOnly: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
   isOpen: boolean;
   menuPosition: { top: number; left: number } | null;
   menuRef: Ref<HTMLDivElement>;
@@ -44,6 +46,8 @@ export function InsertionPopover({
   toolbarButtonStyle,
   emptyOptionsMessage,
   isReadOnly,
+  disabled = false,
+  disabledReason,
   isOpen,
   menuPosition,
   menuRef,
@@ -62,7 +66,7 @@ export function InsertionPopover({
       role="menuitem"
       style={styles.toolbarOption}
       title={option.descriptions?.[language] ?? insertion.descriptions[language]}
-      disabled={isReadOnly}
+      disabled={isReadOnly || disabled}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
         if (!isReadOnly) {
@@ -112,11 +116,12 @@ export function InsertionPopover({
         <button
           type="button"
           style={toolbarButtonStyle}
-          title={getInsertionTitle(insertion, language)}
+          title={disabledReason ?? getInsertionTitle(insertion, language)}
           aria-label={insertion.labels[language]}
           aria-haspopup="menu"
           aria-expanded={isOpen}
           aria-controls={isOpen ? `ssml-editor-popover-${insertion.id}` : undefined}
+          disabled={isReadOnly || disabled}
           onClick={(event) => onToggle(event.currentTarget)}
         >
           {showToolbarIcons && (

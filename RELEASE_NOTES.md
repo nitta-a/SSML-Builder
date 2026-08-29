@@ -1,3 +1,24 @@
+# SSML-Builder v2.17.0 Release Notes
+
+Release date: 2026-08-29
+
+v2.17.0 adds resilient chunk synthesis with aggregate validation diagnostics, custom merge and post-merge hooks, Retry-After-aware retries, structured timeouts, cancellation and resume partial results, expanded audio specifications, and voice-capability-aware Visual Editor controls.
+
+## Highlights
+
+- Added resilient chunk synthesis with aggregate validation diagnostics and partial-result recovery.
+- Added custom merge and post-merge hooks with richer audio specifications and lifecycle controls.
+- Added Retry-After-aware retry behavior, structured timeouts, cancellation, and resume support.
+- Added voice-capability-aware controls to the Visual Editor.
+
+## Verification
+
+- `npm run format` — passed
+- `npm run lint` — passed
+- `npm test` — passed
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
 # SSML-Builder v2.16.0 Release Notes
 
 Release date: 2026-08-29

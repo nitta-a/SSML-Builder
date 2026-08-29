@@ -752,6 +752,28 @@ describe("SsmlEditor props", () => {
     expect(screen.getAllByTestId("ssml-editor-warning-badge").length).toBeGreaterThan(0);
   });
 
+  it("disables insertion controls and visual fields for unsupported voice tags", async () => {
+    renderEditor({
+      showToolbarLabels: true,
+      document: createVoiceDocument("en-US-JennyNeural"),
+      voiceCatalog: [{ name: "en-US-JennyNeural", locale: "en-US", supportedTags: ["prosody"] }],
+    });
+    expect((screen.getByRole("button", { name: "間" }) as HTMLButtonElement).disabled).toBe(true);
+
+    cleanup();
+    const user = userEvent.setup();
+    renderEditor({
+      editMode: "visual",
+      voiceCatalog: [{ name: "en-US-JennyNeural", locale: "en-US", unsupportedTags: ["emphasis"] }],
+      document: {
+        ...editorDocument,
+        children: [{ type: "voice", name: "en-US-JennyNeural", children: [{ type: "emphasis", children: ["Hello"] }] }],
+      },
+    });
+    await user.click(screen.getByRole("button", { name: /<emphasis>/ }));
+    expect((screen.getByRole("textbox", { name: "Level" }) as HTMLInputElement).disabled).toBe(true);
+  });
+
   it("updates toolbar and popover text when the locale changes", async () => {
     const user = userEvent.setup();
     const { rerender } = renderEditor({ locale: "ja", showToolbarLabels: true });

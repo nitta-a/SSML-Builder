@@ -7,6 +7,7 @@ import {
   type SsmlElement,
   type SsmlNode,
   type SsmlDiagnostic,
+  type AzureVoiceCatalogMetadata,
 } from "@ssml-builder-js/ssml-core";
 import { SSML_ELEMENT_COPY, type SsmlEditorLocale } from "../locales";
 
@@ -59,6 +60,7 @@ export interface VisualSsmlEditorProps {
   voiceModel?: string;
   /** Alias for voiceModel. */
   model?: string;
+  voiceCatalogMetadata?: AzureVoiceCatalogMetadata;
 }
 
 interface TextLeaf {
@@ -260,6 +262,29 @@ function filteredVoices(
   });
 }
 
+function voiceForPath(
+  document: SsmlDocument,
+  path: number[] | undefined,
+  voiceCatalog: readonly VisualVoiceCatalogEntry[] | undefined,
+): VisualVoiceCatalogEntry | undefined {
+  if (!path || !voiceCatalog) return undefined;
+  const ancestors = getElementAncestors(document.children ?? [], path);
+  const node = getNodeAtPath(document.children ?? [], path);
+  const candidates = [...ancestors, ...(node && isElement(node) ? [node] : [])].reverse();
+  const voiceName =
+    candidates.find((element) => element.type === "voice")?.name ??
+    candidates.find((element) => element.type === "mstts:turn")?.voice;
+  return voiceName ? voiceCatalog.find((voice) => voice.name.toLowerCase() === voiceName.toLowerCase()) : undefined;
+}
+
+function isVisualTagSupported(tagName: string, voice: VisualVoiceCatalogEntry | undefined): boolean {
+  if (!voice) return true;
+  const tag = tagName.toLowerCase();
+  const unsupported = new Set((voice.unsupportedTags ?? []).map((candidate) => candidate.toLowerCase()));
+  const supported = voice.supportedTags?.map((candidate) => candidate.toLowerCase());
+  return !unsupported.has(tag) && (supported === undefined || supported.includes(tag));
+}
+
 function VoiceCapabilityMatrix({
   voice,
   locale,
@@ -388,6 +413,7 @@ function VisualElementInspector({
   voiceRegion,
   voiceStyle,
   diagnostics,
+  voiceDefinition,
 }: {
   document: SsmlDocument;
   element: SsmlElement;
@@ -402,9 +428,13 @@ function VisualElementInspector({
   voiceRegion?: string;
   voiceStyle?: string;
   diagnostics: readonly SsmlDiagnostic[];
+  voiceDefinition?: VisualVoiceCatalogEntry;
 }): ReactElement {
+  const tagSupported = isVisualTagSupported(elementLabel(element), voiceDefinition);
   if (customInspector) {
-    return <>{customInspector({ document, element, path, readOnly, onChange: commit, locale })}</>;
+    return (
+      <>{customInspector({ document, element, path, readOnly: readOnly || !tagSupported, onChange: commit, locale })}</>
+    );
   }
   const fields = getElementFields(element);
   const availableVoices = filteredVoices(voiceCatalog, voiceLocale, voiceRegion, voiceStyle);
@@ -413,7 +443,7 @@ function VisualElementInspector({
   );
   const renderSelector = renderVoiceSelector ?? DefaultVoiceSelector;
   return (
-    <fieldset>
+    <fieldset disabled={readOnly || !tagSupported} style={!tagSupported ? { border: "1px solid #c0392b" } : undefined}>
       <legend>
         {`<${elementLabel(element)}>`} <WarningBadge messages={elementWarnings(diagnostics, element)} />
       </legend>
@@ -478,6 +508,7 @@ function VisualElementInspector({
                 <textarea
                   id={inputId}
                   value={inputValue}
+                  disabled={readOnly || !tagSupported}
                   readOnly={readOnly}
                   onChange={(event) =>
                     commit(updateOptionalElementProperty(document, path, field.key, event.target.value))
@@ -487,6 +518,7 @@ function VisualElementInspector({
                 <input
                   id={inputId}
                   value={inputValue}
+                  disabled={readOnly || !tagSupported}
                   readOnly={readOnly}
                   onChange={(event) =>
                     commit(updateOptionalElementProperty(document, path, field.key, event.target.value))
@@ -575,9 +607,13 @@ function TreeNode({
 }): ReactElement | null {
   if (!isElement(node)) return null;
   const name = elementLabel(node);
+  const messages = getWarnings(node);
   const isSelected = selectedPath?.join(".") === path.join(".");
   return (
-    <li>
+    <li
+      data-ssml-diagnostic={messages.length > 0 ? "error" : undefined}
+      style={messages.length > 0 ? { border: "1px solid #c0392b", borderRadius: "0.25rem" } : undefined}
+    >
       <button type="button" aria-current={isSelected ? "true" : undefined} onClick={() => onSelect(path)}>
         {`<${name}>`}
         <WarningBadge messages={getWarnings(node)} />
@@ -614,12 +650,17 @@ export function VisualSsmlEditor({
   voiceStyle,
   voiceModel,
   model,
+  voiceCatalogMetadata,
 }: VisualSsmlEditorProps): ReactElement {
   const [selectedPath, setSelectedPath] = useState<number[] | null>(null);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const textLeaves = useMemo(() => collectTextLeaves(document.children ?? []), [document]);
   const selectedLeaf = textLeaves.find((leaf) => leaf.path.join(".") === selectedPath?.join(".")) ?? textLeaves[0];
   const selectedElement = selectedPath ? getNodeAtPath(document.children ?? [], selectedPath) : undefined;
+  const activeVoice = voiceForPath(document, selectedPath ?? selectedLeaf?.path, voiceCatalog);
+  const staleCatalog = voiceCatalogMetadata?.expiresAt
+    ? Date.parse(voiceCatalogMetadata.expiresAt) <= Date.now()
+    : false;
   const selectedCustomInspector =
     selectedElement && isElement(selectedElement)
       ? (customInspectors?.[elementLabel(selectedElement)] ?? customInspectors?.[selectedElement.type])
@@ -675,6 +716,13 @@ export function VisualSsmlEditor({
           ))}
         </div>
       )}
+      {staleCatalog && (
+        <div role="status" className="ssml-editor-visual-catalog-warning">
+          {locale === "ja"
+            ? "音声カタログが古くなっています。更新してください。"
+            : "The voice catalog is stale. Refresh it before synthesizing."}
+        </div>
+      )}
       <div className="ssml-editor-visual-layout">
         <nav aria-label="SSML structure tree" className="ssml-editor-visual-tree">
           <strong>Structure</strong>
@@ -697,7 +745,7 @@ export function VisualSsmlEditor({
               document,
               element: selectedElement,
               path: selectedPath ?? [],
-              readOnly,
+              readOnly: readOnly || !isVisualTagSupported(elementLabel(selectedElement), activeVoice),
               onChange: commit,
               locale,
             })
@@ -707,7 +755,7 @@ export function VisualSsmlEditor({
               <p>{SSML_ELEMENT_COPY[locale][elementLabel(selectedElement)]?.description}</p>
               <button
                 type="button"
-                disabled={readOnly}
+                disabled={readOnly || !isVisualTagSupported("mstts:dialog", activeVoice)}
                 onClick={() => commit(addDialogTurn(document, selectedPath ?? []))}
               >
                 {locale === "ja" ? "ターンを追加" : "Add turn"}
@@ -829,6 +877,7 @@ export function VisualSsmlEditor({
               voiceRegion={voiceRegion}
               voiceStyle={voiceStyle}
               diagnostics={diagnostics}
+              voiceDefinition={activeVoice}
             />
           ) : selectedLeaf ? (
             <>
@@ -845,25 +894,37 @@ export function VisualSsmlEditor({
               </label>
               <fieldset className="ssml-editor-visual-actions">
                 <legend>Apply SSML formatting</legend>
-                <button type="button" disabled={readOnly} onClick={() => applyWrapper("prosody", { rate: "slow" })}>
+                <button
+                  type="button"
+                  disabled={readOnly || !isVisualTagSupported("prosody", activeVoice)}
+                  onClick={() => applyWrapper("prosody", { rate: "slow" })}
+                >
                   Rate
                 </button>
-                <button type="button" disabled={readOnly} onClick={() => applyWrapper("prosody", { pitch: "high" })}>
+                <button
+                  type="button"
+                  disabled={readOnly || !isVisualTagSupported("prosody", activeVoice)}
+                  onClick={() => applyWrapper("prosody", { pitch: "high" })}
+                >
                   Pitch
                 </button>
                 <button
                   type="button"
-                  disabled={readOnly}
+                  disabled={readOnly || !isVisualTagSupported("mstts:express-as", activeVoice)}
                   onClick={() => applyWrapper("mstts:express-as", { style: "cheerful" })}
                 >
                   Emotion
                 </button>
-                <button type="button" disabled={readOnly} onClick={() => applyWrapper("break", { time: "500ms" })}>
+                <button
+                  type="button"
+                  disabled={readOnly || !isVisualTagSupported("break", activeVoice)}
+                  onClick={() => applyWrapper("break", { time: "500ms" })}
+                >
                   Pause
                 </button>
                 <button
                   type="button"
-                  disabled={readOnly}
+                  disabled={readOnly || !isVisualTagSupported("phoneme", activeVoice)}
                   onClick={() => applyWrapper("phoneme", { alphabet: "ipa", ph: selectedLeaf.value })}
                 >
                   Pronunciation

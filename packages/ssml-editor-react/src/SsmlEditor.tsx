@@ -1,7 +1,7 @@
 import { Fragment, forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor from "@monaco-editor/react";
-import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
+import type { SsmlDocument, SsmlNode } from "@ssml-builder-js/ssml-core";
 import { isSsmlEditorButtonVisible, type SsmlEditorButton, type SsmlEditorButtonVisibility } from "./buttonVisibility";
 import {
   BREAK_TIME_DESCRIPTIONS,
@@ -50,6 +50,25 @@ const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const TIMING_POPOVER_TAGS = new Set(["break", "mstts:silence", "mstts:audioduration"]);
 const PROSODY_POPOVER_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
 const TEXT_POPOVER_TAGS = new Set(["sub", "say-as", "phoneme", "w", "lang"]);
+
+function isVoiceTagSupported(tagName: string | undefined, voice: VisualVoiceCatalogEntry | undefined): boolean {
+  if (!tagName || !voice) return true;
+  const tag = tagName.toLowerCase();
+  const unsupported = new Set((voice.unsupportedTags ?? []).map((candidate) => candidate.toLowerCase()));
+  const supported = voice.supportedTags?.map((candidate) => candidate.toLowerCase());
+  return !unsupported.has(tag) && (supported === undefined || supported.includes(tag));
+}
+
+function findFirstVoiceName(nodes: readonly SsmlNode[]): string | undefined {
+  for (const node of nodes) {
+    if (typeof node === "string" || node.type === "text") continue;
+    if (node.type === "voice" && node.name) return node.name;
+    if (node.type === "mstts:turn" && node.voice) return node.voice;
+    const nested = findFirstVoiceName(node.children ?? []);
+    if (nested) return nested;
+  }
+  return undefined;
+}
 
 export type { SsmlEditorLanguage, SsmlEditorLocalizedText } from "./locales";
 
@@ -785,6 +804,8 @@ export interface SsmlEditorProps {
   voiceModel?: string;
   /** Alias for voiceModel. */
   model?: string;
+  /** Metadata for the voice catalog snapshot, used to warn when it is stale. */
+  voiceCatalogMetadata?: import("@ssml-builder-js/ssml-core").AzureVoiceCatalogMetadata;
   /** Candidate style values shown by the built-in emotion insertion. */
   emotionStyles?: readonly string[];
   /** Class name applied to the editor container. */
@@ -894,6 +915,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     voiceStyle,
     voiceModel,
     model,
+    voiceCatalogMetadata,
     emotionStyles,
     className,
     style,
@@ -1075,6 +1097,14 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       insertion.tagName && activeTags.has(insertion.tagName.toLowerCase())
         ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive }
         : toolbarButtonStyle;
+    const activeVoiceName = popoverVoiceName ?? findFirstVoiceName(draftDocument.children ?? []);
+    const activeVoice = voiceCatalog?.find((voice) => voice.name.toLowerCase() === activeVoiceName?.toLowerCase());
+    const insertionDisabled = !isVoiceTagSupported(insertion.tagName, activeVoice);
+    const disabledReason = insertionDisabled
+      ? language === "ja"
+        ? `選択中の音声は <${insertion.tagName}> に対応していません。`
+        : `The selected voice does not support <${insertion.tagName}>.`
+      : undefined;
     const props = {
       language,
       isDarkTheme,
@@ -1083,6 +1113,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       toolbarButtonStyle: insertionButtonStyle,
       emptyOptionsMessage: copy.noAvailableOptions,
       isReadOnly,
+      disabled: insertionDisabled,
+      disabledReason,
       openPopoverId,
       menuPosition: popoverPosition,
       menuRef: setPopoverMenuRef,
@@ -1383,6 +1415,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
               voiceLocale={voiceLocale}
               voiceRegion={voiceRegion}
               voiceStyle={voiceStyle}
+              voiceCatalogMetadata={voiceCatalogMetadata}
               voiceModel={voiceModel}
               model={model}
             />

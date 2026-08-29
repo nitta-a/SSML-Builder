@@ -6,6 +6,10 @@ export interface AzureVoiceCatalogMetadata {
   generatedAt: string;
   regions: readonly string[];
   voiceCount: number;
+  /** When the bundled snapshot should be refreshed. */
+  expiresAt?: string;
+  /** Region-specific catalog differences, when known. */
+  regionDiffs?: Readonly<Record<string, readonly string[]>>;
 }
 
 export const AZURE_VOICE_CATALOG_METADATA: AzureVoiceCatalogMetadata = {
@@ -13,4 +17,6 @@ export const AZURE_VOICE_CATALOG_METADATA: AzureVoiceCatalogMetadata = {
   generatedAt: "2026-08-28T00:00:00.000Z",
   regions: [],
   voiceCount: AZURE_VOICE_DEFINITIONS.length,
+  expiresAt: "2026-09-04T00:00:00.000Z",
+  regionDiffs: {},
 };
