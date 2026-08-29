@@ -5,7 +5,29 @@ export type SynthesisErrorKind =
   | "audio-format-mismatch"
   | "unsupported-format-error"
   | "cancelled"
-  | "timeout";
+  | "timeout"
+  | "incomplete-chunk-set";
+
+export type SerializedChunkErrorCode =
+  | "VALIDATION_ERROR"
+  | "AZURE_API_ERROR"
+  | "TIMEOUT"
+  | "CANCELLED"
+  | "MERGE_ERROR"
+  | "FORMAT_MISMATCH";
+
+export interface SerializedChunkError {
+  code: SerializedChunkErrorCode;
+  phase: "url-validation" | "synthesis" | "merge";
+  message: string;
+  isOriginalFailure: boolean;
+  isRetryable: boolean;
+  httpStatus?: number;
+  details?: Record<string, unknown>;
+}
+
+/** Backward-compatible name used by persisted execution-state consumers. */
+export type SerializedExecutionError = SerializedChunkError;
 
 export class AzureTtsError extends Error {
   readonly kind = "azure-api-error" as const;
@@ -95,6 +117,19 @@ export class SynthesisTimeoutError extends Error {
   }
 }
 
+export class IncompleteChunkSetError extends Error {
+  readonly kind = "incomplete-chunk-set" as const;
+  readonly totalChunks: number;
+  readonly missingChunkIndices: readonly number[];
+
+  constructor(totalChunks: number, missingChunkIndices: readonly number[]) {
+    super(`Cannot merge an incomplete chunk set; missing chunk indices: ${missingChunkIndices.join(", ")}.`);
+    this.name = "IncompleteChunkSetError";
+    this.totalChunks = totalChunks;
+    this.missingChunkIndices = [...missingChunkIndices];
+  }
+}
+
 export class MergeError extends Error {
   readonly kind = "merge-error" as const;
   readonly cause: unknown;
@@ -136,7 +171,52 @@ export type AzureTtsSynthesisError =
   | AudioFormatMismatchError
   | UnsupportedMergeFormatError
   | SynthesisCancelledError
-  | SynthesisTimeoutError;
+  | SynthesisTimeoutError
+  | IncompleteChunkSetError;
+
+export function serializeChunkError(
+  error: unknown,
+  phase: SerializedChunkError["phase"],
+  isOriginalFailure: boolean,
+): SerializedChunkError {
+  const message = error instanceof Error ? error.message : String(error);
+  const status = error instanceof AzureTtsError ? error.status : undefined;
+  const kind = error && typeof error === "object" && "kind" in error ? String(error.kind) : "";
+  const code: SerializedChunkErrorCode =
+    kind === "validation-error"
+      ? "VALIDATION_ERROR"
+      : kind === "timeout" || /tim(?:e|ed) ?out|deadline/i.test(message)
+        ? "TIMEOUT"
+        : kind === "cancelled" || /cancel|abort/i.test(message)
+          ? "CANCELLED"
+          : kind === "audio-format-mismatch" || kind === "unsupported-format-error"
+            ? "FORMAT_MISMATCH"
+            : kind === "merge-error" || phase === "merge"
+              ? "MERGE_ERROR"
+              : "AZURE_API_ERROR";
+  const details: Record<string, unknown> = {};
+  if (error instanceof AzureTtsError) {
+    details.statusText = error.statusText;
+    if (error.requestId) details.requestId = error.requestId;
+  }
+  if (error instanceof IncompleteChunkSetError) {
+    details.totalChunks = error.totalChunks;
+    details.missingChunkIndices = [...error.missingChunkIndices];
+  }
+  return {
+    code,
+    phase,
+    message,
+    isOriginalFailure,
+    isRetryable:
+      code === "AZURE_API_ERROR" &&
+      (status === 429 ||
+        (status !== undefined && status >= 500) ||
+        /network|connection|connect|socket|fetch failed|econn|etimedout|temporar|transient|unavailable/i.test(message)),
+    ...(status !== undefined && status > 0 ? { httpStatus: status } : {}),
+    ...(Object.keys(details).length > 0 ? { details } : {}),
+  };
+}
 
 export function toSynthesisError(
   error: unknown,
@@ -146,14 +226,16 @@ export function toSynthesisError(
   | AudioFormatMismatchError
   | UnsupportedMergeFormatError
   | SynthesisCancelledError
-  | SynthesisTimeoutError {
+  | SynthesisTimeoutError
+  | IncompleteChunkSetError {
   if (
     error instanceof AzureTtsError ||
     error instanceof MergeError ||
     error instanceof AudioFormatMismatchError ||
     error instanceof UnsupportedMergeFormatError ||
     error instanceof SynthesisCancelledError ||
-    error instanceof SynthesisTimeoutError
+    error instanceof SynthesisTimeoutError ||
+    error instanceof IncompleteChunkSetError
   )
     return error;
   const message = error instanceof Error ? error.message : String(error);

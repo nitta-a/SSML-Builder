@@ -29,6 +29,8 @@ import type {
   ResumeValidationMode,
 } from "./types.ts";
 import type { AzureTtsOutputFormat } from "./outputFormats.ts";
+import { IncompleteChunkSetError, serializeChunkError } from "./errors.ts";
+import { DeadlineController } from "./deadline.ts";
 
 export interface SsmlValidationError {
   readonly kind: "validation-error";
@@ -129,6 +131,8 @@ export interface SynthesizeSsmlSafeOptions extends AzureValidationOptions {
 export interface SynthesizeSsmlChunksSafeOptions extends AzureValidationOptions {
   validation?: AzureValidationOptions;
   outputFormat?: string;
+  customHeaders?: Readonly<Record<string, string>>;
+  fingerprintSchemaVersion?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
   timeouts?: SynthesisTimeouts;
@@ -303,14 +307,19 @@ export async function synthesizeSsmlSafe(
   ssml: string,
   options: SynthesizeSsmlSafeOptions = {},
 ): Promise<SsmlSynthesisSafeResult> {
-  const validationOptions = sharedValidationOptions(options.validation ?? options, options.signal);
+  const deadline = new DeadlineController(options.timeouts?.totalJobMs, options.signal);
+  const validationOptions = sharedValidationOptions(options.validation ?? options, deadline.signal);
   const diagnostics = await Promise.resolve(validateAzureSsml(ssml, validationOptions));
-  if (options.signal?.aborted) {
-    const error = toSynthesisError(new Error("Speech synthesis was cancelled."));
+  if (deadline.signal.aborted) {
+    const error = toSynthesisError(
+      new Error(deadline.timedOut ? "Speech synthesis timed out." : "Speech synthesis was cancelled."),
+    );
+    deadline.dispose();
     return failure(error);
   }
   const errors = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   if (errors.length > 0) {
+    deadline.dispose();
     return failure({
       kind: "validation-error",
       message: "SSML validation failed; the Azure Speech API was not called.",
@@ -318,27 +327,23 @@ export async function synthesizeSsmlSafe(
     });
   }
 
-  const jobScope =
-    options.timeouts?.totalJobMs !== undefined
-      ? createSafeAbortScope(options.signal, options.timeouts.totalJobMs)
-      : undefined;
   try {
     return {
       ok: true,
       success: true,
       status: "success",
       value: await client.synthesizeSsml(ssml, {
-        signal: jobScope?.signal ?? options.signal,
+        signal: deadline.signal,
         timeoutMs: options.timeouts?.perChunkMs,
-        timeouts: options.timeouts,
+        timeouts: options.timeouts ? { ...options.timeouts, totalJobMs: undefined } : undefined,
       }),
     };
   } catch (error) {
-    if (jobScope?.timedOut()) return failure(toSynthesisError(new Error("Speech synthesis timed out.")));
+    if (deadline.timedOut) return failure(toSynthesisError(new Error("Speech synthesis timed out.")));
     const synthesisError = toSynthesisError(error);
     return failure(synthesisError);
   } finally {
-    jobScope?.dispose();
+    deadline.dispose();
   }
 }
 
@@ -348,12 +353,16 @@ export async function synthesizeSsmlChunksSafe(
   chunks: readonly (SsmlSynthesisChunk | string)[],
   options: SynthesizeSsmlChunksSafeOptions = {},
 ): Promise<SsmlSynthesisChunksSafeResult> {
+  const deadline = new DeadlineController(options.timeouts?.totalJobMs, options.signal);
   const validationOptions = sharedValidationOptions(
     { ...(options.validation ?? options), timeouts: options.timeouts },
-    options.signal,
+    deadline.signal,
   );
-  if (options.signal?.aborted) {
-    const error = toSynthesisError(new Error("Speech synthesis was cancelled."));
+  if (deadline.signal.aborted) {
+    const error = toSynthesisError(
+      new Error(deadline.timedOut ? "Speech synthesis timed out." : "Speech synthesis was cancelled."),
+    );
+    deadline.dispose();
     return failure(error);
   }
   const pending = (index: number, status: SynthesisProgressEvent["status"], error?: unknown): void => {
@@ -387,8 +396,9 @@ export async function synthesizeSsmlChunksSafe(
       return diagnostics.filter((diagnostic) => diagnostic.severity === "error");
     }),
   );
-  if (options.signal?.aborted) {
+  if (deadline.signal.aborted) {
     const error = toSynthesisError(new Error("Speech synthesis was cancelled."));
+    deadline.dispose();
     return failure(error);
   }
   const chunkDiagnostics = validations
@@ -397,6 +407,7 @@ export async function synthesizeSsmlChunksSafe(
   if (chunkDiagnostics.length > 0) {
     const error = new BatchChunkValidationError(chunkDiagnostics);
     for (const entry of chunkDiagnostics) pending(entry.chunkIndex, "failed", error);
+    deadline.dispose();
     return failure(error);
   }
 
@@ -410,9 +421,9 @@ export async function synthesizeSsmlChunksSafe(
       const value = await client.synthesizeChunks(normalizedChunks, {
         onProgress: options.onProgress,
         outputFormat: options.outputFormat,
-        signal: options.signal,
+        signal: deadline.signal,
         timeoutMs: options.timeoutMs,
-        timeouts: options.timeouts,
+        timeouts: options.timeouts ? { ...options.timeouts, totalJobMs: undefined } : undefined,
         sourceNodePath: options.sourceNodePath,
         concurrency: options.concurrency,
         retryOptions: options.retryOptions,
@@ -423,11 +434,18 @@ export async function synthesizeSsmlChunksSafe(
         outputMimeType: options.outputMimeType,
         postMergeValidator: options.postMergeValidator,
         resumeValidation: options.resumeValidation,
+        customHeaders: options.customHeaders,
+        fingerprintSchemaVersion: options.fingerprintSchemaVersion,
       });
       return { ok: true, success: true, status: "success", value };
     }
     const inputs = chunks.map((chunk) => (typeof chunk === "string" ? { ssml: chunk } : chunk));
-    const fingerprints = inputs.map((chunk) => computeChunkFingerprint(chunk.ssml, options.outputFormat));
+    const fingerprints = inputs.map((chunk) =>
+      computeChunkFingerprint(chunk.ssml, options.outputFormat, {
+        customHeaders: options.customHeaders,
+        fingerprintSchemaVersion: options.fingerprintSchemaVersion,
+      }),
+    );
     const results: Array<SsmlSynthesisResult | undefined> = new Array(chunks.length);
     const chunkStates: ChunkExecutionState[] = inputs.map((_chunk, chunkIndex) => ({
       chunkIndex,
@@ -449,14 +467,10 @@ export async function synthesizeSsmlChunksSafe(
     const shouldSynthesize = (index: number): boolean =>
       (!cachedChunks.has(index) || invalidCachedIndices.has(index)) &&
       (requestedIndices === undefined || requestedIndices.has(index) || invalidCachedIndices.has(index));
-    const jobStartedAt = Date.now();
-    const jobDeadlineAt =
-      options.timeouts?.totalJobMs !== undefined && options.timeouts.totalJobMs > 0
-        ? jobStartedAt + options.timeouts.totalJobMs
-        : undefined;
+    const jobDeadlineAt = deadline.deadlineAtMs;
     const jobScope =
       chunks.length > 1 || options.timeouts?.totalJobMs !== undefined
-        ? createSafeAbortScope(options.signal, options.timeouts?.totalJobMs)
+        ? createSafeAbortScope(deadline.signal, undefined)
         : undefined;
     fallbackJobScope = jobScope;
     const failedIndices = new Set<number>();
@@ -483,9 +497,9 @@ export async function synthesizeSsmlChunksSafe(
           const chunkTimeout = options.timeouts?.chunkWithRetriesMs ?? options.timeouts?.perChunkMs;
           const chunkScope =
             chunkTimeout !== undefined || jobScope
-              ? createSafeAbortScope(jobScope?.signal ?? options.signal, chunkTimeout ?? options.timeoutMs)
+              ? createSafeAbortScope(jobScope?.signal ?? deadline.signal, chunkTimeout ?? options.timeoutMs)
               : undefined;
-          const chunkSignal = chunkScope?.signal ?? options.signal;
+          const chunkSignal = chunkScope?.signal ?? deadline.signal;
           let result: SsmlSynthesisResult;
           try {
             result = await retryableSynthesis(
@@ -514,7 +528,7 @@ export async function synthesizeSsmlChunksSafe(
               jobDeadlineAt,
             );
           } catch (error) {
-            if (chunkScope?.timedOut())
+            if (chunkScope?.timedOut() || deadline.timedOut)
               throw new Error(`Speech synthesis timed out after ${chunkTimeout ?? options.timeoutMs} ms.`);
             throw error;
           } finally {
@@ -601,15 +615,17 @@ export async function synthesizeSsmlChunksSafe(
             durationMs: Date.now() - startedAt,
           });
         } catch (error) {
-          const wasCancelled = firstError !== undefined || Boolean(jobScope?.signal.aborted && !jobScope?.timedOut());
-          firstError ??= error;
+          const wasCancelled =
+            firstError !== undefined ||
+            (!deadline.timedOut && Boolean(jobScope?.signal.aborted && !jobScope?.timedOut()));
+          firstError ??= deadline.timedOut ? new Error("Speech synthesis timed out.") : error;
           if (!wasCancelled) failedIndices.add(index);
           chunkStates[index] = {
             chunkIndex: index,
             status: wasCancelled ? "cancelled" : "failed",
             isOriginalFailure: !wasCancelled,
             canResume: true,
-            error: error as ChunkExecutionState["error"],
+            error: serializeChunkError(error, "synthesis", !wasCancelled),
           };
           options.onProgress?.({
             currentChunk: completed,
@@ -656,6 +672,10 @@ export async function synthesizeSsmlChunksSafe(
       };
       throw error;
     }
+    const missingChunkIndices = Array.from({ length: chunks.length }, (_value, index) =>
+      results[index] === undefined ? index : undefined,
+    ).filter((index): index is number => index !== undefined);
+    if (missingChunkIndices.length > 0) throw new IncompleteChunkSetError(chunks.length, missingChunkIndices);
     const orderedResults = results.filter((result): result is SsmlSynthesisResult => result !== undefined);
     return {
       ok: true,
@@ -663,7 +683,7 @@ export async function synthesizeSsmlChunksSafe(
       status: "success",
       value: await mergeSynthesisResults(orderedResults, {
         format: (options.outputFormat ?? "audio-16khz-128kbitrate-mono-mp3") as AzureTtsOutputFormat,
-        signal: jobScope?.signal ?? options.signal,
+        signal: jobScope?.signal ?? deadline.signal,
         customMerger: options.customMerger,
         outputMimeType: options.outputMimeType,
         postMergeValidator: options.postMergeValidator,
@@ -674,6 +694,7 @@ export async function synthesizeSsmlChunksSafe(
     return failure(synthesisError, partialResultFrom(error));
   } finally {
     fallbackJobScope?.dispose();
+    deadline.dispose();
   }
 }
 

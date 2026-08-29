@@ -1,7 +1,6 @@
 import type { SsmlSourceMarker, SsmlSourceTextSegment, SsmlTextRange } from "@ssml-builder-js/ssml-core";
 import type { AzureTtsOutputFormat } from "./outputFormats.ts";
-import type { AzureTtsError } from "./errors.ts";
-import type { SsmlValidationError } from "./safe.ts";
+import type { SerializedChunkError } from "./errors.ts";
 
 export interface TtsConfig {
   signal?: AbortSignal;
@@ -11,6 +10,8 @@ export interface TtsConfig {
   subscriptionKey: string;
   region: string;
   outputFormat?: string;
+  customHeaders?: Readonly<Record<string, string>>;
+  fingerprintSchemaVersion?: string;
   /** Original plain-text range represented by this synthesis request. */
   sourceTextRange?: { start: number; end: number };
   /** Reports chunk lifecycle events when using chunk synthesis. */
@@ -141,6 +142,8 @@ export interface SsmlSynthesisChunk {
 export interface SynthesizeChunksOptions {
   onProgress?: (event: SynthesisProgressEvent) => void;
   outputFormat?: AzureTtsOutputFormat | string;
+  customHeaders?: Readonly<Record<string, string>>;
+  fingerprintSchemaVersion?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
   timeouts?: SynthesisTimeouts;
@@ -184,7 +187,7 @@ export type ChunkExecutionStatus = "succeeded" | "failed" | "cancelled" | "pendi
 export interface ChunkExecutionState {
   chunkIndex: number;
   status: ChunkExecutionStatus;
-  error?: AzureTtsError | SsmlValidationError;
+  error?: SerializedChunkError;
   isOriginalFailure?: boolean;
   canResume: boolean;
   result?: SsmlSynthesisResult;
@@ -233,6 +236,8 @@ export interface AzureTtsClientOptions {
   region: string;
   endpoint?: string;
   outputFormat?: string;
+  customHeaders?: Readonly<Record<string, string>>;
+  fingerprintSchemaVersion?: string;
   logger?: AzureTtsLogger;
   onProgress?: (event: SynthesisProgressEvent) => void;
   concurrency?: number;

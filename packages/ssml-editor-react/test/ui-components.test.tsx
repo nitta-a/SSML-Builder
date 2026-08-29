@@ -774,6 +774,28 @@ describe("SsmlEditor props", () => {
     expect((screen.getByRole("textbox", { name: "Level" }) as HTMLInputElement).disabled).toBe(true);
   });
 
+  it("shows neural-HD emphasis restrictions in the visual inspector", async () => {
+    renderEditor({
+      editMode: "visual",
+      model: "neural-hd",
+      voiceCatalog: [{ name: "en-US-JennyNeural", locale: "en-US" }],
+      document: {
+        ...editorDocument,
+        children: [
+          {
+            type: "voice",
+            name: "en-US-JennyNeural",
+            children: [{ type: "emphasis", children: ["Hello"] }],
+          },
+        ],
+      },
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /<emphasis>/ }));
+    expect((screen.getByRole("textbox", { name: "Level" }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getAllByTestId("ssml-editor-warning-badge").length).toBeGreaterThan(0);
+  });
+
   it("updates toolbar and popover text when the locale changes", async () => {
     const user = userEvent.setup();
     const { rerender } = renderEditor({ locale: "ja", showToolbarLabels: true });

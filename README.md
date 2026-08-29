@@ -921,6 +921,8 @@ v2.17.0 では `customMerger`、`outputMimeType`、`postMergeValidator` をチ�
 
 v2.18.0 では `resumeChunks` に SSML・音声設定・出力形式のフィンガープリントを付与し、不一致のキャッシュを自動的に再合成します。`PartialChunkSynthesisResult.chunkStates` は成功、直接失敗、連鎖キャンセル、未実行を区別します。`totalJobMs` は単一合成にも適用され、上限を超える `Retry-After` は待機せずタイムアウトになります。`AzureTtsClient` の既定値として再試行、キャンセル、結合器、MIME、結合後検証、再開検証を注入できます。RAW 音声はサンプリング周波数、ビット深度、codec、フレーム境界を検証します。
 
+v2.19.0 では、再開フィンガープリントに SSML、voice、言語、出力形式、リージョン、endpoint、custom headers、スキーマバージョンを含め、環境の異なるキャッシュの再利用を防ぎます。`resumeChunkIndices` の欠落は `IncompleteChunkSetError` で結合前に拒否され、`ChunkExecutionState.error` は JSON 化可能な `SerializedChunkError` になります。単一合成を含む URL 検証、再試行、チャンク合成、結合は絶対 deadline で制限され、Ogg/WebM/RAW Opus/SILK の実体ヘッダーも検証します。Visual editor は `expressAs` などの別名を正規化し、neural-HD の非対応タグを表示します。
+
 `validateAzureSsml` の `urlValidation` オプションは URL の重複排除、キャッシュ、`concurrency`、`signal`、`timeoutMs` を制御します。
 
 For long documents, use `synthesizeSsmlChunks` or `AzureTtsClient.synthesizeChunks`; `onProgress` reports completed chunks while audio and synchronization offsets are merged. `synthesizeSsmlSafe(client, ssml, { validation })` validates before synthesis and returns a discriminated result without calling Azure when static validation fails.
@@ -932,6 +934,8 @@ In v2.16.0, use `concurrency` and `retryOptions` to control chunk synthesis; onl
 In v2.17.0, configure `customMerger`, `outputMimeType`, and `postMergeValidator` through the chunk synthesis pipeline. `BatchChunkValidationError` aggregates diagnostics and the total error count for every invalid chunk. `cancelOnFailure` and `resumeChunks` allow successful binary chunks to be reused, while `timeouts` independently bounds URL validation, individual chunks, retries, and the total job. HTTP 429 `Retry-After` takes priority over exponential backoff. `AudioSpecification` now includes `bitDepth`, `container`, and `isVbr`, and `mappingStatus` remains present after JSON serialization.
 
 In v2.18.0, `resumeChunks` carries a fingerprint of the SSML, voice settings, and output format; stale cache entries are automatically re-synthesized. `PartialChunkSynthesisResult.chunkStates` distinguishes succeeded, directly failed, chained-cancelled, and pending chunks. `totalJobMs` also bounds single synthesis, and an over-budget `Retry-After` fails immediately without sleeping. `AzureTtsClient` accepts retry, cancellation, merger, MIME, post-merge validation, and resume-validation defaults. RAW audio now validates sample rate, bit depth, codec, and frame alignment.
+
+In v2.19.0, resume fingerprints include SSML, voice, language, output format, region, endpoint, custom headers, and schema version so cached chunks cannot cross synthesis environments. Missing `resumeChunkIndices` are rejected before merge with `IncompleteChunkSetError`, and `ChunkExecutionState.error` is a JSON-serializable `SerializedChunkError`. URL validation, retries, chunk synthesis, and merging share an absolute deadline, including single synthesis. Ogg/WebM/RAW Opus/SILK payloads receive concrete container or header validation, and the visual editor normalizes aliases such as `expressAs` while showing neural-HD unsupported tags.
 
 The `urlValidation` option of `validateAzureSsml` provides URL deduplication, in-memory caching, bounded `concurrency`, `signal`, and `timeoutMs` controls.
 

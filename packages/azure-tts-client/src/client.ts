@@ -19,7 +19,16 @@ export class AzureTtsClient {
   }
 
   async synthesize(ssml: string): Promise<ArrayBuffer> {
-    const { region, subscriptionKey, outputFormat, signal, timeoutMs, timeouts } = this.#options;
+    const {
+      region,
+      subscriptionKey,
+      outputFormat,
+      signal,
+      timeoutMs,
+      timeouts,
+      customHeaders,
+      fingerprintSchemaVersion,
+    } = this.#options;
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     this.#options.logger?.debug?.("Using Azure TTS endpoint:", endpoint);
 
@@ -32,12 +41,23 @@ export class AzureTtsClient {
       timeoutMs,
       timeouts,
       retryOptions: this.#options.retryOptions,
+      customHeaders,
+      fingerprintSchemaVersion,
     };
     return synthesizeSpeech(ssml, config);
   }
 
   async synthesizeSsml(ssml: string, options: Partial<TtsConfig> = {}): Promise<SsmlSynthesisResult> {
-    const { region, subscriptionKey, outputFormat, signal, timeoutMs, timeouts } = this.#options;
+    const {
+      region,
+      subscriptionKey,
+      outputFormat,
+      signal,
+      timeoutMs,
+      timeouts,
+      customHeaders,
+      fingerprintSchemaVersion,
+    } = this.#options;
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     this.#options.logger?.debug?.("Using Azure TTS endpoint:", endpoint);
 
@@ -58,6 +78,8 @@ export class AzureTtsClient {
       outputMimeType: options.outputMimeType ?? this.#options.outputMimeType,
       postMergeValidator: options.postMergeValidator ?? this.#options.postMergeValidator,
       resumeValidation: options.resumeValidation ?? this.#options.resumeValidation,
+      customHeaders: options.customHeaders ?? customHeaders,
+      fingerprintSchemaVersion: options.fingerprintSchemaVersion ?? fingerprintSchemaVersion,
     });
   }
 
@@ -65,7 +87,16 @@ export class AzureTtsClient {
     chunks: readonly (SsmlSynthesisChunk | string)[],
     options: SynthesizeChunksOptions = {},
   ): Promise<SsmlSynthesisResult> {
-    const { region, subscriptionKey, outputFormat, signal, timeoutMs, timeouts } = this.#options;
+    const {
+      region,
+      subscriptionKey,
+      outputFormat,
+      signal,
+      timeoutMs,
+      timeouts,
+      customHeaders,
+      fingerprintSchemaVersion,
+    } = this.#options;
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     return synthesizeSsmlChunks(chunks, {
       endpoint,
@@ -86,6 +117,8 @@ export class AzureTtsClient {
       outputMimeType: options.outputMimeType ?? this.#options.outputMimeType,
       postMergeValidator: options.postMergeValidator ?? this.#options.postMergeValidator,
       resumeValidation: options.resumeValidation ?? this.#options.resumeValidation,
+      customHeaders: options.customHeaders ?? customHeaders,
+      fingerprintSchemaVersion: options.fingerprintSchemaVersion ?? fingerprintSchemaVersion,
     });
   }
 
@@ -106,6 +139,13 @@ export class AzureTtsClient {
       onProgress: options.onProgress ?? this.#options.onProgress,
       concurrency: options.concurrency ?? this.#options.concurrency,
       retryOptions: options.retryOptions ?? this.#options.retryOptions,
+      cancelOnFailure: options.cancelOnFailure ?? this.#options.cancelOnFailure,
+      customMerger: options.customMerger ?? this.#options.customMerger,
+      outputMimeType: options.outputMimeType ?? this.#options.outputMimeType,
+      postMergeValidator: options.postMergeValidator ?? this.#options.postMergeValidator,
+      resumeValidation: options.resumeValidation ?? this.#options.resumeValidation,
+      customHeaders: options.customHeaders ?? this.#options.customHeaders,
+      fingerprintSchemaVersion: options.fingerprintSchemaVersion ?? this.#options.fingerprintSchemaVersion,
     });
   }
 

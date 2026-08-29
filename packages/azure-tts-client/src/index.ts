@@ -36,10 +36,19 @@ export {
   MergeError,
   SynthesisCancelledError,
   SynthesisTimeoutError,
+  IncompleteChunkSetError,
+  serializeChunkError,
   UnsupportedMergeFormatError,
   getRetryAfterDelayMs,
 } from "./errors.ts";
-export type { AzureTtsSynthesisError, SynthesisErrorKind } from "./errors.ts";
+export type {
+  AzureTtsSynthesisError,
+  SerializedChunkError,
+  SerializedChunkErrorCode,
+  SerializedExecutionError,
+  SynthesisErrorKind,
+} from "./errors.ts";
+export { DeadlineController } from "./deadline.ts";
 export { AzureTtsClient } from "./client.ts";
 export { synthesizeSpeech } from "./synthesis.ts";
 export { synthesizeSsml } from "./synthesis.ts";
@@ -54,6 +63,7 @@ export {
 } from "./synthesis.ts";
 export type {
   InputAudioSpecs,
+  ChunkFingerprintOptions,
   MergeAudioFormat,
   MergeAudioOptions,
   MergeSynthesisOptions,

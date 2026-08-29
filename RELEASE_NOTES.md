@@ -1,3 +1,25 @@
+# SSML-Builder v2.19.0 Release Notes
+
+Release date: 2026-08-29
+
+v2.19.0 adds strict resume fingerprints and complete-chunk guards, serializable execution errors, absolute job deadlines, Ogg/WebM/SILK/Opus validation, transparent Safe API defaults, and improved Visual Editor handling for SSML tag aliases and neural-HD restrictions.
+
+## Highlights
+
+- Added strict resume fingerprint validation and guards against reusing incomplete chunks.
+- Added serializable execution errors and absolute job deadline handling.
+- Added validation support for Ogg, WebM, SILK, and Opus audio specifications.
+- Added transparent defaults to the Safe synthesis APIs.
+- Improved Visual Editor SSML tag alias normalization and neural-HD tag restriction warnings.
+
+## Verification
+
+- `npm run format` — passed
+- `npm run lint` — passed
+- `npm test` — passed
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
 # SSML-Builder v2.18.0 Release Notes
 
 Release date: 2026-08-29

@@ -277,22 +277,41 @@ function voiceForPath(
   return voiceName ? voiceCatalog.find((voice) => voice.name.toLowerCase() === voiceName.toLowerCase()) : undefined;
 }
 
-function isVisualTagSupported(tagName: string, voice: VisualVoiceCatalogEntry | undefined): boolean {
+function normalizeVisualTagName(tagName: string): string {
+  const normalized = tagName.toLowerCase();
+  if (normalized === "express-as" || normalized === "expressas" || normalized === "mstts:express-as")
+    return "mstts:express-as";
+  if (normalized === "sayas" || normalized === "say-as") return "say-as";
+  return normalized;
+}
+
+function isVisualTagSupported(tagName: string, voice: VisualVoiceCatalogEntry | undefined, model?: string): boolean {
   if (!voice) return true;
-  const tag = tagName.toLowerCase();
-  const unsupported = new Set((voice.unsupportedTags ?? []).map((candidate) => candidate.toLowerCase()));
-  const supported = voice.supportedTags?.map((candidate) => candidate.toLowerCase());
+  const tag = normalizeVisualTagName(tagName);
+  const unsupported = new Set((voice.unsupportedTags ?? []).map(normalizeVisualTagName));
+  if (model && /neural[-_ ]?hd/i.test(model)) unsupported.add("emphasis");
+  const supported = voice.supportedTags?.map(normalizeVisualTagName);
   return !unsupported.has(tag) && (supported === undefined || supported.includes(tag));
 }
 
 function VoiceCapabilityMatrix({
   voice,
   locale,
+  model,
 }: {
   voice: VisualVoiceCatalogEntry;
   locale: SsmlEditorLocale;
+  model?: string;
 }): ReactElement {
   const status = voice.status ?? (voice.preview ? "preview" : undefined);
+  const unsupportedTags = [
+    ...(voice.unsupportedTags ?? []),
+    ...(model &&
+    /neural[-_ ]?hd/i.test(model) &&
+    !voice.unsupportedTags?.some((tag) => normalizeVisualTagName(tag) === "emphasis")
+      ? ["emphasis"]
+      : []),
+  ];
   return (
     <div className="ssml-editor-voice-capabilities" data-voice-capabilities="">
       <div>
@@ -316,9 +335,9 @@ function VoiceCapabilityMatrix({
           {locale === "ja" ? "対応タグ" : "Supported tags"}: {voice.supportedTags.join(", ")}
         </div>
       )}
-      {voice.unsupportedTags && voice.unsupportedTags.length > 0 && (
+      {unsupportedTags.length > 0 && (
         <div className="ssml-editor-voice-unsupported">
-          {locale === "ja" ? "非対応タグ" : "Unsupported tags"}: {voice.unsupportedTags.join(", ")}
+          {locale === "ja" ? "非対応タグ" : "Unsupported tags"}: {unsupportedTags.join(", ")}
         </div>
       )}
     </div>
@@ -326,7 +345,7 @@ function VoiceCapabilityMatrix({
 }
 
 function diagnosticMatchesElement(diagnostic: SsmlDiagnostic, element: SsmlElement): boolean {
-  const name = elementLabel(element).toLowerCase().replace("expressas", "mstts:express-as");
+  const name = normalizeVisualTagName(elementLabel(element));
   if (diagnostic.code === "azure-unsupported-style") return name === "mstts:express-as" || name === "express-as";
   if (diagnostic.code === "azure-unsupported-tag-for-voice") {
     return (
@@ -414,6 +433,7 @@ function VisualElementInspector({
   voiceStyle,
   diagnostics,
   voiceDefinition,
+  model,
 }: {
   document: SsmlDocument;
   element: SsmlElement;
@@ -429,8 +449,9 @@ function VisualElementInspector({
   voiceStyle?: string;
   diagnostics: readonly SsmlDiagnostic[];
   voiceDefinition?: VisualVoiceCatalogEntry;
+  model?: string;
 }): ReactElement {
-  const tagSupported = isVisualTagSupported(elementLabel(element), voiceDefinition);
+  const tagSupported = isVisualTagSupported(elementLabel(element), voiceDefinition, model);
   if (customInspector) {
     return (
       <>{customInspector({ document, element, path, readOnly: readOnly || !tagSupported, onChange: commit, locale })}</>
@@ -665,22 +686,28 @@ export function VisualSsmlEditor({
     selectedElement && isElement(selectedElement)
       ? (customInspectors?.[elementLabel(selectedElement)] ?? customInspectors?.[selectedElement.type])
       : undefined;
-  const validationOptions = useMemo(
-    () => ({
-      model: voiceModel ?? model,
+  const validationOptions = useMemo(() => {
+    const selectedModel = voiceModel ?? model;
+    const hdUnsupportedTags = selectedModel && /neural[-_ ]?hd/i.test(selectedModel) ? ["emphasis"] : [];
+    return {
+      model: selectedModel,
       customVoiceDefinitions: voiceCatalog?.map((voice) => ({
         name: voice.name,
         locale: voice.locale,
         regions: voice.regions ?? (voice.region ? [voice.region] : undefined),
         styles: voice.styles,
         supportedTags: voice.supportedTags,
-        unsupportedTags: voice.unsupportedTags,
+        unsupportedTags: [
+          ...(voice.unsupportedTags ?? []),
+          ...hdUnsupportedTags.filter(
+            (tag) => !voice.unsupportedTags?.some((candidate) => normalizeVisualTagName(candidate) === tag),
+          ),
+        ],
         models: voice.models,
         status: voice.status ?? (voice.preview ? "preview" : "ga"),
       })),
-    }),
-    [model, voiceCatalog, voiceModel],
-  );
+    };
+  }, [model, voiceCatalog, voiceModel]);
   const diagnostics = useMemo(
     () => validateAzureSsml(buildSsml(document), validationOptions) as SsmlDiagnostic[],
     [document, validationOptions],
@@ -745,7 +772,8 @@ export function VisualSsmlEditor({
               document,
               element: selectedElement,
               path: selectedPath ?? [],
-              readOnly: readOnly || !isVisualTagSupported(elementLabel(selectedElement), activeVoice),
+              readOnly:
+                readOnly || !isVisualTagSupported(elementLabel(selectedElement), activeVoice, voiceModel ?? model),
               onChange: commit,
               locale,
             })
@@ -755,7 +783,7 @@ export function VisualSsmlEditor({
               <p>{SSML_ELEMENT_COPY[locale][elementLabel(selectedElement)]?.description}</p>
               <button
                 type="button"
-                disabled={readOnly || !isVisualTagSupported("mstts:dialog", activeVoice)}
+                disabled={readOnly || !isVisualTagSupported("mstts:dialog", activeVoice, voiceModel ?? model)}
                 onClick={() => commit(addDialogTurn(document, selectedPath ?? []))}
               >
                 {locale === "ja" ? "ターンを追加" : "Add turn"}
@@ -878,6 +906,7 @@ export function VisualSsmlEditor({
               voiceStyle={voiceStyle}
               diagnostics={diagnostics}
               voiceDefinition={activeVoice}
+              model={voiceModel ?? model}
             />
           ) : selectedLeaf ? (
             <>
@@ -896,35 +925,35 @@ export function VisualSsmlEditor({
                 <legend>Apply SSML formatting</legend>
                 <button
                   type="button"
-                  disabled={readOnly || !isVisualTagSupported("prosody", activeVoice)}
+                  disabled={readOnly || !isVisualTagSupported("prosody", activeVoice, voiceModel ?? model)}
                   onClick={() => applyWrapper("prosody", { rate: "slow" })}
                 >
                   Rate
                 </button>
                 <button
                   type="button"
-                  disabled={readOnly || !isVisualTagSupported("prosody", activeVoice)}
+                  disabled={readOnly || !isVisualTagSupported("prosody", activeVoice, voiceModel ?? model)}
                   onClick={() => applyWrapper("prosody", { pitch: "high" })}
                 >
                   Pitch
                 </button>
                 <button
                   type="button"
-                  disabled={readOnly || !isVisualTagSupported("mstts:express-as", activeVoice)}
+                  disabled={readOnly || !isVisualTagSupported("mstts:express-as", activeVoice, voiceModel ?? model)}
                   onClick={() => applyWrapper("mstts:express-as", { style: "cheerful" })}
                 >
                   Emotion
                 </button>
                 <button
                   type="button"
-                  disabled={readOnly || !isVisualTagSupported("break", activeVoice)}
+                  disabled={readOnly || !isVisualTagSupported("break", activeVoice, voiceModel ?? model)}
                   onClick={() => applyWrapper("break", { time: "500ms" })}
                 >
                   Pause
                 </button>
                 <button
                   type="button"
-                  disabled={readOnly || !isVisualTagSupported("phoneme", activeVoice)}
+                  disabled={readOnly || !isVisualTagSupported("phoneme", activeVoice, voiceModel ?? model)}
                   onClick={() => applyWrapper("phoneme", { alphabet: "ipa", ph: selectedLeaf.value })}
                 >
                   Pronunciation

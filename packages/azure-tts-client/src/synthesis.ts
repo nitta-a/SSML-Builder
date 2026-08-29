@@ -24,6 +24,8 @@ import type {
   PostMergeValidator,
   ChunkExecutionState,
 } from "./types.ts";
+import { DeadlineController } from "./deadline.ts";
+import { IncompleteChunkSetError, serializeChunkError } from "./errors.ts";
 
 export type MergeAudioFormat = "wav" | "mp3" | "raw";
 
@@ -40,18 +42,38 @@ export type InputAudioSpecs = AudioSpecification[];
  * The complete SSML is included so changes to voice, language, prosody, or text
  * invalidate a cached result even when those settings are nested in the markup.
  */
-export function computeChunkFingerprint(ssml: string, outputFormat = DEFAULT_OUTPUT_FORMAT): string {
+export interface ChunkFingerprintOptions {
+  outputFormat?: string;
+  region?: string;
+  endpoint?: string;
+  voice?: string;
+  lang?: string;
+  schemaVersion?: string;
+  fingerprintSchemaVersion?: string;
+  customHeaders?: Readonly<Record<string, string>>;
+}
+
+export function computeChunkFingerprint(
+  ssml: string,
+  outputFormat = DEFAULT_OUTPUT_FORMAT,
+  options: Omit<ChunkFingerprintOptions, "outputFormat"> = {},
+): string {
   const readAttribute = (name: string): string => {
     const pattern = new RegExp(`(?:${name})\\s*=\\s*[\\"']([^\\"']*)`, "gi");
     return [...ssml.matchAll(pattern)].map((match) => match[1] ?? "").join("|");
   };
+  const headers = Object.fromEntries(
+    Object.entries(options.customHeaders ?? {}).sort(([first], [second]) => first.localeCompare(second)),
+  );
   const payload = JSON.stringify({
     ssml,
     outputFormat,
-    voice: readAttribute("(?:name|voice)"),
-    language: readAttribute("(?:xml:lang|lang)"),
-    rate: readAttribute("rate"),
-    pitch: readAttribute("pitch"),
+    region: options.region ?? "",
+    endpoint: options.endpoint ?? "",
+    voice: options.voice ?? readAttribute("(?:name|voice)"),
+    lang: options.lang ?? readAttribute("(?:xml:lang|lang)"),
+    customHeaders: headers,
+    fingerprintSchemaVersion: options.fingerprintSchemaVersion ?? options.schemaVersion ?? "2",
   });
   let hash = 0xcbf29ce484222325n;
   const mask = 0xffffffffffffffffn;
@@ -65,6 +87,7 @@ export function computeChunkFingerprint(ssml: string, outputFormat = DEFAULT_OUT
 export interface MergeSynthesisOptions extends MergeAudioOptions {
   customMerger?: CustomAudioMerger;
   postMergeValidator?: PostMergeValidator;
+  deadline?: DeadlineController;
 }
 
 type AsyncMergeSynthesisOptions = MergeSynthesisOptions & {
@@ -223,6 +246,143 @@ function parseMp3Specification(buffer: ArrayBuffer, format: string): AudioSpecif
   return undefined;
 }
 
+function readEbmlVint(bytes: Uint8Array, offset: number, preserveMarker: boolean): { value: number; length: number } {
+  const first = bytes[offset];
+  if (first === undefined) throw new Error("Invalid EBML variable-length integer.");
+  let mask = 0x80;
+  let length = 1;
+  while (length <= 8 && (first & mask) === 0) {
+    mask >>= 1;
+    length += 1;
+  }
+  if (length > 8 || offset + length > bytes.byteLength) throw new Error("Truncated EBML variable-length integer.");
+  let value = preserveMarker ? first : first & (mask - 1);
+  for (let index = 1; index < length; index += 1) value = value * 256 + (bytes[offset + index] ?? 0);
+  if (!preserveMarker && value === 2 ** (7 * length) - 1)
+    throw new Error("EBML unknown-size elements are not supported.");
+  return { value, length };
+}
+
+interface EbmlElement {
+  id: number;
+  dataStart: number;
+  dataEnd: number;
+}
+
+function readEbmlElement(bytes: Uint8Array, offset: number): EbmlElement {
+  const id = readEbmlVint(bytes, offset, true);
+  const size = readEbmlVint(bytes, offset + id.length, false);
+  const dataStart = offset + id.length + size.length;
+  const dataEnd = dataStart + size.value;
+  if (dataEnd > bytes.byteLength) throw new Error("EBML element exceeds the audio buffer.");
+  return { id: id.value, dataStart, dataEnd };
+}
+
+function ebmlText(bytes: Uint8Array, element: EbmlElement): string {
+  return new TextDecoder().decode(bytes.slice(element.dataStart, element.dataEnd));
+}
+
+function findEbmlElement(bytes: Uint8Array, start: number, end: number, id: number): EbmlElement | undefined {
+  let offset = start;
+  while (offset < end) {
+    const element = readEbmlElement(bytes, offset);
+    if (element.id === id) return element;
+    offset = element.dataEnd;
+  }
+  if (offset !== end) throw new Error("Invalid EBML element boundary.");
+  return undefined;
+}
+
+function parseOggSpecification(buffer: ArrayBuffer, format: string): AudioSpecification {
+  const bytes = new Uint8Array(buffer);
+  let offset = 0;
+  let firstPayload: Uint8Array | undefined;
+  let pages = 0;
+  while (offset < bytes.byteLength) {
+    if (offset + 27 > bytes.byteLength || !ascii(bytes, offset, "OggS")) throw new Error("Invalid Ogg page header.");
+    if (bytes[offset + 4] !== 0) throw new Error("Unsupported Ogg bitstream version.");
+    const segmentCount = bytes[offset + 26] ?? 0;
+    const lacingStart = offset + 27;
+    const payloadStart = lacingStart + segmentCount;
+    if (payloadStart > bytes.byteLength) throw new Error("Truncated Ogg segment table.");
+    const payloadLength = bytes.slice(lacingStart, payloadStart).reduce((total, value) => total + value, 0);
+    const pageEnd = payloadStart + payloadLength;
+    if (pageEnd > bytes.byteLength) throw new Error("Ogg page payload exceeds the audio buffer.");
+    if (pages === 0) firstPayload = bytes.slice(payloadStart, pageEnd);
+    offset = pageEnd;
+    pages += 1;
+  }
+  if (pages === 0 || !firstPayload || !ascii(firstPayload, 0, "OpusHead") || firstPayload.byteLength < 19)
+    throw new Error("Ogg audio must contain a valid OpusHead packet.");
+  const version = firstPayload[8];
+  const channels = firstPayload[9] ?? 0;
+  const sampleRate = new DataView(firstPayload.buffer, firstPayload.byteOffset, firstPayload.byteLength).getUint32(
+    12,
+    true,
+  );
+  if (version !== 1 || channels <= 0 || sampleRate <= 0) throw new Error("Invalid Ogg OpusHead stream parameters.");
+  return {
+    format,
+    mimeType: "audio/ogg",
+    codec: "opus",
+    sampleRate,
+    channels,
+    container: "ogg",
+    isVbr: true,
+    isCompressed: true,
+  };
+}
+
+function parseWebmSpecification(buffer: ArrayBuffer, format: string): AudioSpecification {
+  const bytes = new Uint8Array(buffer);
+  const ebml = readEbmlElement(bytes, 0);
+  if (ebml.id !== 0x1a45dfa3) throw new Error("WebM audio must begin with an EBML header.");
+  const docType = findEbmlElement(bytes, ebml.dataStart, ebml.dataEnd, 0x4282);
+  if (!docType || ebmlText(bytes, docType).toLowerCase() !== "webm") throw new Error("EBML DocType must be webm.");
+  const segment = readEbmlElement(bytes, ebml.dataEnd);
+  if (segment.id !== 0x18538067) throw new Error("WebM audio must contain a Segment element.");
+  const tracks = findEbmlElement(bytes, segment.dataStart, segment.dataEnd, 0x1654ae6b);
+  if (!tracks) throw new Error("WebM audio must contain a Tracks element.");
+  let offset = tracks.dataStart;
+  let opusTrack: EbmlElement | undefined;
+  while (offset < tracks.dataEnd) {
+    const track = readEbmlElement(bytes, offset);
+    if (track.id === 0xae) {
+      const codec = findEbmlElement(bytes, track.dataStart, track.dataEnd, 0x86);
+      const trackType = findEbmlElement(bytes, track.dataStart, track.dataEnd, 0x83);
+      if (codec && ebmlText(bytes, codec) === "A_OPUS" && trackType && bytes[trackType.dataStart] === 2) {
+        opusTrack = track;
+        break;
+      }
+    }
+    offset = track.dataEnd;
+  }
+  if (!opusTrack) throw new Error("WebM tracks do not define an Opus audio track.");
+  const audio = findEbmlElement(bytes, opusTrack.dataStart, opusTrack.dataEnd, 0xe1);
+  const sampling = audio ? findEbmlElement(bytes, audio.dataStart, audio.dataEnd, 0xb5) : undefined;
+  const channels = audio ? findEbmlElement(bytes, audio.dataStart, audio.dataEnd, 0x9f) : undefined;
+  const sampleRate = sampling
+    ? new DataView(
+        bytes.buffer,
+        bytes.byteOffset + sampling.dataStart,
+        sampling.dataEnd - sampling.dataStart,
+      ).getFloat64(0, false)
+    : 0;
+  const channelCount = channels ? (bytes[channels.dataEnd - 1] ?? 0) : 0;
+  if (!Number.isFinite(sampleRate) || sampleRate <= 0 || channelCount <= 0)
+    throw new Error("WebM Opus audio track has invalid sampling or channel parameters.");
+  return {
+    format,
+    mimeType: "audio/webm",
+    codec: "opus",
+    sampleRate: Math.round(sampleRate),
+    channels: channelCount,
+    container: "webm",
+    isVbr: true,
+    isCompressed: true,
+  };
+}
+
 /** Extracts the stream specification from a WAV/MP3 header and output-format fallback. */
 export function inspectAudioSpecification(buffer: ArrayBuffer, format: string): AudioSpecification {
   if (isWavFormat(format) || ascii(new Uint8Array(buffer), 0, "RIFF")) {
@@ -257,7 +417,20 @@ export function inspectAudioSpecification(buffer: ArrayBuffer, format: string): 
       isCompressed: codec !== "pcm" && codec !== "unknown",
     };
   }
-  if (isMp3Format(format)) return parseMp3Specification(buffer, format) ?? formatAudioSpecification(format);
+  if (isMp3Format(format)) {
+    const specification = parseMp3Specification(buffer, format);
+    return specification ?? formatAudioSpecification(format);
+  }
+  if (isOggFormat(format) || ascii(new Uint8Array(buffer), 0, "OggS")) {
+    const specification = parseOggSpecification(buffer, format);
+    validateContainerFormat(specification, format);
+    return specification;
+  }
+  if (isWebmFormat(format) || new Uint8Array(buffer)[0] === 0x1a) {
+    const specification = parseWebmSpecification(buffer, format);
+    validateContainerFormat(specification, format);
+    return specification;
+  }
   const specification = formatAudioSpecification(format);
   if (specification.container === "raw") validateRawAudioBuffer(buffer, specification);
   return specification;
@@ -267,12 +440,43 @@ function validateRawAudioBuffer(buffer: ArrayBuffer, specification: AudioSpecifi
   if (specification.sampleRate <= 0 || specification.channels <= 0 || specification.bitDepth === undefined) {
     throw new Error(`RAW audio format "${specification.format}" does not define a complete audio specification.`);
   }
-  if (specification.codec === "siren" || specification.codec === "silk") return;
+  if (specification.codec === "siren") return;
+  if (specification.codec === "silk") {
+    if (buffer.byteLength <= 9 || !ascii(new Uint8Array(buffer), 0, "#!SILK_V3"))
+      throw new Error("RAW SILK audio must contain a valid #!SILK_V3 payload header.");
+    return;
+  }
+  if (specification.codec === "opus" && buffer.byteLength === 0) throw new Error("RAW Opus audio cannot be empty.");
+  if (specification.codec === "opus") {
+    const packetCode = new Uint8Array(buffer)[0] ?? 0;
+    const frameCountCode = packetCode & 0x03;
+    if (
+      packetCode >> 3 > 31 ||
+      buffer.byteLength < (frameCountCode === 3 ? 2 : 2) ||
+      (frameCountCode === 3 && ((new Uint8Array(buffer)[1] ?? 0) & 0x3f) === 0)
+    )
+      throw new Error("RAW Opus audio has an invalid packet framing header.");
+    return;
+  }
   const bytesPerFrame = specification.channels * Math.ceil(specification.bitDepth / 8);
   if (bytesPerFrame <= 0 || buffer.byteLength % bytesPerFrame !== 0) {
     throw new Error(
       `RAW audio buffer size ${buffer.byteLength} is not aligned to ${bytesPerFrame}-byte audio frames for "${specification.format}".`,
     );
+  }
+}
+
+function validateContainerFormat(specification: AudioSpecification, format: string): void {
+  const expected = formatAudioSpecification(format);
+  if (
+    (expected.sampleRate > 0 && specification.sampleRate !== expected.sampleRate) ||
+    (expected.channels > 0 && specification.channels !== expected.channels) ||
+    (expected.codec !== "unknown" && specification.codec !== expected.codec)
+  ) {
+    throw new AudioFormatMismatchError(`Audio container does not match the requested format "${format}".`, [
+      expected,
+      specification,
+    ]);
   }
 }
 
@@ -378,6 +582,14 @@ function isMp3Format(format: string): boolean {
   return /(?:mp3|mpeg)/i.test(format);
 }
 
+function isOggFormat(format: string): boolean {
+  return /ogg/i.test(format);
+}
+
+function isWebmFormat(format: string): boolean {
+  return /webm/i.test(format);
+}
+
 function isWavFormat(format: string): boolean {
   return /(?:wav|wave|riff)/i.test(format);
 }
@@ -392,11 +604,18 @@ function validateMergedAudioBuffer(
   buffers: readonly ArrayBuffer[],
   inputSpecs: readonly AudioSpecification[],
   outputMimeType: string,
+  allowExternalContainer: boolean,
 ): AudioSpecification {
   if (!(merged instanceof ArrayBuffer) || merged.byteLength === 0) {
     throw new MergeError("The custom audio merger returned an empty or invalid audio buffer.");
   }
-  const specification = inspectAudioSpecification(merged, format);
+  let specification: AudioSpecification;
+  try {
+    specification = inspectAudioSpecification(merged, format);
+  } catch (error) {
+    if (!allowExternalContainer) throw error;
+    specification = inputSpecs[0] ?? formatAudioSpecification(format);
+  }
   if (!outputMimeType.trim()) throw new MergeError("The custom audio merger output MIME type cannot be empty.");
   const firstInput = inputSpecs[0];
   if (
@@ -423,6 +642,26 @@ function validateMergedAudioBuffer(
   return specification;
 }
 
+async function withinDeadline<T>(value: Promise<T> | T, deadline: DeadlineController | undefined): Promise<T> {
+  if (!deadline) return value;
+  deadline.throwIfExpired();
+  if (!Number.isFinite(deadline.remainingMs)) return value;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(value),
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new SynthesisTimeoutError("Speech synthesis exceeded the total job deadline.")),
+          deadline.remainingMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /** Returns whether the named output format can be safely concatenated without re-multiplexing. */
 export function resolveMergeAudioFormat(format: string): MergeAudioFormat | undefined {
   if (isWavFormat(format)) return "wav";
@@ -440,6 +679,7 @@ export function mergeAudioBuffers(buffers: readonly ArrayBuffer[], options: Merg
 export function mergeAudioBuffers(buffers: readonly ArrayBuffer[], options: MergeAudioOptions | string): ArrayBuffer {
   const format = typeof options === "string" ? options : options?.format;
   if (!format) throw new UnsupportedMergeFormatError("");
+  if (!canMergeAudioFormat(format)) throw new UnsupportedMergeFormatError(format);
   try {
     validateAudioSpecifications(buffers.map((buffer) => inspectAudioSpecification(buffer, format)));
     if (isWavFormat(format)) return mergeWavBuffers(buffers);
@@ -809,10 +1049,25 @@ async function synthesizeWithRetry(
 
 /** Synthesizes one SSML document, optionally retrying transient failures within the job deadline. */
 export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<SsmlSynthesisResult> {
-  const totalJobMs = config.timeouts?.totalJobMs;
-  const deadlineAtMs = totalJobMs !== undefined && totalJobMs > 0 ? Date.now() + totalJobMs : undefined;
-  if (!config.retryOptions) return synthesizeSsmlOnce(ssml, config);
-  return synthesizeWithRetry(ssml, config, config.retryOptions, () => undefined, deadlineAtMs);
+  const deadline = new DeadlineController(config.timeouts?.totalJobMs, config.signal);
+  try {
+    deadline.throwIfExpired();
+    const synthesisConfig: TtsConfig = {
+      ...config,
+      signal: deadline.signal,
+      timeouts: config.timeouts ? { ...config.timeouts, totalJobMs: undefined } : undefined,
+    };
+    const result = config.retryOptions
+      ? await synthesizeWithRetry(ssml, synthesisConfig, config.retryOptions, () => undefined, deadline.deadlineAtMs)
+      : await synthesizeSsmlOnce(ssml, synthesisConfig);
+    deadline.throwIfExpired();
+    return result;
+  } catch (error) {
+    if (deadline.timedOut) throw new SynthesisTimeoutError("Speech synthesis exceeded the total job deadline.");
+    throw error;
+  } finally {
+    deadline.dispose();
+  }
 }
 
 interface AbortScope {
@@ -873,7 +1128,12 @@ export async function synthesizeSsmlChunks(
   const totalChunks = chunks.length;
   const inputs = chunks.map((chunk) => (typeof chunk === "string" ? { ssml: chunk } : chunk));
   const fingerprints = inputs.map((chunk) =>
-    computeChunkFingerprint(chunk.ssml, config.outputFormat ?? DEFAULT_OUTPUT_FORMAT),
+    computeChunkFingerprint(chunk.ssml, config.outputFormat ?? DEFAULT_OUTPUT_FORMAT, {
+      region: config.region,
+      endpoint: config.endpoint,
+      customHeaders: config.customHeaders,
+      fingerprintSchemaVersion: config.fingerprintSchemaVersion,
+    }),
   );
   const results: Array<SsmlSynthesisResult | undefined> = new Array(totalChunks);
   const cachedChunks = new Map((config.resumeChunks ?? []).map((chunk) => [chunk.chunkIndex, chunk]));
@@ -904,6 +1164,7 @@ export async function synthesizeSsmlChunks(
     config.timeouts?.totalJobMs !== undefined && config.timeouts.totalJobMs > 0
       ? jobStartedAt + config.timeouts.totalJobMs
       : undefined;
+  const deadline = new DeadlineController(config.timeouts?.totalJobMs, config.signal);
   const scope = createAbortScope(config.signal, config.timeouts?.totalJobMs);
   const report = (event: SynthesisProgressEvent): void => config.onProgress?.(event);
   for (const [index, input] of inputs.entries()) {
@@ -944,7 +1205,7 @@ export async function synthesizeSsmlChunks(
           input.ssml,
           {
             ...config,
-            signal: scope.signal,
+            signal: deadline.signal,
             ...(input.originalTextRange ? { sourceTextRange: input.originalTextRange } : {}),
             ...((input.sourceNodePath ?? config.sourceNodePath)
               ? { sourceNodePath: [...(input.sourceNodePath ?? config.sourceNodePath ?? [])] }
@@ -994,7 +1255,7 @@ export async function synthesizeSsmlChunks(
           status: wasCancelled ? "cancelled" : "failed",
           isOriginalFailure: !wasCancelled,
           canResume: true,
-          error: error as ChunkExecutionState["error"],
+          error: serializeChunkError(error, "synthesis", !wasCancelled),
         };
         report({
           currentChunk: completed,
@@ -1014,13 +1275,18 @@ export async function synthesizeSsmlChunks(
   try {
     await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, () => worker()));
     if (firstError) throw firstError;
+    const missingChunkIndices = Array.from({ length: totalChunks }, (_value, index) =>
+      results[index] === undefined ? index : undefined,
+    ).filter((index): index is number => index !== undefined);
+    if (missingChunkIndices.length > 0) throw new IncompleteChunkSetError(totalChunks, missingChunkIndices);
     const orderedResults = results.filter((result): result is SsmlSynthesisResult => result !== undefined);
     return await mergeSynthesisResults(orderedResults, {
       format: (config.outputFormat ?? DEFAULT_OUTPUT_FORMAT) as AzureTtsOutputFormat,
-      signal: scope.signal,
+      signal: deadline.signal,
       customMerger: config.customMerger,
       outputMimeType: config.outputMimeType,
       postMergeValidator: config.postMergeValidator,
+      deadline,
     });
   } catch (error) {
     if (firstError && config.cancelOnFailure !== false) {
@@ -1052,6 +1318,7 @@ export async function synthesizeSsmlChunks(
     throw error;
   } finally {
     scope.dispose();
+    deadline.dispose();
   }
 }
 
@@ -1159,21 +1426,34 @@ export function mergeSynthesisResults(
   const format = resolvedOptions?.format;
   if (!format) throw new UnsupportedMergeFormatError("");
   const buffers = results.map((result) => result.audioData);
-  const inputSpecs = results.map((result) => result.audioSpec ?? inspectAudioSpecification(result.audioData, format));
+  const inputSpecs = results.map((result) => {
+    if (result.audioSpec) return result.audioSpec;
+    try {
+      return inspectAudioSpecification(result.audioData, format);
+    } catch (error) {
+      if (resolvedOptions.customMerger) return formatAudioSpecification(format);
+      throw error;
+    }
+  });
   validateAudioSpecifications(inputSpecs);
-  const signal = resolvedOptions.signal ?? new AbortController().signal;
+  const deadline = resolvedOptions.deadline;
+  deadline?.throwIfExpired();
+  const signal = resolvedOptions.signal ?? deadline?.signal ?? new AbortController().signal;
   if (signal.aborted) throw new SynthesisCancelledError();
   if (resolvedOptions.customMerger) {
-    return Promise.resolve()
-      .then(() =>
+    return withinDeadline(
+      Promise.resolve().then(() =>
         resolvedOptions.customMerger?.(buffers, {
           format,
           outputMimeType: resolvedOptions.outputMimeType ?? resolveMimeType(format),
           inputSpecs,
           signal,
         }),
-      )
+      ),
+      deadline,
+    )
       .then((merged) => {
+        deadline?.throwIfExpired();
         if (!merged) throw new MergeError("The custom audio merger returned no audio buffer.");
         if (signal.aborted) throw new SynthesisCancelledError();
         const mergedSpec = validateMergedAudioBuffer(
@@ -1182,6 +1462,7 @@ export function mergeSynthesisResults(
           buffers,
           inputSpecs,
           resolvedOptions.outputMimeType ?? resolveMimeType(format),
+          true,
         );
         const result = createMergedResult(results, merged, format, mergedSpec, resolvedOptions.outputMimeType);
         return Promise.resolve(
@@ -1192,6 +1473,7 @@ export function mergeSynthesisResults(
             signal,
           }),
         ).then((valid) => {
+          deadline?.throwIfExpired();
           if (valid === false) throw new MergeError("The post-merge validator rejected the merged audio.");
           return result;
         });
@@ -1203,6 +1485,7 @@ export function mergeSynthesisResults(
       });
   }
   try {
+    deadline?.throwIfExpired();
     const result = createMergedResult(
       results,
       mergeAudioBuffers(buffers, { format }),
@@ -1218,12 +1501,14 @@ export function mergeSynthesisResults(
         signal,
       });
       if (validation instanceof Promise)
-        return validation.then((valid) => {
+        return withinDeadline(validation, deadline).then((valid) => {
+          deadline?.throwIfExpired();
           if (valid === false) throw new MergeError("The post-merge validator rejected the merged audio.");
           return result;
         });
       if (validation === false) throw new MergeError("The post-merge validator rejected the merged audio.");
     }
+    deadline?.throwIfExpired();
     return result;
   } catch (error) {
     if (error instanceof UnsupportedMergeFormatError || isAudioFormatMismatch(error) || error instanceof MergeError)

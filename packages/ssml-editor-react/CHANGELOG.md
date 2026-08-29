@@ -1,5 +1,12 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.19.0
+
+### Patch Changes
+
+- Add strict resume fingerprints and complete-chunk guards, serializable execution errors, absolute job deadlines, Ogg/WebM/SILK/Opus validation, and transparent Safe API defaults. The visual editor now normalizes SSML tag aliases and surfaces neural-HD tag restrictions.
+  - @ssml-builder-js/ssml-core@2.19.0
+
 ## 2.18.0
 
 ### Patch Changes
