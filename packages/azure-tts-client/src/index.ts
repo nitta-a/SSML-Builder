@@ -21,6 +21,9 @@ export type {
   SynthesizedChunk,
   PartialChunkSynthesisResult,
   PartialSynthesisResult,
+  ChunkExecutionState,
+  ChunkExecutionStatus,
+  ResumeValidationMode,
   CustomMergerContext,
   CustomAudioMerger,
   PostMergeValidator,
@@ -47,6 +50,7 @@ export {
   inspectAudioSpecification,
   resolveMergeAudioFormat,
   synthesizeSsmlChunks,
+  computeChunkFingerprint,
 } from "./synthesis.ts";
 export type {
   InputAudioSpecs,

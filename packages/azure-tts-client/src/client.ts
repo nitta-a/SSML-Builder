@@ -23,7 +23,16 @@ export class AzureTtsClient {
     const endpoint = this.#options.endpoint?.trim() || ENDPOINT_TEMPLATE.replace("{region}", region);
     this.#options.logger?.debug?.("Using Azure TTS endpoint:", endpoint);
 
-    const config = { endpoint, region, subscriptionKey, outputFormat, signal, timeoutMs, timeouts };
+    const config = {
+      endpoint,
+      region,
+      subscriptionKey,
+      outputFormat,
+      signal,
+      timeoutMs,
+      timeouts,
+      retryOptions: this.#options.retryOptions,
+    };
     return synthesizeSpeech(ssml, config);
   }
 
@@ -43,6 +52,12 @@ export class AzureTtsClient {
       sourceNodePath: options.sourceNodePath,
       sourceTextSegments: options.sourceTextSegments,
       sourceMarkers: options.sourceMarkers,
+      retryOptions: options.retryOptions ?? this.#options.retryOptions,
+      cancelOnFailure: options.cancelOnFailure ?? this.#options.cancelOnFailure,
+      customMerger: options.customMerger ?? this.#options.customMerger,
+      outputMimeType: options.outputMimeType ?? this.#options.outputMimeType,
+      postMergeValidator: options.postMergeValidator ?? this.#options.postMergeValidator,
+      resumeValidation: options.resumeValidation ?? this.#options.resumeValidation,
     });
   }
 
@@ -64,12 +79,13 @@ export class AzureTtsClient {
       onProgress: options.onProgress ?? this.#options.onProgress,
       concurrency: options.concurrency ?? this.#options.concurrency,
       retryOptions: options.retryOptions ?? this.#options.retryOptions,
-      cancelOnFailure: options.cancelOnFailure,
+      cancelOnFailure: options.cancelOnFailure ?? this.#options.cancelOnFailure,
       resumeChunks: options.resumeChunks,
       resumeChunkIndices: options.resumeChunkIndices,
-      customMerger: options.customMerger,
-      outputMimeType: options.outputMimeType,
-      postMergeValidator: options.postMergeValidator,
+      customMerger: options.customMerger ?? this.#options.customMerger,
+      outputMimeType: options.outputMimeType ?? this.#options.outputMimeType,
+      postMergeValidator: options.postMergeValidator ?? this.#options.postMergeValidator,
+      resumeValidation: options.resumeValidation ?? this.#options.resumeValidation,
     });
   }
 

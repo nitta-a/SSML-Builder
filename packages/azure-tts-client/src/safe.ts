@@ -13,7 +13,7 @@ import {
   getRetryAfterDelayMs,
 } from "./errors.ts";
 import type { AzureTtsClient } from "./client.ts";
-import { mergeSynthesisResults } from "./synthesis.ts";
+import { computeChunkFingerprint, mergeSynthesisResults } from "./synthesis.ts";
 import type {
   SsmlSynthesisChunk,
   SsmlSynthesisResult,
@@ -25,6 +25,8 @@ import type {
   PartialChunkSynthesisResult,
   CustomAudioMerger,
   PostMergeValidator,
+  ChunkExecutionState,
+  ResumeValidationMode,
 } from "./types.ts";
 import type { AzureTtsOutputFormat } from "./outputFormats.ts";
 
@@ -140,6 +142,7 @@ export interface SynthesizeSsmlChunksSafeOptions extends AzureValidationOptions 
   customMerger?: CustomAudioMerger;
   outputMimeType?: string;
   postMergeValidator?: PostMergeValidator;
+  resumeValidation?: ResumeValidationMode;
 }
 
 export type SsmlSynthesisChunksSafeResult =
@@ -225,6 +228,7 @@ async function retryableSynthesis(
   options: RetryOptions | undefined,
   signal: AbortSignal | undefined,
   onRetry: (attempt: number, delayMs: number) => void,
+  deadlineAtMs?: number,
 ): Promise<SsmlSynthesisResult> {
   const retry = options
     ? {
@@ -244,6 +248,14 @@ async function retryableSynthesis(
         throw error;
       attempt += 1;
       const delayMs = retryDelayForError(retry, attempt, error);
+      const retryAfterMs = getRetryAfterDelayMs(error);
+      const remainingMs = deadlineAtMs === undefined ? undefined : Math.max(0, deadlineAtMs - Date.now());
+      if (
+        retryAfterMs !== undefined &&
+        (retryAfterMs > retry.maxDelayMs || (remainingMs !== undefined && retryAfterMs > remainingMs))
+      ) {
+        throw new Error("Speech synthesis timed out because Retry-After exceeded the available retry budget.");
+      }
       onRetry(attempt, delayMs);
       if (delayMs > 0)
         await new Promise<void>((resolve, reject) => {
@@ -306,20 +318,27 @@ export async function synthesizeSsmlSafe(
     });
   }
 
+  const jobScope =
+    options.timeouts?.totalJobMs !== undefined
+      ? createSafeAbortScope(options.signal, options.timeouts.totalJobMs)
+      : undefined;
   try {
     return {
       ok: true,
       success: true,
       status: "success",
       value: await client.synthesizeSsml(ssml, {
-        signal: options.signal,
+        signal: jobScope?.signal ?? options.signal,
         timeoutMs: options.timeouts?.perChunkMs,
         timeouts: options.timeouts,
       }),
     };
   } catch (error) {
+    if (jobScope?.timedOut()) return failure(toSynthesisError(new Error("Speech synthesis timed out.")));
     const synthesisError = toSynthesisError(error);
     return failure(synthesisError);
+  } finally {
+    jobScope?.dispose();
   }
 }
 
@@ -403,19 +422,38 @@ export async function synthesizeSsmlChunksSafe(
         customMerger: options.customMerger,
         outputMimeType: options.outputMimeType,
         postMergeValidator: options.postMergeValidator,
+        resumeValidation: options.resumeValidation,
       });
       return { ok: true, success: true, status: "success", value };
     }
+    const inputs = chunks.map((chunk) => (typeof chunk === "string" ? { ssml: chunk } : chunk));
+    const fingerprints = inputs.map((chunk) => computeChunkFingerprint(chunk.ssml, options.outputFormat));
     const results: Array<SsmlSynthesisResult | undefined> = new Array(chunks.length);
+    const chunkStates: ChunkExecutionState[] = inputs.map((_chunk, chunkIndex) => ({
+      chunkIndex,
+      status: "pending",
+      canResume: true,
+    }));
     const cachedChunks = new Map((options.resumeChunks ?? []).map((chunk) => [chunk.chunkIndex, chunk]));
+    const invalidCachedIndices = new Set<number>();
     for (const [index, cached] of cachedChunks) {
-      if (index >= 0 && index < chunks.length) results[index] = cached;
+      if (index < 0 || index >= chunks.length) continue;
+      if (options.resumeValidation === "disabled" || cached.fingerprint === fingerprints[index]) {
+        results[index] = cached;
+        chunkStates[index] = { chunkIndex: index, status: "succeeded", canResume: true, result: cached };
+      } else invalidCachedIndices.add(index);
     }
     const requestedIndices = options.resumeChunkIndices
       ? new Set(options.resumeChunkIndices.filter((index) => index >= 0 && index < chunks.length))
       : undefined;
     const shouldSynthesize = (index: number): boolean =>
-      !cachedChunks.has(index) && (requestedIndices === undefined || requestedIndices.has(index));
+      (!cachedChunks.has(index) || invalidCachedIndices.has(index)) &&
+      (requestedIndices === undefined || requestedIndices.has(index) || invalidCachedIndices.has(index));
+    const jobStartedAt = Date.now();
+    const jobDeadlineAt =
+      options.timeouts?.totalJobMs !== undefined && options.timeouts.totalJobMs > 0
+        ? jobStartedAt + options.timeouts.totalJobMs
+        : undefined;
     const jobScope =
       chunks.length > 1 || options.timeouts?.totalJobMs !== undefined
         ? createSafeAbortScope(options.signal, options.timeouts?.totalJobMs)
@@ -431,7 +469,10 @@ export async function synthesizeSsmlChunksSafe(
         const index = nextIndex++;
         if (index >= chunks.length) return;
         if (!shouldSynthesize(index)) continue;
-        if (failedIndices.size > 0 && options.cancelOnFailure !== false) return;
+        if (firstError && options.cancelOnFailure !== false) {
+          chunkStates[index] = { chunkIndex: index, status: "cancelled", isOriginalFailure: false, canResume: true };
+          return;
+        }
         const chunk = chunks[index];
         const input = typeof chunk === "string" ? { ssml: chunk } : chunk;
         const sourceNodePath = input.sourceNodePath;
@@ -470,6 +511,7 @@ export async function synthesizeSsmlChunksSafe(
                   nextRetryDelayMs,
                   isRetrying: true,
                 }),
+              jobDeadlineAt,
             );
           } catch (error) {
             if (chunkScope?.timedOut())
@@ -547,6 +589,7 @@ export async function synthesizeSsmlChunksSafe(
                 }
               : {}),
           };
+          chunkStates[index] = { chunkIndex: index, status: "succeeded", canResume: true, result: results[index] };
           completed += 1;
           options.onProgress?.({
             currentChunk: completed,
@@ -558,7 +601,16 @@ export async function synthesizeSsmlChunksSafe(
             durationMs: Date.now() - startedAt,
           });
         } catch (error) {
-          failedIndices.add(index);
+          const wasCancelled = firstError !== undefined || Boolean(jobScope?.signal.aborted && !jobScope?.timedOut());
+          firstError ??= error;
+          if (!wasCancelled) failedIndices.add(index);
+          chunkStates[index] = {
+            chunkIndex: index,
+            status: wasCancelled ? "cancelled" : "failed",
+            isOriginalFailure: !wasCancelled,
+            canResume: true,
+            error: error as ChunkExecutionState["error"],
+          };
           options.onProgress?.({
             currentChunk: completed,
             totalChunks: chunks.length,
@@ -570,19 +622,36 @@ export async function synthesizeSsmlChunksSafe(
             error,
           });
           if (options.cancelOnFailure !== false) jobScope?.abort();
-          firstError ??= error;
           return;
         }
       }
     };
     await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, () => worker()));
+    if (firstError && options.cancelOnFailure !== false) {
+      for (const [chunkIndex, state] of chunkStates.entries()) {
+        if (state.status === "pending" && shouldSynthesize(chunkIndex)) {
+          chunkStates[chunkIndex] = { chunkIndex, status: "cancelled", isOriginalFailure: false, canResume: true };
+        }
+      }
+    }
     if (failedIndices.size > 0) {
       const error = firstError ?? new Error("One or more SSML chunks failed to synthesize.");
+      const synthesizedChunks = results.flatMap((result, chunkIndex) =>
+        result ? [{ ...result, chunkIndex, fingerprint: fingerprints[chunkIndex] ?? "" }] : [],
+      );
       (error as { partialResult?: PartialChunkSynthesisResult }).partialResult = {
-        synthesizedChunks: results.flatMap((result, chunkIndex) => (result ? [{ ...result, chunkIndex }] : [])),
-        completedChunks: results.flatMap((result, chunkIndex) => (result ? [{ ...result, chunkIndex }] : [])),
-        pendingChunkIndices: chunks.flatMap((_chunk, chunkIndex) => (results[chunkIndex] ? [] : [chunkIndex])),
+        synthesizedChunks,
+        completedChunks: synthesizedChunks,
+        pendingChunkIndices: chunkStates.flatMap((state) =>
+          state.status === "pending" || state.status === "cancelled" || state.status === "failed"
+            ? [state.chunkIndex]
+            : [],
+        ),
         failedChunkIndices: [...failedIndices],
+        cancelledChunkIndices: chunkStates
+          .filter((state) => state.status === "cancelled")
+          .map((state) => state.chunkIndex),
+        chunkStates,
         totalChunks: chunks.length,
       };
       throw error;

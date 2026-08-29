@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-editor-elements
 
+## 2.18.0
+
+### Patch Changes
+
+- @ssml-builder-js/ssml-core@2.18.0
+
 ## 2.17.0
 
 ### Patch Changes

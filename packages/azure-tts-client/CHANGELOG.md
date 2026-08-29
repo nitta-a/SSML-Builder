@@ -1,5 +1,15 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.18.0
+
+### Minor Changes
+
+- Add fingerprint-validated resume chunks, detailed chunk execution states, unified job timeout and Retry-After limits, injectable client defaults, and strict RAW audio specification validation.
+
+### Patch Changes
+
+- @ssml-builder-js/ssml-core@2.18.0
+
 ## 2.17.0
 
 ### Minor Changes

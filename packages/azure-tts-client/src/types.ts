@@ -1,5 +1,7 @@
 import type { SsmlSourceMarker, SsmlSourceTextSegment, SsmlTextRange } from "@ssml-builder-js/ssml-core";
 import type { AzureTtsOutputFormat } from "./outputFormats.ts";
+import type { AzureTtsError } from "./errors.ts";
+import type { SsmlValidationError } from "./safe.ts";
 
 export interface TtsConfig {
   signal?: AbortSignal;
@@ -27,6 +29,7 @@ export interface TtsConfig {
   customMerger?: CustomAudioMerger;
   outputMimeType?: string;
   postMergeValidator?: PostMergeValidator;
+  resumeValidation?: ResumeValidationMode;
 }
 
 export type MappingStatus = "exact" | "fallback" | "unmapped";
@@ -34,7 +37,7 @@ export type MappingStatus = "exact" | "fallback" | "unmapped";
 export interface AudioSpecification {
   format: string;
   mimeType: string;
-  codec: "pcm" | "mp3" | "opus" | "silk" | "unknown";
+  codec: "pcm" | "mulaw" | "alaw" | "siren" | "mp3" | "opus" | "silk" | "unknown";
   sampleRate: number;
   channels: number;
   bitrate?: number;
@@ -43,6 +46,8 @@ export interface AudioSpecification {
   isVbr?: boolean;
   isCompressed: boolean;
 }
+
+export type ResumeValidationMode = "strict" | "disabled";
 
 export interface SynthesisTimeouts {
   urlValidationMs?: number;
@@ -148,6 +153,7 @@ export interface SynthesizeChunksOptions {
   customMerger?: CustomAudioMerger;
   outputMimeType?: string;
   postMergeValidator?: PostMergeValidator;
+  resumeValidation?: ResumeValidationMode;
 }
 
 export interface CustomMergerContext {
@@ -169,6 +175,19 @@ export type PostMergeValidator = (
 
 export interface SynthesizedChunk extends SsmlSynthesisResult {
   chunkIndex: number;
+  /** Fingerprint of the SSML and synthesis settings used to create this chunk. */
+  fingerprint: string;
+}
+
+export type ChunkExecutionStatus = "succeeded" | "failed" | "cancelled" | "pending";
+
+export interface ChunkExecutionState {
+  chunkIndex: number;
+  status: ChunkExecutionStatus;
+  error?: AzureTtsError | SsmlValidationError;
+  isOriginalFailure?: boolean;
+  canResume: boolean;
+  result?: SsmlSynthesisResult;
 }
 
 export interface PartialChunkSynthesisResult {
@@ -176,6 +195,8 @@ export interface PartialChunkSynthesisResult {
   completedChunks: readonly SynthesizedChunk[];
   pendingChunkIndices: readonly number[];
   failedChunkIndices: readonly number[];
+  cancelledChunkIndices: readonly number[];
+  chunkStates: readonly ChunkExecutionState[];
   totalChunks: number;
 }
 
@@ -216,4 +237,9 @@ export interface AzureTtsClientOptions {
   onProgress?: (event: SynthesisProgressEvent) => void;
   concurrency?: number;
   retryOptions?: RetryOptions;
+  cancelOnFailure?: boolean;
+  customMerger?: CustomAudioMerger;
+  outputMimeType?: string;
+  postMergeValidator?: PostMergeValidator;
+  resumeValidation?: ResumeValidationMode;
 }

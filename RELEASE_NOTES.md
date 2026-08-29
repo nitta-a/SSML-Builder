@@ -1,3 +1,24 @@
+# SSML-Builder v2.18.0 Release Notes
+
+Release date: 2026-08-29
+
+v2.18.0 adds fingerprint-validated resume chunks, detailed chunk execution states, unified job timeout and Retry-After limits, injectable client defaults, and strict RAW audio specification validation.
+
+## Highlights
+
+- Added fingerprint validation for resumed chunk synthesis and richer per-chunk execution states.
+- Added unified job timeout handling and Retry-After retry limits.
+- Added injectable Azure TTS client defaults for synthesis configuration.
+- Added strict RAW audio specification validation.
+
+## Verification
+
+- `npm run format` — passed
+- `npm run lint` — passed
+- `npm test` — passed
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
 # SSML-Builder v2.17.0 Release Notes
 
 Release date: 2026-08-29

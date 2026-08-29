@@ -49,6 +49,9 @@ export type AzureTtsOutputFormat = keyof typeof OUTPUT_FORMATS;
 export function resolveMimeType(outputFormat: string): string {
   if (/(?:wav|wave|riff)/i.test(outputFormat)) return "audio/wav";
   if (/(?:mp3|mpeg)/i.test(outputFormat)) return "audio/mpeg";
+  if (/mulaw|mu-law/i.test(outputFormat)) return "audio/basic";
+  if (/alaw|a-law/i.test(outputFormat)) return "audio/alaw";
+  if (/siren/i.test(outputFormat)) return "audio/siren";
   if (/ogg/i.test(outputFormat)) return "audio/ogg";
   if (/webm/i.test(outputFormat)) return "audio/webm";
   if (/raw/i.test(outputFormat)) return "audio/L16";
