@@ -1,3 +1,24 @@
+# SSML-Builder v2.16.0 Release Notes
+
+Release date: 2026-08-29
+
+v2.16.0 adds shared URL validation for SSML chunks, transient retry and bounded parallel synthesis, structured diagnostics and synchronization mapping status, audio header/specification validation, and a stricter custom audio merger context.
+
+## Highlights
+
+- Added shared URL validation for SSML chunks with structured diagnostics and synchronization mapping status.
+- Added transient retry and bounded parallel synthesis controls for chunked Azure Speech requests.
+- Added audio header and specification validation before merging synthesized audio.
+- Added stricter context and validation requirements for custom audio mergers.
+
+## Verification
+
+- `npm run format` — passed
+- `npm run lint` — passed
+- `npm test` — passed
+- `npm run typecheck` — passed
+- `npm run build` — passed
+
 # SSML-Builder v2.15.0 Release Notes
 
 Release date: 2026-08-29

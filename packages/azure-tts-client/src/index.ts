@@ -5,6 +5,8 @@
 export type {
   AzureTtsClientOptions,
   AzureTtsLogger,
+  AudioSpecification,
+  MappingStatus,
   MergedSynthesisResult,
   SsmlSynthesisBookmark,
   SsmlSynthesisBoundary,
@@ -14,11 +16,13 @@ export type {
   SynthesisProgressEvent,
   SynthesizeChunksOptions,
   SynthesisChunkStatus,
+  RetryOptions,
   TtsConfig,
 } from "./types.ts";
 export {
   AzureTtsError,
   AzureTtsSdkError,
+  AudioFormatMismatchError,
   MergeError,
   SynthesisCancelledError,
   SynthesisTimeoutError,
@@ -32,10 +36,17 @@ export {
   canMergeAudioFormat,
   mergeAudioBuffers,
   mergeSynthesisResults,
+  inspectAudioSpecification,
   resolveMergeAudioFormat,
   synthesizeSsmlChunks,
 } from "./synthesis.ts";
-export type { MergeAudioFormat, MergeAudioOptions, MergeSynthesisOptions } from "./synthesis.ts";
+export type {
+  CustomMergerContext,
+  InputAudioSpecs,
+  MergeAudioFormat,
+  MergeAudioOptions,
+  MergeSynthesisOptions,
+} from "./synthesis.ts";
 export { DEFAULT_OUTPUT_FORMAT, resolveMimeType } from "./outputFormats.ts";
 export type { AzureTtsOutputFormat } from "./outputFormats.ts";
 export { ChunkValidationError, synthesizeSsmlChunksSafe, synthesizeSsmlSafe } from "./safe.ts";

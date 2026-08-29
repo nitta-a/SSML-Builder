@@ -60,6 +60,8 @@ export class AzureTtsClient {
       timeoutMs: options.timeoutMs ?? timeoutMs,
       sourceNodePath: options.sourceNodePath,
       onProgress: options.onProgress ?? this.#options.onProgress,
+      concurrency: options.concurrency ?? this.#options.concurrency,
+      retryOptions: options.retryOptions ?? this.#options.retryOptions,
     });
   }
 
@@ -77,6 +79,8 @@ export class AzureTtsClient {
       signal: options.signal ?? this.#options.signal,
       timeoutMs: options.timeoutMs ?? this.#options.timeoutMs,
       onProgress: options.onProgress ?? this.#options.onProgress,
+      concurrency: options.concurrency ?? this.#options.concurrency,
+      retryOptions: options.retryOptions ?? this.#options.retryOptions,
     });
   }
 

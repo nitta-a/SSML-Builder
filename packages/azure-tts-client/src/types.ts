@@ -18,6 +18,26 @@ export interface TtsConfig {
   /** Exact source text segments used to map individual Azure events. */
   sourceTextSegments?: SsmlSourceTextSegment[];
   sourceMarkers?: SsmlSourceMarker[];
+  concurrency?: number;
+  retryOptions?: RetryOptions;
+}
+
+export type MappingStatus = "exact" | "fallback" | "unmapped";
+
+export interface AudioSpecification {
+  format: string;
+  mimeType: string;
+  codec: "pcm" | "mp3" | "opus" | "silk" | "unknown";
+  sampleRate: number;
+  channels: number;
+  bitrate?: number;
+  isCompressed: boolean;
+}
+
+export interface RetryOptions {
+  maxRetries: number;
+  initialDelayMs: number;
+  maxDelayMs: number;
 }
 
 export type SynthesisChunkStatus = "pending" | "synthesizing" | "success" | "failed";
@@ -36,6 +56,7 @@ export interface SsmlSynthesisBoundary {
   /** Audio offset within the originating chunk before merge. */
   chunkAudioOffsetMs?: number;
   requestId?: string;
+  mappingStatus: MappingStatus;
 }
 
 export interface SsmlSynthesisViseme {
@@ -47,6 +68,7 @@ export interface SsmlSynthesisViseme {
   originalTextRange?: SsmlTextRange;
   chunkAudioOffsetMs?: number;
   requestId?: string;
+  mappingStatus: MappingStatus;
 }
 
 export interface SsmlSynthesisBookmark {
@@ -58,6 +80,7 @@ export interface SsmlSynthesisBookmark {
   originalTextRange?: SsmlTextRange;
   chunkAudioOffsetMs?: number;
   requestId?: string;
+  mappingStatus: MappingStatus;
 }
 
 /** Audio and Azure Speech synchronization events emitted for one SSML request. */
@@ -77,6 +100,7 @@ export interface SsmlSynthesisResult {
   textRange?: { start: number; end: number };
   /** MIME type of a result produced by an explicit merge operation. */
   mimeType?: string;
+  audioSpec?: AudioSpecification;
 }
 
 export interface MergedSynthesisResult extends SsmlSynthesisResult {
@@ -97,6 +121,8 @@ export interface SynthesizeChunksOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   sourceNodePath?: string[];
+  concurrency?: number;
+  retryOptions?: RetryOptions;
 }
 
 export interface SynthesisProgressEvent {
@@ -109,6 +135,9 @@ export interface SynthesisProgressEvent {
   status: SynthesisChunkStatus;
   durationMs: number;
   error?: unknown;
+  retryAttempt?: number;
+  nextRetryDelayMs?: number;
+  isRetrying?: boolean;
 }
 
 export interface AzureTtsLogger {
@@ -127,4 +156,6 @@ export interface AzureTtsClientOptions {
   outputFormat?: string;
   logger?: AzureTtsLogger;
   onProgress?: (event: SynthesisProgressEvent) => void;
+  concurrency?: number;
+  retryOptions?: RetryOptions;
 }

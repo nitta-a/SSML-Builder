@@ -1,4 +1,10 @@
-import { validateAzureSsml, type AzureValidationOptions, type SsmlDiagnostic } from "@ssml-builder-js/ssml-core";
+import {
+  createAzureUrlValidatorRunner,
+  validateAzureSsml,
+  type AzureUrlValidator,
+  type AzureValidationOptions,
+  type SsmlDiagnostic,
+} from "@ssml-builder-js/ssml-core";
 import {
   type AzureTtsError,
   type AzureTtsSynthesisError,
@@ -12,6 +18,7 @@ import type {
   SsmlSynthesisResult,
   SynthesisProgressEvent,
   SynthesizeChunksOptions,
+  RetryOptions,
 } from "./types.ts";
 import type { AzureTtsOutputFormat } from "./outputFormats.ts";
 
@@ -83,6 +90,8 @@ export interface SynthesizeSsmlChunksSafeOptions extends AzureValidationOptions 
   timeoutMs?: number;
   sourceNodePath?: string[];
   onProgress?: (event: SynthesisProgressEvent) => void;
+  concurrency?: number;
+  retryOptions?: RetryOptions;
 }
 
 export type SsmlSynthesisChunksSafeResult =
@@ -98,13 +107,91 @@ interface SynthesisClient {
   ): Promise<SsmlSynthesisResult>;
 }
 
+function isRetryable(error: unknown): boolean {
+  if (error instanceof Error && /cancel|abort|tim(?:e|ed) ?out/i.test(error.message)) return false;
+  const status =
+    error && typeof error === "object" && "status" in error ? (error as { status?: unknown }).status : undefined;
+  if (typeof status === "number" && status !== 0) return status === 429 || (status >= 500 && status < 600);
+  const message = error instanceof Error ? error.message : String(error);
+  if (/\b4\d{2}\b/.test(message)) return false;
+  return /network|connection|connect|socket|fetch failed|econn|etimedout|temporar|transient|unavailable/i.test(message);
+}
+
+function delayForRetry(options: RetryOptions, attempt: number): number {
+  const maxDelay = Math.max(0, options.maxDelayMs);
+  const base = Math.min(maxDelay, Math.max(0, options.initialDelayMs) * 2 ** Math.max(0, attempt - 1));
+  return Math.floor(Math.random() * (base + 1));
+}
+
+function resolveConcurrency(value: number | undefined, total: number): number {
+  if (value === undefined) return 1;
+  if (value === Infinity) return Math.max(1, total);
+  return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
+}
+
+async function retryableSynthesis(
+  synthesize: () => Promise<SsmlSynthesisResult>,
+  options: RetryOptions | undefined,
+  signal: AbortSignal | undefined,
+  onRetry: (attempt: number, delayMs: number) => void,
+): Promise<SsmlSynthesisResult> {
+  const retry = options
+    ? {
+        maxRetries: Math.max(0, Math.floor(options.maxRetries)),
+        initialDelayMs: options.initialDelayMs,
+        maxDelayMs: options.maxDelayMs,
+      }
+    : undefined;
+  let attempt = 0;
+  while (true) {
+    if (signal?.aborted) throw new Error("Speech synthesis was cancelled.");
+    try {
+      return await synthesize();
+    } catch (error) {
+      if (!retry || attempt >= retry.maxRetries || !isRetryable(error)) throw error;
+      attempt += 1;
+      const delayMs = delayForRetry(retry, attempt);
+      onRetry(attempt, delayMs);
+      if (delayMs > 0)
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => {
+            signal?.removeEventListener("abort", abort);
+            resolve();
+          }, delayMs);
+          const abort = () => {
+            clearTimeout(timer);
+            signal?.removeEventListener("abort", abort);
+            reject(new Error("Speech synthesis was cancelled."));
+          };
+          signal?.addEventListener("abort", abort, { once: true });
+        });
+    }
+  }
+}
+
+function sharedValidationOptions(options: AzureValidationOptions, signal?: AbortSignal): AzureValidationOptions {
+  const validator = options.urlValidator ?? options.customUrlValidator;
+  if (!validator) return signal ? withValidationSignal(options, signal) : options;
+  const runner = createAzureUrlValidatorRunner(validator as AzureUrlValidator, {
+    ...(options.urlValidation ?? {}),
+    ...(options.urlValidatorConcurrency !== undefined ? { concurrency: options.urlValidatorConcurrency } : {}),
+    ...(options.urlValidatorTimeoutMs !== undefined ? { timeoutMs: options.urlValidatorTimeoutMs } : {}),
+    ...(signal ? { signal } : {}),
+    ...(options.urlValidatorCache ? { cache: options.urlValidatorCache } : {}),
+  });
+  return {
+    ...withValidationSignal(options, signal),
+    urlValidatorRunner: runner,
+  };
+}
+
 /** Validates SSML before invoking Azure and converts validation/API failures to one result shape. */
 export async function synthesizeSsmlSafe(
   client: Pick<AzureTtsClient, "synthesizeSsml"> | SynthesisClient,
   ssml: string,
   options: SynthesizeSsmlSafeOptions = {},
 ): Promise<SsmlSynthesisSafeResult> {
-  const validationOptions = withValidationSignal(options.validation ?? options, options.signal);
+  const validationOptions = sharedValidationOptions(options.validation ?? options, options.signal);
   const diagnostics = await Promise.resolve(validateAzureSsml(ssml, validationOptions));
   if (options.signal?.aborted) {
     const error = toSynthesisError(new Error("Speech synthesis was cancelled."));
@@ -138,7 +225,7 @@ export async function synthesizeSsmlChunksSafe(
   chunks: readonly (SsmlSynthesisChunk | string)[],
   options: SynthesizeSsmlChunksSafeOptions = {},
 ): Promise<SsmlSynthesisChunksSafeResult> {
-  const validationOptions = withValidationSignal(options.validation ?? options, options.signal);
+  const validationOptions = sharedValidationOptions(options.validation ?? options, options.signal);
   if (options.signal?.aborted) {
     const error = toSynthesisError(new Error("Speech synthesis was cancelled."));
     return failure(error);
@@ -160,17 +247,25 @@ export async function synthesizeSsmlChunksSafe(
     pending(index, "pending");
   });
   const validations = await Promise.all(
-    chunks.map(async (chunk) => {
+    chunks.map(async (chunk, index) => {
       const ssml = typeof chunk === "string" ? chunk : chunk.ssml;
       const sourceNodePath =
         typeof chunk === "string" ? options.sourceNodePath : (chunk.sourceNodePath ?? options.sourceNodePath);
       const diagnostics = await Promise.resolve(
-        validateAzureSsml(ssml, { ...validationOptions, ...(sourceNodePath ? { sourceNodePath } : {}) }),
+        validateAzureSsml(ssml, {
+          ...validationOptions,
+          ...(sourceNodePath ? { sourceNodePath } : {}),
+          chunkIndex: index,
+        }),
       );
       return diagnostics.filter((diagnostic) => diagnostic.severity === "error");
     }),
   );
   const firstInvalidIndex = validations.findIndex((diagnostics) => diagnostics.length > 0);
+  if (options.signal?.aborted) {
+    const error = toSynthesisError(new Error("Speech synthesis was cancelled."));
+    return failure(error);
+  }
   if (firstInvalidIndex >= 0) {
     const error = new ChunkValidationError(firstInvalidIndex, validations[firstInvalidIndex] ?? []);
     pending(firstInvalidIndex, "failed", error);
@@ -189,121 +284,153 @@ export async function synthesizeSsmlChunksSafe(
         signal: options.signal,
         timeoutMs: options.timeoutMs,
         sourceNodePath: options.sourceNodePath,
+        concurrency: options.concurrency,
+        retryOptions: options.retryOptions,
       });
       return { ok: true, success: true, status: "success", value };
     }
-    const results: SsmlSynthesisResult[] = [];
-    for (const [index, chunk] of chunks.entries()) {
-      const input = typeof chunk === "string" ? { ssml: chunk } : chunk;
-      const sourceNodePath = input.sourceNodePath;
-      const originalTextRange = input.originalTextRange;
-      pending(index, "synthesizing");
-      const startedAt = Date.now();
-      try {
-        const result = await client.synthesizeSsml(input.ssml, {
-          outputFormat: options.outputFormat,
-          signal: options.signal,
-          timeoutMs: options.timeoutMs,
-          sourceNodePath: input.sourceNodePath ?? options.sourceNodePath,
-        });
-        results.push({
-          ...result,
-          ...(input.originalTextRange ? { textRange: { ...input.originalTextRange } } : {}),
-          ...(sourceNodePath
-            ? {
-                boundaries: result.boundaries?.map((event) => ({
-                  ...event,
-                  sourceNodePath: [...sourceNodePath],
-                  ...(event.originalTextRange
-                    ? { originalTextRange: { ...event.originalTextRange } }
-                    : input.originalTextRange
-                      ? { originalTextRange: { ...input.originalTextRange } }
-                      : {}),
-                })),
-                visemes: result.visemes?.map((event) => ({
-                  ...event,
-                  sourceNodePath: [...sourceNodePath],
-                  ...(event.originalTextRange
-                    ? { originalTextRange: { ...event.originalTextRange } }
-                    : input.originalTextRange
-                      ? { originalTextRange: { ...input.originalTextRange } }
-                      : {}),
-                })),
-                bookmarks: result.bookmarks?.map((event) => ({
-                  ...event,
-                  sourceNodePath: [...sourceNodePath],
-                  ...(event.originalTextRange
-                    ? { originalTextRange: { ...event.originalTextRange } }
-                    : input.originalTextRange
-                      ? { originalTextRange: { ...input.originalTextRange } }
-                      : {}),
-                })),
-              }
-            : {}),
-          ...(originalTextRange
-            ? {
-                boundaries: result.boundaries?.map((event) => ({
-                  ...event,
-                  originalTextRange: event.originalTextRange
-                    ? { ...event.originalTextRange }
-                    : { ...originalTextRange },
-                })),
-                wordBoundary: result.wordBoundary?.map((event) => ({
-                  ...event,
-                  originalTextRange: event.originalTextRange
-                    ? { ...event.originalTextRange }
-                    : { ...originalTextRange },
-                })),
-                wordBoundaries: result.wordBoundaries?.map((event) => ({
-                  ...event,
-                  originalTextRange: event.originalTextRange
-                    ? { ...event.originalTextRange }
-                    : { ...originalTextRange },
-                })),
-                visemes: result.visemes?.map((event) => ({
-                  ...event,
-                  originalTextRange: event.originalTextRange
-                    ? { ...event.originalTextRange }
-                    : { ...originalTextRange },
-                })),
-                bookmarks: result.bookmarks?.map((event) => ({
-                  ...event,
-                  originalTextRange: event.originalTextRange
-                    ? { ...event.originalTextRange }
-                    : { ...originalTextRange },
-                })),
-              }
-            : {}),
-        });
-        options.onProgress?.({
-          currentChunk: index + 1,
-          totalChunks: chunks.length,
-          percent: chunks.length === 0 ? 100 : Math.round(((index + 1) / chunks.length) * 100),
-          chunkIndex: index,
-          originalTextRange: input.originalTextRange,
-          status: "success",
-          durationMs: Date.now() - startedAt,
-        });
-      } catch (error) {
-        options.onProgress?.({
-          currentChunk: index,
-          totalChunks: chunks.length,
-          percent: chunks.length === 0 ? 100 : Math.round((index / chunks.length) * 100),
-          chunkIndex: index,
-          originalTextRange: input.originalTextRange,
-          status: "failed",
-          durationMs: Date.now() - startedAt,
-          error,
-        });
-        throw error;
+    const results: Array<SsmlSynthesisResult | undefined> = new Array(chunks.length);
+    let completed = 0;
+    let nextIndex = 0;
+    const concurrency = resolveConcurrency(options.concurrency, chunks.length);
+    const worker = async (): Promise<void> => {
+      while (true) {
+        const index = nextIndex++;
+        if (index >= chunks.length) return;
+        const chunk = chunks[index];
+        const input = typeof chunk === "string" ? { ssml: chunk } : chunk;
+        const sourceNodePath = input.sourceNodePath;
+        const originalTextRange = input.originalTextRange;
+        pending(index, "synthesizing");
+        const startedAt = Date.now();
+        try {
+          const result = await retryableSynthesis(
+            () =>
+              client.synthesizeSsml(input.ssml, {
+                outputFormat: options.outputFormat,
+                signal: options.signal,
+                timeoutMs: options.timeoutMs,
+                sourceNodePath: input.sourceNodePath ?? options.sourceNodePath,
+              }),
+            options.retryOptions,
+            options.signal,
+            (retryAttempt, nextRetryDelayMs) =>
+              options.onProgress?.({
+                currentChunk: completed,
+                totalChunks: chunks.length,
+                percent: chunks.length === 0 ? 100 : Math.round((completed / chunks.length) * 100),
+                chunkIndex: index,
+                originalTextRange: input.originalTextRange,
+                status: "synthesizing",
+                durationMs: Date.now() - startedAt,
+                retryAttempt,
+                nextRetryDelayMs,
+                isRetrying: true,
+              }),
+          );
+          results[index] = {
+            ...result,
+            ...(input.originalTextRange ? { textRange: { ...input.originalTextRange } } : {}),
+            ...(sourceNodePath
+              ? {
+                  boundaries: result.boundaries?.map((event) => ({
+                    ...event,
+                    sourceNodePath: [...sourceNodePath],
+                    ...(event.originalTextRange
+                      ? { originalTextRange: { ...event.originalTextRange } }
+                      : input.originalTextRange
+                        ? { originalTextRange: { ...input.originalTextRange } }
+                        : {}),
+                  })),
+                  visemes: result.visemes?.map((event) => ({
+                    ...event,
+                    sourceNodePath: [...sourceNodePath],
+                    ...(event.originalTextRange
+                      ? { originalTextRange: { ...event.originalTextRange } }
+                      : input.originalTextRange
+                        ? { originalTextRange: { ...input.originalTextRange } }
+                        : {}),
+                  })),
+                  bookmarks: result.bookmarks?.map((event) => ({
+                    ...event,
+                    sourceNodePath: [...sourceNodePath],
+                    ...(event.originalTextRange
+                      ? { originalTextRange: { ...event.originalTextRange } }
+                      : input.originalTextRange
+                        ? { originalTextRange: { ...input.originalTextRange } }
+                        : {}),
+                  })),
+                }
+              : {}),
+            ...(originalTextRange
+              ? {
+                  boundaries: result.boundaries?.map((event) => ({
+                    ...event,
+                    originalTextRange: event.originalTextRange
+                      ? { ...event.originalTextRange }
+                      : { ...originalTextRange },
+                  })),
+                  wordBoundary: result.wordBoundary?.map((event) => ({
+                    ...event,
+                    originalTextRange: event.originalTextRange
+                      ? { ...event.originalTextRange }
+                      : { ...originalTextRange },
+                  })),
+                  wordBoundaries: result.wordBoundaries?.map((event) => ({
+                    ...event,
+                    originalTextRange: event.originalTextRange
+                      ? { ...event.originalTextRange }
+                      : { ...originalTextRange },
+                  })),
+                  visemes: result.visemes?.map((event) => ({
+                    ...event,
+                    originalTextRange: event.originalTextRange
+                      ? { ...event.originalTextRange }
+                      : { ...originalTextRange },
+                  })),
+                  bookmarks: result.bookmarks?.map((event) => ({
+                    ...event,
+                    originalTextRange: event.originalTextRange
+                      ? { ...event.originalTextRange }
+                      : { ...originalTextRange },
+                  })),
+                }
+              : {}),
+          };
+          completed += 1;
+          options.onProgress?.({
+            currentChunk: completed,
+            totalChunks: chunks.length,
+            percent: chunks.length === 0 ? 100 : Math.round((completed / chunks.length) * 100),
+            chunkIndex: index,
+            originalTextRange: input.originalTextRange,
+            status: "success",
+            durationMs: Date.now() - startedAt,
+          });
+        } catch (error) {
+          options.onProgress?.({
+            currentChunk: completed,
+            totalChunks: chunks.length,
+            percent: chunks.length === 0 ? 100 : Math.round((index / chunks.length) * 100),
+            chunkIndex: index,
+            originalTextRange: input.originalTextRange,
+            status: "failed",
+            durationMs: Date.now() - startedAt,
+            error,
+          });
+          throw error;
+        }
       }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, () => worker()));
+    const orderedResults = results.filter((result): result is SsmlSynthesisResult => result !== undefined);
     return {
       ok: true,
       success: true,
       status: "success",
-      value: mergeSynthesisResults(results, {
+      value: mergeSynthesisResults(orderedResults, {
         format: (options.outputFormat ?? "audio-16khz-128kbitrate-mono-mp3") as AzureTtsOutputFormat,
+        signal: options.signal,
       }),
     };
   } catch (error) {

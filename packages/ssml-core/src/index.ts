@@ -43,6 +43,7 @@ export {
   isValidAzureAudioDuration,
   normalizeAzureLanguage,
   validateAzureSsml,
+  validateAzureSsmlChunks,
 } from "./azureValidation.ts";
 export { getAzureVoiceCatalogMetadata, getBuiltInVoiceCatalogMetadata } from "./voiceCatalog.ts";
 export type { AzureVoiceCatalogMetadata } from "./generated/azureVoiceCatalog.ts";
@@ -57,6 +58,7 @@ export type {
   AzureVoiceDefinition,
   AzureVoiceMetadata,
   SsmlDiagnostic,
+  Diagnostic,
   SsmlDiagnosticSource,
   SsmlDiagnosticSeverity,
 } from "./azureValidation.ts";

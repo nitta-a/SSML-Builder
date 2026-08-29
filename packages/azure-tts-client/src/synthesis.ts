@@ -1,30 +1,45 @@
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
 import { getSsmlSourceMap } from "@ssml-builder-js/ssml-core";
 import {
+  AzureTtsError,
   MergeError,
+  AudioFormatMismatchError,
   SynthesisCancelledError,
   SynthesisTimeoutError,
   toSynthesisError,
   UnsupportedMergeFormatError,
 } from "./errors.ts";
-import { resolveMimeType, type AzureTtsOutputFormat } from "./outputFormats.ts";
+import { DEFAULT_OUTPUT_FORMAT, resolveMimeType, type AzureTtsOutputFormat } from "./outputFormats.ts";
 import { createSpeechConfig } from "./speechConfig.ts";
 import type {
   MergedSynthesisResult,
   SsmlSynthesisChunk,
   SsmlSynthesisResult,
+  AudioSpecification,
   SynthesisProgressEvent,
   TtsConfig,
+  RetryOptions,
 } from "./types.ts";
 
 export type MergeAudioFormat = "wav" | "mp3" | "raw";
 
 export interface MergeAudioOptions {
   format: AzureTtsOutputFormat;
+  signal?: AbortSignal;
+  outputMimeType?: string;
+}
+
+export type InputAudioSpecs = AudioSpecification[];
+
+export interface CustomMergerContext {
+  format: string;
+  outputMimeType: string;
+  inputSpecs: InputAudioSpecs;
+  signal: AbortSignal;
 }
 
 export interface MergeSynthesisOptions extends MergeAudioOptions {
-  customMerger?: (buffers: ArrayBuffer[], format: string) => Promise<ArrayBuffer> | ArrayBuffer;
+  customMerger?: (buffers: ArrayBuffer[], context: CustomMergerContext) => Promise<ArrayBuffer> | ArrayBuffer;
 }
 
 type AsyncMergeSynthesisOptions = MergeSynthesisOptions & {
@@ -82,6 +97,127 @@ function parseWav(buffer: ArrayBuffer): ParsedWav {
     dataOffset += part.byteLength;
   }
   return { chunks, data, format };
+}
+
+function formatNumber(format: string, pattern: RegExp, fallback: number): number {
+  const match = pattern.exec(format);
+  return match?.[1] ? Number(match[1]) : fallback;
+}
+
+function formatChannels(format: string, fallback: number): number {
+  if (/stereo|2ch|dual/i.test(format)) return 2;
+  if (/mono|1ch/i.test(format)) return 1;
+  return fallback;
+}
+
+function formatAudioSpecification(format: string): AudioSpecification {
+  const sampleRate = formatNumber(format, /(\d+)(?:khz|kHz|hz|Hz)/, 0);
+  const channels = formatChannels(format, 0);
+  const bitrateMatch = /(\d+)(?:kbitrate|kbps|kbits?)/i.exec(format);
+  const bitrate = bitrateMatch?.[1] ? Number(bitrateMatch[1]) * 1000 : undefined;
+  const codec: AudioSpecification["codec"] = /mp3|mpeg/i.test(format)
+    ? "mp3"
+    : /opus/i.test(format)
+      ? "opus"
+      : /silk/i.test(format)
+        ? "silk"
+        : /pcm|mulaw|alaw|siren/i.test(format)
+          ? "pcm"
+          : "unknown";
+  return {
+    format,
+    mimeType: resolveMimeType(format),
+    codec,
+    sampleRate,
+    channels,
+    ...(bitrate ? { bitrate } : {}),
+    isCompressed: codec === "mp3" || codec === "opus" || codec === "silk",
+  };
+}
+
+function parseMp3Specification(buffer: ArrayBuffer, format: string): AudioSpecification | undefined {
+  const bytes = stripMp3Tags(buffer);
+  const bitrates = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0],
+    [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0],
+  ];
+  const sampleRates = [
+    [44_100, 48_000, 32_000],
+    [22_050, 24_000, 16_000],
+    [11_025, 12_000, 8_000],
+  ];
+  for (let index = 0; index + 4 <= bytes.length; index += 1) {
+    if (bytes[index] !== 0xff || (bytes[index + 1] ?? 0) < 0xe0) continue;
+    const header = bytes[index + 1] ?? 0;
+    const versionBits = (header >> 3) & 0x03;
+    const layer = (header >> 1) & 0x03;
+    const bitrateIndex = (bytes[index + 2] ?? 0) >> 4;
+    const sampleIndex = ((bytes[index + 2] ?? 0) >> 2) & 0x03;
+    if (versionBits === 1 || layer !== 1 || bitrateIndex === 0 || bitrateIndex === 15 || sampleIndex === 3) continue;
+    const versionIndex = versionBits === 3 ? 0 : versionBits === 2 ? 1 : 2;
+    const bitrateTable = versionBits === 3 ? bitrates[1] : bitrates[2];
+    const sampleRate = sampleRates[versionIndex]?.[sampleIndex] ?? 0;
+    const bitrateKbps = bitrateTable?.[bitrateIndex] ?? 0;
+    if (!sampleRate || !bitrateKbps) continue;
+    return {
+      format,
+      mimeType: "audio/mpeg",
+      codec: "mp3",
+      sampleRate,
+      channels: (bytes[index + 3] ?? 0) >> 6 === 3 ? 1 : 2,
+      bitrate: bitrateKbps * 1000,
+      isCompressed: true,
+    };
+  }
+  return undefined;
+}
+
+/** Extracts the stream specification from a WAV/MP3 header and output-format fallback. */
+export function inspectAudioSpecification(buffer: ArrayBuffer, format: string): AudioSpecification {
+  if (isWavFormat(format) || ascii(new Uint8Array(buffer), 0, "RIFF")) {
+    const parsed = parseWav(buffer);
+    if (parsed.format.byteLength < 16) throw new Error("Invalid WAV fmt chunk.");
+    const view = new DataView(parsed.format.buffer, parsed.format.byteOffset, parsed.format.byteLength);
+    const sampleRate = view.getUint32(4, true);
+    const channels = view.getUint16(2, true);
+    const bitsPerSample = parsed.format.byteLength >= 16 ? view.getUint16(14, true) : 0;
+    const formatCode = view.getUint16(0, true);
+    return {
+      format,
+      mimeType: "audio/wav",
+      codec: formatCode === 1 ? "pcm" : "unknown",
+      sampleRate,
+      channels,
+      ...(sampleRate && channels && bitsPerSample ? { bitrate: sampleRate * channels * bitsPerSample } : {}),
+      isCompressed: formatCode !== 1,
+    };
+  }
+  if (isMp3Format(format)) return parseMp3Specification(buffer, format) ?? formatAudioSpecification(format);
+  return formatAudioSpecification(format);
+}
+
+function validateAudioSpecifications(specs: readonly AudioSpecification[]): void {
+  const first = specs[0];
+  if (!first) return;
+  const mismatch = specs.find(
+    (spec) =>
+      spec.sampleRate !== first.sampleRate ||
+      spec.channels !== first.channels ||
+      (first.bitrate !== undefined && spec.bitrate !== undefined && spec.bitrate !== first.bitrate),
+  );
+  if (mismatch)
+    throw new AudioFormatMismatchError(
+      `Audio chunks have incompatible specifications: ${first.sampleRate}Hz/${first.channels}ch versus ${mismatch.sampleRate}Hz/${mismatch.channels}ch.`,
+      specs,
+    );
+}
+
+function isAudioFormatMismatch(error: unknown): error is AudioFormatMismatchError {
+  return (
+    error instanceof AudioFormatMismatchError ||
+    (error !== null && typeof error === "object" && "kind" in error && error.kind === "audio-format-mismatch")
+  );
 }
 
 function writeUint32(target: Uint8Array, offset: number, value: number): void {
@@ -185,6 +321,7 @@ export function mergeAudioBuffers(buffers: readonly ArrayBuffer[], options: Merg
   const format = typeof options === "string" ? options : options?.format;
   if (!format) throw new UnsupportedMergeFormatError("");
   try {
+    validateAudioSpecifications(buffers.map((buffer) => inspectAudioSpecification(buffer, format)));
     if (isWavFormat(format)) return mergeWavBuffers(buffers);
     if (isMp3Format(format)) {
       const parts = buffers.map(stripMp3Tags);
@@ -207,7 +344,8 @@ export function mergeAudioBuffers(buffers: readonly ArrayBuffer[], options: Merg
     }
     throw new UnsupportedMergeFormatError(format);
   } catch (error) {
-    if (error instanceof UnsupportedMergeFormatError || error instanceof MergeError) throw error;
+    if (error instanceof UnsupportedMergeFormatError || isAudioFormatMismatch(error) || error instanceof MergeError)
+      throw error;
     throw new MergeError(`Audio buffers could not be merged for format "${format}".`, error);
   }
 }
@@ -298,6 +436,7 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
       textRange?: { start: number; end: number };
       originalTextRange?: { start: number; end: number };
       sourceNodePath?: string[];
+      mappingStatus: "exact" | "fallback" | "unmapped";
     } => {
       const marker = markerName ? sourceMarkers.find((candidate) => candidate.name === markerName) : undefined;
       if (marker) {
@@ -305,16 +444,25 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
           originalTextRange: { ...marker.originalTextRange },
           sourceNodePath: [...marker.sourceNodePath],
           textRange: { ...marker.originalTextRange },
+          mappingStatus: "exact",
         };
       }
-      if (sourceSegments.length === 0 && !config.sourceTextRange && !config.sourceNodePath) return {};
+      if (sourceSegments.length === 0 && !config.sourceTextRange && !config.sourceNodePath) {
+        const unmapped: { mappingStatus: "unmapped" } = { mappingStatus: "unmapped" };
+        Object.defineProperty(unmapped, "mappingStatus", { value: "unmapped", enumerable: false });
+        return unmapped;
+      }
       const value = text ?? "";
       let localStart = Number.isFinite(offsetHint) && (offsetHint ?? 0) >= 0 ? (offsetHint as number) : -1;
-      if (value && localStart >= 0 && sourceText.slice(localStart, localStart + value.length) !== value)
+      let mappingStatus: "exact" | "fallback" | "unmapped" = "exact";
+      if (value && localStart >= 0 && sourceText.slice(localStart, localStart + value.length) !== value) {
         localStart = -1;
+        mappingStatus = "fallback";
+      }
       if (localStart < 0 || localStart > sourceText.length) {
         localStart = value ? sourceText.indexOf(value, sourceEventCursor) : sourceEventCursor;
         if (localStart < 0) localStart = value ? sourceText.indexOf(value) : sourceEventCursor;
+        mappingStatus = "fallback";
       }
       localStart = Math.max(0, localStart);
       const localEnd = Math.min(sourceText.length, localStart + value.length);
@@ -335,6 +483,7 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
           : config.sourceNodePath
             ? { sourceNodePath: [...config.sourceNodePath] }
             : {}),
+        mappingStatus: segment || config.sourceTextRange || config.sourceNodePath ? mappingStatus : "unmapped",
       };
     };
     synthesizer.wordBoundary = (_sender, event) => {
@@ -384,22 +533,31 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
       );
       const durationMs = result.audioDuration ? ticksToMilliseconds(result.audioDuration) : eventDurationMs;
       const requestId = (result as SpeechSDK.SpeechSynthesisResult & { resultId?: string }).resultId;
-      const addSourceMetadata = <T extends { audioOffsetMs: number }>(event: T): T => ({
-        ...event,
-        ...(config.sourceTextRange && !("textRange" in event) ? { textRange: { ...config.sourceTextRange } } : {}),
-        ...(config.sourceTextRange && !("originalTextRange" in event)
-          ? { originalTextRange: { ...config.sourceTextRange } }
-          : {}),
-        ...(config.chunkIndex !== undefined ? { chunkIndex: config.chunkIndex } : {}),
-        ...(config.sourceNodePath ? { sourceNodePath: [...config.sourceNodePath] } : {}),
-        ...(requestId ? { requestId } : {}),
-      });
+      const addSourceMetadata = <T extends { audioOffsetMs: number; mappingStatus: "exact" | "fallback" | "unmapped" }>(
+        event: T,
+      ): T => {
+        const mapped = {
+          ...event,
+          ...(config.sourceTextRange && !("textRange" in event) ? { textRange: { ...config.sourceTextRange } } : {}),
+          ...(config.sourceTextRange && !("originalTextRange" in event)
+            ? { originalTextRange: { ...config.sourceTextRange } }
+            : {}),
+          ...(config.chunkIndex !== undefined ? { chunkIndex: config.chunkIndex } : {}),
+          ...(config.sourceNodePath ? { sourceNodePath: [...config.sourceNodePath] } : {}),
+          ...(requestId ? { requestId } : {}),
+        } as T;
+        if (event.mappingStatus === "unmapped")
+          Object.defineProperty(mapped, "mappingStatus", { value: "unmapped", enumerable: false });
+        return mapped;
+      };
       const sourceBoundaries = boundaries.map((boundary) => addSourceMetadata(boundary));
       const sourceVisemes = visemes.map((viseme) => addSourceMetadata(viseme));
       const sourceBookmarks = bookmarks.map((bookmark) => addSourceMetadata(bookmark));
       resolve({
         audioData: result.audioData,
         durationMs,
+        audioSpec: inspectAudioSpecification(result.audioData, config.outputFormat ?? DEFAULT_OUTPUT_FORMAT),
+        mimeType: resolveMimeType(config.outputFormat ?? DEFAULT_OUTPUT_FORMAT),
         ...(config.sourceTextRange ? { textRange: { ...config.sourceTextRange } } : {}),
         ...(requestId ? { requestId } : {}),
         ...(sourceBoundaries.length > 0
@@ -428,12 +586,82 @@ export async function synthesizeSsml(ssml: string, config: TtsConfig): Promise<S
   });
 }
 
-/** Synthesizes chunks sequentially, annotates synchronization events, and merges the results. */
+function isRetryableSynthesisError(error: unknown): boolean {
+  if (error instanceof SynthesisCancelledError || error instanceof SynthesisTimeoutError) return false;
+  if (error instanceof AzureTtsError && error.status !== 0)
+    return error.status === 429 || (error.status >= 500 && error.status < 600);
+  const message = error instanceof Error ? error.message : String(error);
+  if (/\b4\d{2}\b/.test(message)) return false;
+  const status = error && typeof error === "object" && "status" in error ? error.status : undefined;
+  if (typeof status === "number") return status === 429 || (status >= 500 && status < 600);
+  return /network|connection|connect|socket|fetch failed|econn|etimedout|temporar|transient|unavailable/i.test(message);
+}
+
+function retryDelay(options: RetryOptions, retryAttempt: number): number {
+  const base = Math.min(options.maxDelayMs, options.initialDelayMs * 2 ** Math.max(0, retryAttempt - 1));
+  return Math.floor(Math.random() * (base + 1));
+}
+
+function resolveConcurrency(value: number | undefined, total: number): number {
+  if (value === undefined) return 1;
+  if (value === Infinity) return Math.max(1, total);
+  return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
+}
+
+async function waitForRetry(delayMs: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw new SynthesisCancelledError();
+  if (delayMs <= 0) return;
+  await new Promise<void>((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const abort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      reject(new SynthesisCancelledError());
+    };
+    timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, delayMs);
+    if (signal) {
+      signal.addEventListener("abort", abort, { once: true });
+    }
+  });
+}
+
+async function synthesizeWithRetry(
+  ssml: string,
+  config: TtsConfig,
+  retryOptions: RetryOptions | undefined,
+  onRetry: (retryAttempt: number, nextRetryDelayMs: number) => void,
+): Promise<SsmlSynthesisResult> {
+  const options = retryOptions
+    ? {
+        maxRetries: Math.max(0, Math.floor(retryOptions.maxRetries)),
+        initialDelayMs: Math.max(0, retryOptions.initialDelayMs),
+        maxDelayMs: Math.max(0, retryOptions.maxDelayMs),
+      }
+    : undefined;
+  let attempt = 0;
+  while (true) {
+    if (config.signal?.aborted) throw new SynthesisCancelledError();
+    try {
+      return await synthesizeSsml(ssml, config);
+    } catch (error) {
+      if (!options || attempt >= options.maxRetries || !isRetryableSynthesisError(error)) throw error;
+      attempt += 1;
+      const delayMs = retryDelay(options, attempt);
+      onRetry(attempt, delayMs);
+      await waitForRetry(delayMs, config.signal);
+    }
+  }
+}
+
+/** Synthesizes chunks with bounded concurrency, retries transient failures, and merges in chunk order. */
 export async function synthesizeSsmlChunks(
   chunks: readonly (SsmlSynthesisChunk | string)[],
   config: TtsConfig,
 ): Promise<SsmlSynthesisResult> {
-  const results: SsmlSynthesisResult[] = [];
+  const results: Array<SsmlSynthesisResult | undefined> = new Array(chunks.length);
   const totalChunks = chunks.length;
   const report = (event: SynthesisProgressEvent): void => config.onProgress?.(event);
   for (const [index, chunk] of chunks.entries()) {
@@ -448,56 +676,85 @@ export async function synthesizeSsmlChunks(
       durationMs: 0,
     });
   }
-  for (const [index, chunk] of chunks.entries()) {
-    const input = typeof chunk === "string" ? { ssml: chunk } : chunk;
-    report({
-      currentChunk: index,
-      totalChunks,
-      percent: totalChunks === 0 ? 100 : Math.round((index / totalChunks) * 100),
-      chunkIndex: index,
-      originalTextRange: input.originalTextRange,
-      status: "synthesizing",
-      durationMs: 0,
-    });
-    const startedAt = Date.now();
-    try {
-      const result = await synthesizeSsml(input.ssml, {
-        ...config,
-        ...(input.originalTextRange ? { sourceTextRange: input.originalTextRange } : {}),
-        ...((input.sourceNodePath ?? config.sourceNodePath)
-          ? { sourceNodePath: [...(input.sourceNodePath ?? config.sourceNodePath ?? [])] }
-          : {}),
-        ...(input.sourceTextSegments ? { sourceTextSegments: input.sourceTextSegments } : {}),
-        ...(input.sourceMarkers ? { sourceMarkers: input.sourceMarkers } : {}),
-        chunkIndex: index,
-        onProgress: undefined,
-      });
-      results.push(result);
+  let completed = 0;
+  let nextIndex = 0;
+  const concurrency = resolveConcurrency(config.concurrency, chunks.length);
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const index = nextIndex++;
+      if (index >= chunks.length) return;
+      const chunk = chunks[index];
+      const input = typeof chunk === "string" ? { ssml: chunk } : chunk;
       report({
-        currentChunk: index + 1,
+        currentChunk: completed,
         totalChunks,
-        percent: totalChunks === 0 ? 100 : Math.round(((index + 1) / totalChunks) * 100),
+        percent: totalChunks === 0 ? 100 : Math.round((completed / totalChunks) * 100),
         chunkIndex: index,
         originalTextRange: input.originalTextRange,
-        status: "success",
-        durationMs: Date.now() - startedAt,
+        status: "synthesizing",
+        durationMs: 0,
       });
-    } catch (error) {
-      report({
-        currentChunk: index,
-        totalChunks,
-        percent: totalChunks === 0 ? 100 : Math.round((index / totalChunks) * 100),
-        chunkIndex: index,
-        originalTextRange: input.originalTextRange,
-        status: "failed",
-        durationMs: Date.now() - startedAt,
-        error,
-      });
-      throw error;
+      const startedAt = Date.now();
+      try {
+        const result = await synthesizeWithRetry(
+          input.ssml,
+          {
+            ...config,
+            ...(input.originalTextRange ? { sourceTextRange: input.originalTextRange } : {}),
+            ...((input.sourceNodePath ?? config.sourceNodePath)
+              ? { sourceNodePath: [...(input.sourceNodePath ?? config.sourceNodePath ?? [])] }
+              : {}),
+            ...(input.sourceTextSegments ? { sourceTextSegments: input.sourceTextSegments } : {}),
+            ...(input.sourceMarkers ? { sourceMarkers: input.sourceMarkers } : {}),
+            chunkIndex: index,
+            onProgress: undefined,
+          },
+          config.retryOptions,
+          (retryAttempt, nextRetryDelayMs) =>
+            report({
+              currentChunk: completed,
+              totalChunks,
+              percent: totalChunks === 0 ? 100 : Math.round((completed / totalChunks) * 100),
+              chunkIndex: index,
+              originalTextRange: input.originalTextRange,
+              status: "synthesizing",
+              durationMs: Date.now() - startedAt,
+              retryAttempt,
+              nextRetryDelayMs,
+              isRetrying: true,
+            }),
+        );
+        results[index] = result;
+        completed += 1;
+        report({
+          currentChunk: completed,
+          totalChunks,
+          percent: totalChunks === 0 ? 100 : Math.round((completed / totalChunks) * 100),
+          chunkIndex: index,
+          originalTextRange: input.originalTextRange,
+          status: "success",
+          durationMs: Date.now() - startedAt,
+        });
+      } catch (error) {
+        report({
+          currentChunk: completed,
+          totalChunks,
+          percent: totalChunks === 0 ? 100 : Math.round((completed / totalChunks) * 100),
+          chunkIndex: index,
+          originalTextRange: input.originalTextRange,
+          status: "failed",
+          durationMs: Date.now() - startedAt,
+          error,
+        });
+        throw error;
+      }
     }
-  }
-  return mergeSynthesisResults(results, {
-    format: (config.outputFormat ?? "audio-16khz-128kbitrate-mono-mp3") as AzureTtsOutputFormat,
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, () => worker()));
+  const orderedResults = results.filter((result): result is SsmlSynthesisResult => result !== undefined);
+  return mergeSynthesisResults(orderedResults, {
+    format: (config.outputFormat ?? DEFAULT_OUTPUT_FORMAT) as AzureTtsOutputFormat,
+    signal: config.signal,
   });
 }
 
@@ -506,6 +763,8 @@ function createMergedResult(
   results: readonly SsmlSynthesisResult[],
   audioData: ArrayBuffer,
   format: string,
+  audioSpec?: AudioSpecification,
+  outputMimeType?: string,
 ): MergedSynthesisResult {
   const boundaries: NonNullable<SsmlSynthesisResult["boundaries"]> = [];
   const visemes: NonNullable<SsmlSynthesisResult["visemes"]> = [];
@@ -530,6 +789,7 @@ function createMergedResult(
         ...(originalTextRange ? { originalTextRange: { ...originalTextRange } } : {}),
         ...(textRange ? { textRange: { ...textRange } } : {}),
         ...(requestId ? { requestId } : {}),
+        mappingStatus: boundary.mappingStatus ?? "unmapped",
       });
     }
     for (const viseme of result.visemes ?? []) {
@@ -545,6 +805,7 @@ function createMergedResult(
         ...(originalTextRange ? { originalTextRange: { ...originalTextRange } } : {}),
         ...(textRange ? { textRange: { ...textRange } } : {}),
         ...(requestId ? { requestId } : {}),
+        mappingStatus: viseme.mappingStatus ?? "unmapped",
       });
     }
     for (const bookmark of result.bookmarks ?? []) {
@@ -560,6 +821,7 @@ function createMergedResult(
         ...(originalTextRange ? { originalTextRange: { ...originalTextRange } } : {}),
         ...(textRange ? { textRange: { ...textRange } } : {}),
         ...(requestId ? { requestId } : {}),
+        mappingStatus: bookmark.mappingStatus ?? "unmapped",
       });
     }
     durationOffset += Math.max(0, result.durationMs);
@@ -569,6 +831,8 @@ function createMergedResult(
     audioData,
     durationMs: durationOffset,
     mimeType: resolveMimeType(format),
+    audioSpec: audioSpec ?? formatAudioSpecification(format),
+    ...(outputMimeType ? { mimeType: outputMimeType } : {}),
     ...(boundaries.length > 0 ? { boundaries, wordBoundary: boundaries, wordBoundaries: boundaries } : {}),
     ...(visemes.length > 0 ? { visemes } : {}),
     ...(bookmarks.length > 0 ? { bookmarks } : {}),
@@ -594,22 +858,53 @@ export function mergeSynthesisResults(
   const format = resolvedOptions?.format;
   if (!format) throw new UnsupportedMergeFormatError("");
   const buffers = results.map((result) => result.audioData);
+  const inputSpecs = results.map((result) => result.audioSpec ?? inspectAudioSpecification(result.audioData, format));
+  validateAudioSpecifications(inputSpecs);
+  const signal = resolvedOptions.signal ?? new AbortController().signal;
+  if (signal.aborted) throw new SynthesisCancelledError();
   if (resolvedOptions.customMerger) {
     return Promise.resolve()
-      .then(() => resolvedOptions.customMerger?.(buffers, format))
+      .then(() =>
+        resolvedOptions.customMerger?.(buffers, {
+          format,
+          outputMimeType: resolvedOptions.outputMimeType ?? resolveMimeType(format),
+          inputSpecs,
+          signal,
+        }),
+      )
       .then((merged) => {
         if (!merged) throw new MergeError("The custom audio merger returned no audio buffer.");
-        return createMergedResult(results, merged, format);
+        if (
+          !(merged instanceof ArrayBuffer) ||
+          (buffers.some((buffer) => buffer.byteLength > 0) && merged.byteLength === 0)
+        )
+          throw new MergeError("The custom audio merger returned an invalid audio buffer.");
+        if (signal.aborted) throw new SynthesisCancelledError();
+        return createMergedResult(
+          results,
+          merged,
+          format,
+          inspectAudioSpecification(merged, format),
+          resolvedOptions.outputMimeType,
+        );
       })
       .catch((error: unknown) => {
-        if (error instanceof UnsupportedMergeFormatError || error instanceof MergeError) throw error;
+        if (error instanceof UnsupportedMergeFormatError || isAudioFormatMismatch(error) || error instanceof MergeError)
+          throw error;
         throw new MergeError(`Custom audio merger failed for format "${format}".`, error);
       });
   }
   try {
-    return createMergedResult(results, mergeAudioBuffers(buffers, { format }), format);
+    return createMergedResult(
+      results,
+      mergeAudioBuffers(buffers, { format }),
+      format,
+      inputSpecs[0],
+      resolvedOptions.outputMimeType,
+    );
   } catch (error) {
-    if (error instanceof UnsupportedMergeFormatError || error instanceof MergeError) throw error;
+    if (error instanceof UnsupportedMergeFormatError || isAudioFormatMismatch(error) || error instanceof MergeError)
+      throw error;
     throw new MergeError(`Audio buffers could not be merged for format "${format}".`, error);
   }
 }

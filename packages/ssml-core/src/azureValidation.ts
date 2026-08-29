@@ -22,7 +22,19 @@ export interface SsmlDiagnostic {
   message: string;
   severity: SsmlDiagnosticSeverity;
   source: SsmlDiagnosticSource;
+  /** Structured location and source metadata; message parsing is not required. */
+  targetNodePath?: string[];
+  /** Alias retained for callers using the shorter terminology. */
+  nodePath?: string[];
+  range?: { start: number; end: number };
+  tagName?: string;
+  attributeName?: string;
+  voiceName?: string;
+  chunkIndex?: number;
 }
+
+/** Generic name for a structured SSML diagnostic. */
+export type Diagnostic = SsmlDiagnostic;
 
 export interface AzureVoiceDefinition {
   name: string;
@@ -49,6 +61,7 @@ export interface AzureValidationOptions {
   urlValidator?: AzureUrlValidator;
   /** Source path associated with a chunk being validated. */
   sourceNodePath?: readonly string[];
+  chunkIndex?: number;
   /** Alias for urlValidator retained for applications that use the longer name. */
   customUrlValidator?: AzureUrlValidator;
   /** Controls deduplication, caching, cancellation, and concurrency for URL checks. */
@@ -58,6 +71,8 @@ export interface AzureValidationOptions {
   urlValidatorTimeoutMs?: number;
   urlValidatorSignal?: AbortSignal;
   urlValidatorCache?: Map<string, AzureUrlValidationResult>;
+  /** Shared runner used by chunk orchestration to deduplicate in-flight checks. */
+  urlValidatorRunner?: AzureUrlValidator;
   languageAliases?: Record<string, string | readonly string[]>;
   maxLength?: number;
   /** Maximum XML element nesting depth, counting `<speak>` as depth 1. */
@@ -202,6 +217,7 @@ interface ElementToken {
   parentVoiceName?: string;
   start: number;
   selfClosing: boolean;
+  path: string[];
 }
 
 const ALLOWED_BREAK_STRENGTHS = new Set(["none", "x-weak", "weak", "medium", "strong", "x-strong"]);
@@ -279,7 +295,7 @@ function findTagEnd(source: string, start: number): number {
 
 function tokenizeElements(source: string): ElementToken[] {
   const tokens: ElementToken[] = [];
-  const openElements: Array<{ childElementCount: number; name: string; voiceName?: string }> = [];
+  const openElements: Array<{ childElementCount: number; name: string; path: string[]; voiceName?: string }> = [];
   let index = 0;
   while (index < source.length) {
     const start = source.indexOf("<", index);
@@ -323,6 +339,7 @@ function tokenizeElements(source: string): ElementToken[] {
     if (parent) parent.childElementCount += 1;
     const parentVoiceName = [...openElements].reverse().find((element) => element.voiceName)?.voiceName;
     const tokenName = nameMatch[1];
+    const path = parent ? [...parent.path, `${tokenName}[${childElementIndex ?? 0}]`] : [tokenName];
     const tokenVoiceName =
       tokenName.toLowerCase() === "voice"
         ? attributes.get("name")
@@ -339,11 +356,13 @@ function tokenizeElements(source: string): ElementToken[] {
       parentVoiceName,
       selfClosing,
       start,
+      path,
     });
     if (!selfClosing) {
       openElements.push({
         childElementCount: 0,
         name: tokenName,
+        path,
         voiceName: tokenVoiceName,
       });
     }
@@ -365,6 +384,12 @@ function addDiagnostic(
   message: string,
   severity: SsmlDiagnosticSeverity = "error",
   code?: AzureDiagnosticCode,
+  metadata: Partial<
+    Pick<
+      SsmlDiagnostic,
+      "tagName" | "attributeName" | "voiceName" | "chunkIndex" | "range" | "nodePath" | "targetNodePath"
+    >
+  > = {},
 ): void {
   diagnostics.push({
     ...location(source, offset),
@@ -372,6 +397,7 @@ function addDiagnostic(
     severity,
     source: "ssml-static-validator",
     ...(code ? { code } : {}),
+    ...metadata,
   });
 }
 
@@ -926,9 +952,11 @@ function validateAzureSsmlStatic(ssml: string, options: AzureValidationOptions =
           : options.validateNestedVoices === false
             ? voiceName
             : token.parentVoiceName;
+    const tokenDiagnosticStart = diagnostics.length;
     validateElement(token, ssml, diagnostics, tokenVoiceName, options, voiceCatalog);
     const definition = tokenVoiceName ? voiceCatalog.get(tokenVoiceName.toLowerCase()) : undefined;
     validateVoiceFeatureMatrix(token, ssml, diagnostics, tokenVoiceName, definition);
+    annotateTokenDiagnostics(diagnostics, tokenDiagnosticStart, token, options, tokenVoiceName);
     if (
       tokenName === "voice" &&
       options.model &&
@@ -964,6 +992,31 @@ function urlAttributes(token: ElementToken): Array<{ attribute: string; value: s
   });
 }
 
+function annotateTokenDiagnostics(
+  diagnostics: SsmlDiagnostic[],
+  startIndex: number,
+  token: ElementToken,
+  options: AzureValidationOptions,
+  voiceName?: string,
+): void {
+  const attributes = [...token.attributes.keys()];
+  for (const diagnostic of diagnostics.slice(startIndex)) {
+    const attributeName = attributes.find((attribute) =>
+      new RegExp(`(?:<[^> ]+\\s+|")${attribute}(?:"|>|\\s)`, "i").test(diagnostic.message),
+    );
+    const nodePath = options.sourceNodePath ? [...options.sourceNodePath] : [...token.path];
+    Object.assign(diagnostic, {
+      range: { start: token.start, end: token.end + 1 },
+      tagName: token.name,
+      ...(attributeName ? { attributeName } : {}),
+      ...(voiceName ? { voiceName } : {}),
+      ...(options.chunkIndex !== undefined ? { chunkIndex: options.chunkIndex } : {}),
+      nodePath,
+      targetNodePath: [...token.path],
+    });
+  }
+}
+
 /**
  * Validates Azure SSML synchronously unless a URL validator is supplied. URL
  * validation is asynchronous-capable so hosts can perform DNS/private-network checks.
@@ -984,13 +1037,15 @@ export function validateAzureSsml(
   const validator = options.urlValidator ?? options.customUrlValidator;
   if (!validator || typeof ssml !== "string") return diagnostics;
   const runnerOptions = options.urlValidation ?? {};
-  const boundedValidator = createAzureUrlValidatorRunner(validator, {
-    ...runnerOptions,
-    ...(options.urlValidatorConcurrency !== undefined ? { concurrency: options.urlValidatorConcurrency } : {}),
-    ...(options.urlValidatorTimeoutMs !== undefined ? { timeoutMs: options.urlValidatorTimeoutMs } : {}),
-    ...(options.urlValidatorSignal ? { signal: options.urlValidatorSignal } : {}),
-    ...(options.urlValidatorCache ? { cache: options.urlValidatorCache } : {}),
-  });
+  const boundedValidator =
+    options.urlValidatorRunner ??
+    createAzureUrlValidatorRunner(validator, {
+      ...runnerOptions,
+      ...(options.urlValidatorConcurrency !== undefined ? { concurrency: options.urlValidatorConcurrency } : {}),
+      ...(options.urlValidatorTimeoutMs !== undefined ? { timeoutMs: options.urlValidatorTimeoutMs } : {}),
+      ...(options.urlValidatorSignal ? { signal: options.urlValidatorSignal } : {}),
+      ...(options.urlValidatorCache ? { cache: options.urlValidatorCache } : {}),
+    });
   const validationSignal = options.urlValidatorSignal ?? options.urlValidation?.signal ?? new AbortController().signal;
 
   let tokens: ElementToken[];
@@ -1010,23 +1065,52 @@ export function validateAzureSsml(
         const valid = typeof result === "boolean" ? result : result.valid;
         if (!valid) {
           const reason = typeof result === "boolean" ? undefined : result.reason;
+          const diagnosticStart = diagnostics.length;
           addDiagnostic(
             diagnostics,
             ssml,
             token.start,
             `<${token.name} ${attribute}> was rejected by the custom URL validator${reason ? `: ${reason}` : "."}`,
           );
+          annotateTokenDiagnostics(diagnostics, diagnosticStart, token, options, token.parentVoiceName);
         }
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
+        const diagnosticStart = diagnostics.length;
         addDiagnostic(
           diagnostics,
           ssml,
           token.start,
           `<${token.name} ${attribute}> could not be validated by the custom URL validator: ${reason}`,
         );
+        annotateTokenDiagnostics(diagnostics, diagnosticStart, token, options, token.parentVoiceName);
       }
     }),
   );
   return Promise.all(checks).then(() => diagnostics);
+}
+
+/** Validates multiple SSML chunks with one shared URL cache, semaphore, and in-flight pool. */
+export async function validateAzureSsmlChunks(
+  chunks: readonly string[],
+  options: AzureValidationOptions = {},
+): Promise<SsmlDiagnostic[][]> {
+  const validator = options.urlValidator ?? options.customUrlValidator;
+  const sharedOptions = validator
+    ? {
+        ...options,
+        urlValidatorRunner:
+          options.urlValidatorRunner ??
+          createAzureUrlValidatorRunner(validator, {
+            ...(options.urlValidation ?? {}),
+            ...(options.urlValidatorConcurrency !== undefined ? { concurrency: options.urlValidatorConcurrency } : {}),
+            ...(options.urlValidatorTimeoutMs !== undefined ? { timeoutMs: options.urlValidatorTimeoutMs } : {}),
+            ...(options.urlValidatorSignal ? { signal: options.urlValidatorSignal } : {}),
+            ...(options.urlValidatorCache ? { cache: options.urlValidatorCache } : {}),
+          }),
+      }
+    : options;
+  return Promise.all(
+    chunks.map((chunk, chunkIndex) => Promise.resolve(validateAzureSsml(chunk, { ...sharedOptions, chunkIndex }))),
+  );
 }

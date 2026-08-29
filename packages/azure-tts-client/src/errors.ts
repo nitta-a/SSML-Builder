@@ -2,6 +2,7 @@ export type SynthesisErrorKind =
   | "validation-error"
   | "azure-api-error"
   | "merge-error"
+  | "audio-format-mismatch"
   | "unsupported-format-error"
   | "cancelled"
   | "timeout";
@@ -63,6 +64,18 @@ export class MergeError extends Error {
   }
 }
 
+/** Thrown when chunk headers describe incompatible audio streams. */
+export class AudioFormatMismatchError extends Error {
+  readonly kind = "audio-format-mismatch" as const;
+  readonly inputSpecs: readonly AudioSpecification[];
+
+  constructor(message: string, inputSpecs: readonly AudioSpecification[] = []) {
+    super(message);
+    this.name = "AudioFormatMismatchError";
+    this.inputSpecs = inputSpecs;
+  }
+}
+
 /** Thrown when audio buffers require container re-multiplexing before they can be merged. */
 export class UnsupportedMergeFormatError extends Error {
   readonly kind = "unsupported-format-error" as const;
@@ -78,16 +91,24 @@ export class UnsupportedMergeFormatError extends Error {
 export type AzureTtsSynthesisError =
   | AzureTtsError
   | MergeError
+  | AudioFormatMismatchError
   | UnsupportedMergeFormatError
   | SynthesisCancelledError
   | SynthesisTimeoutError;
 
 export function toSynthesisError(
   error: unknown,
-): AzureTtsError | MergeError | UnsupportedMergeFormatError | SynthesisCancelledError | SynthesisTimeoutError {
+):
+  | AzureTtsError
+  | MergeError
+  | AudioFormatMismatchError
+  | UnsupportedMergeFormatError
+  | SynthesisCancelledError
+  | SynthesisTimeoutError {
   if (
     error instanceof AzureTtsError ||
     error instanceof MergeError ||
+    error instanceof AudioFormatMismatchError ||
     error instanceof UnsupportedMergeFormatError ||
     error instanceof SynthesisCancelledError ||
     error instanceof SynthesisTimeoutError
@@ -103,3 +124,4 @@ export function createSpeechSdkError(error: unknown): AzureTtsSdkError {
   const message = error instanceof Error ? error.message : String(error);
   return new AzureTtsSdkError(message);
 }
+import type { AudioSpecification } from "./types.ts";

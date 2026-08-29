@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.16.0
+
+### Minor Changes
+
+- Add shared URL validation for SSML chunks, transient retry and bounded parallel synthesis, structured diagnostics and synchronization mapping status, audio header/specification validation, and the stricter custom audio merger context.
+
 ## 2.15.0
 
 ### Minor Changes
