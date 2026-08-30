@@ -181,6 +181,26 @@ test("synthesizeSpeech aborts the SDK request on timeout and settles its promise
   assert.equal(closeCount, 1);
 });
 
+test("synthesizeSsml enforces totalJobMs across the SDK request", async (t) => {
+  let closeCount = 0;
+  installHangingSynthesisMock(
+    t,
+    () => undefined,
+    () => (closeCount += 1),
+  );
+
+  await assert.rejects(
+    synthesizeSsml("<speak>Hello</speak>", {
+      endpoint,
+      subscriptionKey,
+      region,
+      timeouts: { totalJobMs: 10 },
+    }),
+    /exceeded the total job deadline/,
+  );
+  assert.equal(closeCount, 1);
+});
+
 const azureKey = process.env.AZURE_SPEECH_KEY;
 const azureRegion = process.env.AZURE_SPEECH_REGION;
 

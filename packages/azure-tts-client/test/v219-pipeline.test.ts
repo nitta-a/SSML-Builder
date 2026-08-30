@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  AudioFormatMismatchError,
+  AzureTtsError,
+  AzureTtsClient,
+  DeadlineController,
   IncompleteChunkSetError,
   inspectAudioSpecification,
+  serializeChunkError,
   synthesizeSsmlChunksSafe,
   synthesizeSsmlSafe,
   computeChunkFingerprint,
@@ -88,6 +93,69 @@ test("fingerprints include the complete synthesis environment", () => {
   );
 });
 
+test("fingerprints canonicalize headers and support explicit voice and language inputs", () => {
+  const options = {
+    region: "eastus",
+    endpoint: "https://eastus.example.test/tts",
+    customHeaders: { "x-tenant": "a", "x-request": "b" },
+    voice: "en-US-JennyNeural",
+    lang: "en-US",
+    schemaVersion: "legacy",
+  } as const;
+  assert.equal(
+    computeChunkFingerprint(validSsml("hello"), "audio-16khz-128kbitrate-mono-mp3", options),
+    computeChunkFingerprint(validSsml("hello"), "audio-16khz-128kbitrate-mono-mp3", {
+      ...options,
+      customHeaders: { "x-request": "b", "x-tenant": "a" },
+      fingerprintSchemaVersion: "legacy",
+    }),
+  );
+  assert.notEqual(
+    computeChunkFingerprint(validSsml("hello"), "audio-16khz-128kbitrate-mono-mp3", options),
+    computeChunkFingerprint(validSsml("hello"), "audio-16khz-128kbitrate-mono-mp3", {
+      ...options,
+      voice: "en-US-AriaNeural",
+    }),
+  );
+});
+
+test("serializes synthesis failures with stable codes and retry metadata", () => {
+  const retryable = serializeChunkError(
+    new AzureTtsError(503, "Service Unavailable", "", "request-1"),
+    "synthesis",
+    true,
+  );
+  assert.deepEqual(retryable, {
+    code: "AZURE_API_ERROR",
+    phase: "synthesis",
+    message: "Azure TTS request failed: 503 Service Unavailable",
+    isOriginalFailure: true,
+    isRetryable: true,
+    httpStatus: 503,
+    details: { statusText: "Service Unavailable", requestId: "request-1" },
+  });
+
+  const incomplete = serializeChunkError(new IncompleteChunkSetError(3, [1, 2]), "merge", false);
+  assert.equal(incomplete.code, "MERGE_ERROR");
+  assert.equal(incomplete.isRetryable, false);
+  assert.deepEqual(incomplete.details, { totalChunks: 3, missingChunkIndices: [1, 2] });
+  assert.equal(serializeChunkError(new Error("request aborted"), "synthesis", false).code, "CANCELLED");
+});
+
+test("DeadlineController distinguishes cancellation from expiry and cleans up", async () => {
+  const cancelled = new DeadlineController(1_000);
+  cancelled.abort();
+  assert.equal(cancelled.signal.aborted, true);
+  assert.throws(() => cancelled.throwIfExpired(), /cancelled/);
+  cancelled.dispose();
+
+  const expired = new DeadlineController(5);
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.equal(expired.timedOut, true);
+  assert.throws(() => expired.throwIfExpired(), /total job deadline/);
+  expired.dispose();
+});
+
 test("refuses to merge when resumeChunkIndices leave a chunk missing", async () => {
   const fingerprint = computeChunkFingerprint(validSsml("one"));
   const result = await synthesizeSsmlChunksSafe(
@@ -121,11 +189,77 @@ test("applies totalJobMs to one safe synthesis before the client resolves", asyn
   if (!result.ok) assert.equal(result.error.kind, "timeout");
 });
 
+test("forwards v2.19 synthesis options through the safe chunk client path", async () => {
+  let received: Record<string, unknown> | undefined;
+  const result = await synthesizeSsmlChunksSafe(
+    {
+      synthesizeSsml: async () => ({ audioData: Uint8Array.of(1).buffer, durationMs: 1 }),
+      synthesizeChunks: async (_chunks, options) => {
+        received = options as Record<string, unknown>;
+        return { audioData: Uint8Array.of(2).buffer, durationMs: 2 };
+      },
+    },
+    [validSsml("chunk")],
+    {
+      customHeaders: { "x-tenant": "a" },
+      fingerprintSchemaVersion: "3",
+    },
+  );
+  assert.equal(result.ok, true);
+  assert.deepEqual(received?.customHeaders, { "x-tenant": "a" });
+  assert.equal(received?.fingerprintSchemaVersion, "3");
+});
+
+test("AzureTtsClient includes default fingerprint settings when resuming chunks", async () => {
+  const ssml = validSsml("cached");
+  const headers = { "x-tenant": "a" };
+  const endpoint = "https://eastus.example.test/tts";
+  const cached = {
+    chunkIndex: 0,
+    fingerprint: computeChunkFingerprint(ssml, undefined, {
+      region: "eastus",
+      endpoint,
+      customHeaders: headers,
+    }),
+    audioData: new ArrayBuffer(0),
+    durationMs: 1,
+  };
+  const result = await new AzureTtsClient({
+    subscriptionKey: "subscription-key",
+    region: "eastus",
+    endpoint,
+    customHeaders: headers,
+  }).synthesizeChunks([ssml], { resumeChunks: [cached] });
+
+  assert.equal(result.durationMs, 1);
+  assert.equal(result.audioData.byteLength, 0);
+});
+
 test("validates Ogg and WebM codec headers", () => {
-  assert.equal(inspectAudioSpecification(oggOpus(), "ogg-16khz-16bit-mono-opus").codec, "opus");
-  assert.equal(inspectAudioSpecification(webmOpus(), "webm-24khz-16bit-mono-opus").container, "webm");
+  const ogg = inspectAudioSpecification(oggOpus(), "ogg-16khz-16bit-mono-opus");
+  assert.deepEqual(
+    { codec: ogg.codec, sampleRate: ogg.sampleRate, channels: ogg.channels, container: ogg.container },
+    { codec: "opus", sampleRate: 16_000, channels: 1, container: "ogg" },
+  );
+  const webm = inspectAudioSpecification(webmOpus(), "webm-24khz-16bit-mono-opus");
+  assert.deepEqual(
+    { codec: webm.codec, sampleRate: webm.sampleRate, channels: webm.channels, mimeType: webm.mimeType },
+    { codec: "opus", sampleRate: 24_000, channels: 1, mimeType: "audio/webm" },
+  );
   assert.throws(() =>
     inspectAudioSpecification(Uint8Array.of(0x4f, 0x67, 0x67, 0x53).buffer, "ogg-16khz-16bit-mono-opus"),
   );
   assert.throws(() => inspectAudioSpecification(Uint8Array.of(0x1a, 0x45, 0xdf).buffer, "webm-24khz-16bit-mono-opus"));
+  assert.throws(
+    () => inspectAudioSpecification(oggOpus(), "ogg-24khz-16bit-mono-opus"),
+    (error: unknown) => error instanceof AudioFormatMismatchError,
+  );
+});
+
+test("validates RAW SILK and Opus framing headers", () => {
+  const silk = Uint8Array.from([...new TextEncoder().encode("#!SILK_V3"), 0x0a]).buffer;
+  assert.equal(inspectAudioSpecification(silk, "raw-16khz-16bit-mono-silk").codec, "silk");
+  assert.throws(() => inspectAudioSpecification(new ArrayBuffer(10), "raw-16khz-16bit-mono-silk"));
+  assert.equal(inspectAudioSpecification(Uint8Array.of(0, 0).buffer, "raw-48khz-16bit-mono-opus").codec, "opus");
+  assert.throws(() => inspectAudioSpecification(Uint8Array.of(0x1f, 0).buffer, "raw-48khz-16bit-mono-opus"));
 });

@@ -796,6 +796,27 @@ describe("SsmlEditor props", () => {
     expect(screen.getAllByTestId("ssml-editor-warning-badge").length).toBeGreaterThan(0);
   });
 
+  it("normalizes Azure tag aliases when applying voice capability restrictions", async () => {
+    renderEditor({
+      editMode: "visual",
+      locale: "en",
+      voiceCatalog: [{ name: "en-US-JennyNeural", locale: "en-US", unsupportedTags: ["express-as"] }],
+      document: {
+        ...editorDocument,
+        children: [
+          {
+            type: "voice",
+            name: "en-US-JennyNeural",
+            children: [{ type: "mstts:express-as", style: "cheerful", children: ["Hello"] }],
+          },
+        ],
+      },
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /<mstts:express-as>/ }));
+    expect((document.getElementById("ssml-visual-style") as HTMLInputElement).disabled).toBe(true);
+  });
+
   it("updates toolbar and popover text when the locale changes", async () => {
     const user = userEvent.setup();
     const { rerender } = renderEditor({ locale: "ja", showToolbarLabels: true });
