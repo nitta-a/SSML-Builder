@@ -1,0 +1,12 @@
+packages:
+  - packages/*
+  - apps/*
+
+linkWorkspacePackages: true
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  dompurify: 3.4.13
+  esbuild: 0.28.2

@@ -1,5 +1,11 @@
 # @ssml-builder-js/ssml-core
 
+## 2.19.1
+
+### Patch Changes
+
+- Fix vulnerable transitive dependency resolution and update the playground to a secure Next.js patch release.
+
 ## 2.19.0
 
 ## 2.18.0
