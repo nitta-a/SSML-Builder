@@ -69,7 +69,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
-    "@changesets/cli": "2.31.1",
+    "@changesets/cli": "3.0.3",
     "@types/node": "^24.0.0",
     "tsup": "8.5.1",
     "typescript": "^6.0.3"
@@ -98,10 +98,12 @@
     "microsoft-cognitiveservices-speech-sdk": "1.51.0"
   },
   "overrides": {
-    "dompurify": "3.4.13",
+    "dompurify": "3.4.16",
     "esbuild": "0.28.2",
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2",
     "monaco-editor": {
-      "dompurify": "3.4.13"
+      "dompurify": "3.4.16"
     }
   }
 }
