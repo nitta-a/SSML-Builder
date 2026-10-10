@@ -17,7 +17,7 @@ export interface InsertionPopoversProps {
   menuPosition: { top: number; left: number } | null;
   menuRef: Ref<HTMLDivElement>;
   onToggle: (id: string, trigger: HTMLButtonElement) => void;
-  onClose: () => void;
+  onClose: (restoreFocus?: boolean) => void;
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
   emptyOptionsMessages?: Readonly<Record<string, string>>;
   optionGroups?: Readonly<Record<string, readonly InsertionOptionGroup[]>>;

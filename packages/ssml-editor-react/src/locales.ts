@@ -218,7 +218,7 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
   ja: {
     editorAriaLabel: "SSMLエディター",
     toolbarAriaLabel: "SSMLツールバー",
-    clearAll: "全てクリア",
+    clearAll: "書式を解除",
     clearAllTitle: "音声設定を保持してXML要素を削除し本文を残す",
     undo: "元に戻す",
     undoTitle: "直前の変更を元に戻す",
@@ -249,7 +249,7 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
   en: {
     editorAriaLabel: "SSML editor",
     toolbarAriaLabel: "SSML toolbar",
-    clearAll: "Clear all",
+    clearAll: "Remove formatting",
     clearAllTitle: "Remove non-voice XML elements and keep the text and voice settings",
     undo: "Undo",
     undoTitle: "Undo the last change",
@@ -278,6 +278,55 @@ export const EDITOR_COPY: Readonly<Record<SsmlEditorLocale, EditorCopy>> = {
     categoryOther: "Other",
   },
 };
+
+export const TOOLBAR_COPY = {
+  ja: {
+    editMode: "編集モード",
+    visualMode: "ビジュアル",
+    codeMode: "コード",
+    historyGroup: "編集",
+    documentGroup: "文書",
+    helpGroup: "ヘルプ",
+    settingsGroup: "設定",
+    more: "その他",
+    moreTitle: "詳細な読み上げ設定と文書操作",
+    moreHeading: "その他の設定",
+    cursorHint: "本文を選択して読み上げを調整。間はカーソル位置に挿入します。",
+    selectionHint: "選択範囲に読み上げ設定を適用します。",
+    visualHint: "構造ツリーで要素を選び、フォームで編集します。",
+    readOnlyHint: "閲覧モード：本文の編集はできません。",
+    loadingHint: "エディターを読み込んでいます。",
+    previewCurrentLine: "現在行を試聴",
+    previewCompact: "試聴",
+    previewCurrentLineTitle: "カーソルのある行のSSMLを試聴",
+    clearHeading: "読み上げの書式を解除",
+    clearDescription: "間・速度・感情などのSSML設定を解除します。本文と音声の設定は残ります。",
+    cancel: "キャンセル",
+  },
+  en: {
+    editMode: "Editing mode",
+    visualMode: "Visual",
+    codeMode: "Code",
+    historyGroup: "Edit",
+    documentGroup: "Document",
+    helpGroup: "Help",
+    settingsGroup: "Settings",
+    more: "More",
+    moreTitle: "Advanced speech settings and document actions",
+    moreHeading: "More settings",
+    cursorHint: "Select text to adjust speech. Pauses are inserted at the cursor.",
+    selectionHint: "Speech settings apply to the selected text.",
+    visualHint: "Select an element in the structure tree and edit it in the form.",
+    readOnlyHint: "Read-only: text editing is disabled.",
+    loadingHint: "Loading the editor.",
+    previewCurrentLine: "Preview current line",
+    previewCompact: "Preview",
+    previewCurrentLineTitle: "Preview the SSML on the cursor line",
+    clearHeading: "Remove speech formatting",
+    clearDescription: "Remove SSML settings such as pauses, rate, and emotion. Text and voice settings are kept.",
+    cancel: "Cancel",
+  },
+} as const satisfies Readonly<Record<SsmlEditorLocale, Readonly<Record<string, string>>>>;
 
 export const INLINE_BADGE_COPY: Readonly<Record<SsmlEditorLocale, InlineBadgeCopy>> = {
   ja: {

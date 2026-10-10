@@ -4,6 +4,7 @@ import type { SsmlDocument, SsmlElement, SsmlNode } from "@ssml-builder-js/ssml-
 import { clearSsmlDocument } from "../../ssml-editor-react/src/clearSsmlDocument";
 import { getEditableRegion, getEditableText, updateEditableText } from "../../ssml-editor-react/src/editableSsml";
 import { formatXmlFragment } from "../../ssml-editor-react/src/formatXml";
+import { buildVisualPreview } from "../../ssml-editor-react/src/visualSsmlPreview";
 import { registerSsmlCompletionProvider } from "../../ssml-editor-react/src/ssmlCompletion";
 import { findActiveSsmlTags, findSsmlVoiceContext } from "../../ssml-editor-react/src/ssmlContext";
 import { findSsmlHoverTarget, formatSsmlHover } from "../../ssml-editor-react/src/ssmlHover";
@@ -14,8 +15,19 @@ import {
   type SsmlEditorInsertionDefinition,
   type SsmlEditorInsertionOption,
 } from "../../ssml-editor-react/src/ssmlInsertions";
-import { EDITOR_COPY } from "../../ssml-editor-react/src/locales";
+import { EDITOR_COPY, TOOLBAR_COPY } from "../../ssml-editor-react/src/locales";
 import { getExpressAsStyleCategory, resolveExpressAsStyles } from "../../ssml-editor-react/src/constants/ssmlPresets";
+import { TOOLBAR_CSS } from "../../ssml-editor-react/src/styles/editorStyles";
+import {
+  ADVANCED_TOOLBAR_IDS,
+  focusMenuItem,
+  getPopoverPosition,
+  groupToolbarButtons,
+  handleMenuKeyDown,
+  handleToolbarKeyDown,
+  syncToolbarTabStops,
+  ToolbarDocumentHistory,
+} from "../../ssml-editor-react/src/toolbar";
 
 type Monaco = typeof monaco;
 type MonacoEditor = monaco.editor.IStandaloneCodeEditor;
@@ -30,6 +42,7 @@ export interface SsmlEditorChangeDetail {
 }
 
 const HTMLElementBase = (typeof HTMLElement === "undefined" ? class {} : HTMLElement) as typeof HTMLElement;
+let editorInstanceCount = 0;
 const STYLE_ID = "ssml-editor-elements-theme";
 const STYLE_CSS = `
 [data-ssml-editor] {
@@ -233,7 +246,7 @@ section[data-ssml-editor] {
 }
 [data-ssml-editor] .ssml-editor-display {
   display: grid;
-  grid-template-rows: auto minmax(8rem, 1fr);
+  grid-template-rows: minmax(8rem, 1fr);
   gap: 0.5rem;
   min-height: 0;
 }
@@ -308,7 +321,7 @@ function injectStyles(): void {
 
   const style = document.createElement("style");
   style.id = STYLE_ID;
-  style.textContent = STYLE_CSS;
+  style.textContent = `${STYLE_CSS}\n${TOOLBAR_CSS}`;
   document.head.appendChild(style);
 }
 
@@ -388,17 +401,6 @@ function wrapVisualText(
   };
 }
 
-function getMenuPosition(trigger: HTMLElement, menu: HTMLElement): { top: number; left: number } {
-  const bounds = trigger.getBoundingClientRect();
-  const margin = 8;
-  const top = Math.min(bounds.bottom + 4, window.innerHeight - menu.offsetHeight - margin);
-  const left = Math.min(bounds.left, window.innerWidth - menu.offsetWidth - margin);
-  return {
-    top: Math.max(margin, top),
-    left: Math.max(margin, left),
-  };
-}
-
 export class SsmlEditorElement extends HTMLElementBase {
   static readonly tagName = "ssml-editor";
   static readonly observedAttributes = [
@@ -418,6 +420,11 @@ export class SsmlEditorElement extends HTMLElementBase {
   private root: HTMLElement | null = null;
   private toolbar: HTMLElement | null = null;
   private toolbarActions: HTMLElement | null = null;
+  private toolbarContext: HTMLElement | null = null;
+  private readonly toolbarId = `ssml-editor-elements-${++editorInstanceCount}`;
+  private moreOpen = false;
+  private clearConfirmation: HTMLElement | null = null;
+  private clearConfirmationTrigger: HTMLButtonElement | null = null;
   private display: HTMLElement | null = null;
   private editorContainer: HTMLDivElement | null = null;
   private visualContainer: HTMLDivElement | null = null;
@@ -427,6 +434,7 @@ export class SsmlEditorElement extends HTMLElementBase {
   private toolbarButtons = new Map<string, HTMLButtonElement>();
   private contentDisposable: MonacoDisposable | null = null;
   private cursorDisposable: MonacoDisposable | null = null;
+  private selectionDisposable: MonacoDisposable | null = null;
   private completionDisposable: MonacoDisposable | null = null;
   private hoverDisposable: MonacoDisposable | null = null;
   private suppressChangeEvent = false;
@@ -437,13 +445,13 @@ export class SsmlEditorElement extends HTMLElementBase {
   private helpOpen = false;
   private visualSelectedPath: number[] | null = null;
   private visualSelection = { start: 0, end: 0 };
+  private readonly toolbarDocumentHistory = new ToolbarDocumentHistory();
 
   get value(): string {
     return this.valueState ?? this.getAttribute("value") ?? "";
   }
 
   set value(value: string) {
-    this.valueState = value;
     this.setAttribute("value", value);
   }
 
@@ -501,6 +509,8 @@ export class SsmlEditorElement extends HTMLElementBase {
     injectStyles();
     document.addEventListener("pointerdown", this.handleDocumentPointerDown);
     document.addEventListener("keydown", this.handleDocumentKeyDown);
+    window.addEventListener("resize", this.positionOpenMenu);
+    window.addEventListener("scroll", this.positionOpenMenu, true);
     this.render();
     const token = ++this.initializationToken;
     void this.initialize(token);
@@ -510,12 +520,15 @@ export class SsmlEditorElement extends HTMLElementBase {
     this.initializationToken += 1;
     document.removeEventListener("pointerdown", this.handleDocumentPointerDown);
     document.removeEventListener("keydown", this.handleDocumentKeyDown);
+    window.removeEventListener("resize", this.positionOpenMenu);
+    window.removeEventListener("scroll", this.positionOpenMenu, true);
     this.closeMenu();
     this.disposeEditor();
   }
 
   attributeChangedCallback(name: string, _oldValue: string | null, newValue: string | null): void {
     if (name === "value") {
+      if (this.valueState !== (newValue ?? "")) this.toolbarDocumentHistory.clear();
       this.valueState = newValue ?? "";
       if (this.editor) {
         const value = newValue ?? "";
@@ -528,6 +541,7 @@ export class SsmlEditorElement extends HTMLElementBase {
             this.suppressChangeEvent = false;
           }
         }
+        this.updateActiveButtons();
       }
       this.renderVisualEditor();
       return;
@@ -571,10 +585,13 @@ export class SsmlEditorElement extends HTMLElementBase {
     toolbar.className = "ssml-editor-toolbar";
     toolbar.dataset.ssmlEditorToolbar = "";
     const toolbarActions = document.createElement("div");
-    toolbarActions.className = "ssml-editor-toolbar-actions";
+    toolbarActions.className = "ssml-editor-toolbar-root";
     toolbarActions.setAttribute("role", "toolbar");
     toolbarActions.setAttribute("aria-label", EDITOR_COPY[this.locale].toolbarAriaLabel);
-    toolbarActions.dataset.ssmlEditorToolbarActions = "";
+    toolbarActions.addEventListener("keydown", (event) => handleToolbarKeyDown(event, toolbarActions));
+    toolbarActions.addEventListener("focusin", (event) => {
+      if (event.target instanceof HTMLButtonElement) syncToolbarTabStops(toolbarActions, event.target);
+    });
     toolbar.append(toolbarActions);
 
     const display = document.createElement("div");
@@ -608,7 +625,9 @@ export class SsmlEditorElement extends HTMLElementBase {
     }
 
     this.closeMenu();
+    this.closeClearConfirmation();
     const copy = EDITOR_COPY[this.locale];
+    const text = TOOLBAR_COPY[this.locale];
     toolbar.hidden = this.getAttribute("show-toolbar") === "false";
     toolbar.setAttribute("aria-label", copy.toolbarAriaLabel);
     toolbarActions.setAttribute("aria-label", copy.toolbarAriaLabel);
@@ -618,16 +637,34 @@ export class SsmlEditorElement extends HTMLElementBase {
       return;
     }
 
-    const insertionById = new Map(SSML_INSERTIONS.map((insertion) => [insertion.id, insertion]));
-    const toolbarIds = [
-      "undo",
-      "redo",
-      ...DEFAULT_INSERTION_GROUPS.flatMap((group) => group.insertionIds),
-      "clearAll",
-      "format",
-      "decorations",
-      "help",
-    ];
+    const header = document.createElement("div");
+    header.className = "ssml-editor-toolbar-header";
+    const modes = document.createElement("fieldset");
+    modes.className = "ssml-editor-mode-switch";
+    modes.setAttribute("aria-label", text.editMode);
+    modes.append(this.createModeButton("visual", text.visualMode), this.createModeButton("code", text.codeMode));
+    const context = document.createElement("p");
+    context.className = "ssml-editor-toolbar-context";
+    context.setAttribute("role", "status");
+    this.toolbarContext = context;
+    header.append(modes, context);
+    toolbarActions.append(header);
+
+    const insertionById = new Map<string, SsmlEditorInsertionDefinition>(
+      SSML_INSERTIONS.map((insertion) => [insertion.id, insertion]),
+    );
+    const toolbarIds =
+      this.editMode === "visual"
+        ? ["help", "clearAll"]
+        : [
+            "undo",
+            "redo",
+            ...DEFAULT_INSERTION_GROUPS.flatMap((group) => group.insertionIds),
+            "format",
+            "decorations",
+            "clearAll",
+            "help",
+          ];
     const groupByButtonId = new Map<string, string>();
     for (const group of DEFAULT_INSERTION_GROUPS) {
       for (const buttonId of group.insertionIds) {
@@ -640,38 +677,95 @@ export class SsmlEditorElement extends HTMLElementBase {
     groupByButtonId.set("format", "document");
     groupByButtonId.set("decorations", "document");
     groupByButtonId.set("help", "help");
-
-    let previousGroup: string | undefined;
-    for (const id of toolbarIds) {
-      const group = groupByButtonId.get(id);
-      if (previousGroup !== undefined && group !== previousGroup) {
-        const separator = document.createElement("span");
-        separator.className = "ssml-editor-toolbar-separator";
-        separator.setAttribute("aria-hidden", "true");
-        toolbarActions.append(separator);
+    const labels = new Map<string, string>([
+      ["history", text.historyGroup],
+      ["document", text.documentGroup],
+      ["help", text.helpGroup],
+      ...DEFAULT_INSERTION_GROUPS.map((group): [string, string] => [group.id, group.labels[this.locale]]),
+    ]);
+    const appendGroups = (parent: HTMLElement, ids: readonly string[], advanced = false): void => {
+      for (const group of groupToolbarButtons(ids, groupByButtonId, labels)) {
+        const container = document.createElement("fieldset");
+        container.className = "ssml-editor-toolbar-group";
+        if (group.label) {
+          container.setAttribute("aria-label", group.label);
+          const label = document.createElement("legend");
+          label.className = "ssml-editor-toolbar-group-label";
+          label.setAttribute("aria-hidden", "true");
+          label.textContent = group.label;
+          container.append(label);
+        }
+        const controls = document.createElement("div");
+        controls.className = "ssml-editor-toolbar-group-controls";
+        for (const id of group.buttonIds) {
+          const insertion = insertionById.get(id);
+          if (insertion) controls.append(this.createInsertionButton(insertion, advanced));
+          else if (id === "decorations") controls.append(this.createDecorationsSwitch(advanced));
+          else controls.append(this.createActionButton(id, advanced));
+        }
+        container.append(controls);
+        parent.append(container);
       }
-      previousGroup = group;
+    };
+    const primary = document.createElement("div");
+    primary.className = "ssml-editor-toolbar-actions";
+    primary.dataset.ssmlEditorToolbarActions = "";
+    appendGroups(
+      primary,
+      toolbarIds.filter((id) => !ADVANCED_TOOLBAR_IDS.has(id)),
+    );
+    toolbarActions.append(primary);
 
-      const insertion = insertionById.get(id);
-      if (insertion) {
-        toolbarActions.append(this.createInsertionButton(insertion));
-      } else if (id === "decorations") {
-        toolbarActions.append(this.createDecorationsSwitch());
-      } else {
-        toolbarActions.append(this.createActionButton(id));
-      }
+    const advancedIds = toolbarIds.filter((id) => ADVANCED_TOOLBAR_IDS.has(id));
+    if (advancedIds.length > 0) {
+      const advanced = document.createElement("fieldset");
+      advanced.className = "ssml-editor-toolbar-advanced";
+      advanced.id = `${this.toolbarId}-advanced`;
+      advanced.hidden = !this.moreOpen;
+      advanced.setAttribute("aria-label", text.moreHeading);
+      const heading = document.createElement("p");
+      heading.className = "ssml-editor-toolbar-panel-heading";
+      heading.textContent = text.moreHeading;
+      const groups = document.createElement("div");
+      groups.className = "ssml-editor-toolbar-advanced-groups";
+      appendGroups(groups, advancedIds, true);
+      advanced.append(heading, groups);
+      toolbarActions.append(advanced);
+
+      const settings = document.createElement("div");
+      settings.className = "ssml-editor-toolbar-group";
+      const label = document.createElement("span");
+      label.className = "ssml-editor-toolbar-group-label";
+      label.setAttribute("aria-hidden", "true");
+      label.textContent = text.settingsGroup;
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "ssml-editor-toolbar-button";
+      more.title = text.moreTitle;
+      more.textContent = text.more;
+      more.setAttribute("aria-expanded", String(this.moreOpen));
+      more.setAttribute("aria-controls", advanced.id);
+      more.addEventListener("click", () => {
+        this.closeMenu();
+        this.closeClearConfirmation();
+        this.moreOpen = !this.moreOpen;
+        advanced.hidden = !this.moreOpen;
+        more.setAttribute("aria-expanded", String(this.moreOpen));
+        syncToolbarTabStops(toolbarActions);
+        if (this.moreOpen) advanced.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+      });
+      settings.append(label, more);
+      primary.append(settings);
     }
-    const separator = document.createElement("span");
-    separator.className = "ssml-editor-toolbar-separator";
-    separator.setAttribute("aria-hidden", "true");
-    toolbarActions.append(separator, this.createModeButton("visual", "Visual"), this.createModeButton("code", "Code"));
     this.updateActiveButtons();
+    this.updateToolbarContext();
+    syncToolbarTabStops(toolbarActions);
   }
 
   private createModeButton(mode: "code" | "visual", label: string): HTMLButtonElement {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "ssml-editor-toolbar-button";
+    button.className = "ssml-editor-toolbar-button ssml-editor-mode-button";
     button.dataset.ssmlEditorButton = `edit-mode-${mode}`;
     button.setAttribute("aria-pressed", String(this.editMode === mode));
     button.textContent = label;
@@ -681,7 +775,7 @@ export class SsmlEditorElement extends HTMLElementBase {
     return button;
   }
 
-  private createActionButton(id: string): HTMLButtonElement {
+  private createActionButton(id: string, forceLabels = false): HTMLButtonElement {
     const copy = EDITOR_COPY[this.locale];
     const labels: Record<string, string> = {
       undo: copy.undo,
@@ -698,8 +792,8 @@ export class SsmlEditorElement extends HTMLElementBase {
       help: "?",
     };
     const titles: Record<string, string> = {
-      undo: copy.undoTitle,
-      redo: copy.redoTitle,
+      undo: `${copy.undoTitle} (Ctrl / ⌘ Z)`,
+      redo: `${copy.redoTitle} (Ctrl / ⌘ Shift Z)`,
       clearAll: copy.clearAllTitle,
       format: copy.formatTitle,
       help: copy.helpTitle,
@@ -708,19 +802,28 @@ export class SsmlEditorElement extends HTMLElementBase {
     button.type = "button";
     button.className = "ssml-editor-toolbar-button";
     button.dataset.ssmlEditorButton = id;
+    if (id === "undo" || id === "redo") button.dataset.compactHistory = "true";
     button.setAttribute("aria-label", labels[id] ?? id);
     button.title = titles[id] ?? labels[id] ?? id;
-    button.disabled = this.readonly && id !== "help";
+    button.disabled = id !== "help" && (this.readonly || !this.editor);
     if (id === "help") {
       button.setAttribute("aria-expanded", String(this.helpOpen));
+      button.setAttribute("aria-controls", `${this.toolbarId}-help`);
+    }
+    if (id === "clearAll") {
+      button.dataset.danger = "true";
+      button.disabled = this.readonly || (this.editMode === "code" ? !this.editor : !this.documentState);
     }
     const icon = document.createElement("span");
     icon.className = "ssml-editor-toolbar-icon";
     icon.setAttribute("aria-hidden", "true");
     icon.textContent = icons[id] ?? "";
     button.append(icon);
-    if (this.hasAttribute("show-toolbar-labels")) {
-      button.append(document.createTextNode(labels[id] ?? id));
+    if (forceLabels || this.getAttribute("show-toolbar-labels") !== "false") {
+      const label = document.createElement("span");
+      label.className = "ssml-editor-toolbar-action-label";
+      label.textContent = labels[id] ?? id;
+      button.append(label);
     }
     button.addEventListener("click", () => {
       if (id === "help") {
@@ -728,42 +831,42 @@ export class SsmlEditorElement extends HTMLElementBase {
         button.setAttribute("aria-expanded", String(this.helpOpen));
         this.renderHelp();
       } else if (!this.readonly) {
-        this.handleAction(id);
+        if (id === "clearAll") this.showClearConfirmation(button);
+        else this.handleAction(id);
       }
     });
     this.toolbarButtons.set(id, button);
     return button;
   }
 
-  private createDecorationsSwitch(): HTMLElement {
+  private createDecorationsSwitch(forceLabels = false): HTMLElement {
     const copy = EDITOR_COPY[this.locale];
-    const wrapper = document.createElement("div");
-    wrapper.className = "ssml-editor-toolbar-switch";
-    const icon = document.createElement("span");
-    icon.className = "ssml-editor-toolbar-icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = "☆";
-    wrapper.append(icon);
-    if (this.hasAttribute("show-toolbar-labels")) {
-      wrapper.append(document.createTextNode(copy.decorations));
-    }
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "ssml-editor-switch-track";
+    button.className = "ssml-editor-toolbar-button ssml-editor-decorations-switch";
     button.dataset.ssmlEditorButton = "decorations";
     button.setAttribute("role", "switch");
     button.setAttribute("aria-label", copy.decorations);
+    if (forceLabels || this.getAttribute("show-toolbar-labels") !== "false") {
+      button.append(document.createTextNode(copy.decorations));
+    }
+    const track = document.createElement("span");
+    track.className = "ssml-editor-switch-track";
+    track.setAttribute("aria-hidden", "true");
+    const thumb = document.createElement("span");
+    thumb.className = "ssml-editor-switch-thumb";
+    track.append(thumb);
+    button.append(track);
     button.addEventListener("click", () => {
       this.decorationsVisible = !this.decorationsVisible;
       this.updateDecorations();
     });
-    wrapper.append(button);
     this.toolbarButtons.set("decorations", button);
     this.updateDecorations();
-    return wrapper;
+    return button;
   }
 
-  private createInsertionButton(insertion: SsmlEditorInsertionDefinition): HTMLElement {
+  private createInsertionButton(insertion: SsmlEditorInsertionDefinition, forceLabels = false): HTMLElement {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ssml-editor-toolbar-button";
@@ -771,6 +874,7 @@ export class SsmlEditorElement extends HTMLElementBase {
     button.setAttribute("aria-label", insertion.labels[this.locale]);
     button.setAttribute("aria-haspopup", "menu");
     button.setAttribute("aria-expanded", "false");
+    button.disabled = this.readonly || !this.editor;
     button.title =
       insertion.titles?.[this.locale] ?? `${insertion.labels[this.locale]} — ${insertion.descriptions[this.locale]}`;
     const icon = document.createElement("span");
@@ -778,7 +882,7 @@ export class SsmlEditorElement extends HTMLElementBase {
     icon.setAttribute("aria-hidden", "true");
     icon.textContent = insertion.icon;
     button.append(icon);
-    if (this.hasAttribute("show-toolbar-labels")) {
+    if (forceLabels || this.getAttribute("show-toolbar-labels") !== "false") {
       button.append(document.createTextNode(insertion.labels[this.locale]));
     }
     const chevron = document.createElement("span");
@@ -787,6 +891,12 @@ export class SsmlEditorElement extends HTMLElementBase {
     chevron.textContent = "▾";
     button.append(chevron);
     button.addEventListener("click", () => this.toggleInsertionMenu(insertion, button));
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.toggleInsertionMenu(insertion, button, event.key === "ArrowUp" ? "last" : "first");
+    });
     this.toolbarButtons.set(insertion.id, button);
     const wrapper = document.createElement("div");
     wrapper.className = "ssml-editor-toolbar-dropdown";
@@ -794,22 +904,27 @@ export class SsmlEditorElement extends HTMLElementBase {
     return wrapper;
   }
 
-  private toggleInsertionMenu(insertion: SsmlEditorInsertionDefinition, trigger: HTMLButtonElement): void {
+  private toggleInsertionMenu(
+    insertion: SsmlEditorInsertionDefinition,
+    trigger: HTMLButtonElement,
+    edge?: "first" | "last",
+  ): void {
+    if (this.readonly || !this.editor || this.editMode !== "code") return;
     if (this.openMenuTrigger === trigger) {
-      this.closeMenu();
+      if (edge && this.openMenu) focusMenuItem(this.openMenu, edge);
+      else this.closeMenu();
       return;
     }
 
     this.closeMenu();
     const menu = this.createInsertionMenu(insertion);
     document.body.append(menu);
-    const position = getMenuPosition(trigger, menu);
-    menu.style.top = `${position.top}px`;
-    menu.style.left = `${position.left}px`;
     trigger.setAttribute("aria-expanded", "true");
     trigger.setAttribute("aria-controls", menu.id);
     this.openMenu = menu;
     this.openMenuTrigger = trigger;
+    this.positionOpenMenu();
+    focusMenuItem(menu, edge);
   }
 
   private createInsertionMenu(insertion: SsmlEditorInsertionDefinition): HTMLElement {
@@ -817,16 +932,33 @@ export class SsmlEditorElement extends HTMLElementBase {
     menu.className = "ssml-editor-toolbar-menu";
     menu.dataset.ssmlEditor = "";
     menu.dataset.theme = isDarkTheme(this.theme) ? "dark" : "light";
-    menu.id = `ssml-editor-elements-menu-${insertion.id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+    menu.id = `${this.toolbarId}-menu-${insertion.id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
     menu.setAttribute("role", "menu");
     menu.setAttribute("aria-label", insertion.labels[this.locale]);
+    menu.tabIndex = -1;
     menu.addEventListener("pointerdown", (event) => event.stopPropagation());
+    menu.addEventListener("keydown", (event) =>
+      handleMenuKeyDown(event, menu, (restoreFocus) => this.closeMenu(restoreFocus)),
+    );
+    const heading = document.createElement("div");
+    heading.className = "ssml-editor-toolbar-menu-heading";
+    heading.setAttribute("role", "presentation");
+    const label = document.createElement("strong");
+    label.textContent = insertion.labels[this.locale];
+    const description = document.createElement("p");
+    description.textContent = insertion.parameterDescription[this.locale];
+    heading.append(label, description);
+    menu.append(heading);
 
     const options = this.getInsertionOptions(insertion);
     if (options.length === 0) {
       const empty = document.createElement("p");
       empty.className = "ssml-editor-toolbar-option";
-      empty.textContent = EDITOR_COPY[this.locale].noAvailableOptions;
+      empty.setAttribute("role", "note");
+      empty.textContent =
+        insertion.id === "emotion"
+          ? EDITOR_COPY[this.locale].styleNotSupported
+          : EDITOR_COPY[this.locale].noAvailableOptions;
       menu.append(empty);
     } else {
       for (const group of this.getOptionGroups(insertion, options)) {
@@ -908,30 +1040,43 @@ export class SsmlEditorElement extends HTMLElementBase {
     button.type = "button";
     button.className = "ssml-editor-toolbar-option";
     button.setAttribute("role", "menuitem");
+    button.setAttribute("aria-label", option.labels[this.locale]);
     button.title = option.descriptions?.[this.locale] ?? insertion.descriptions[this.locale];
-    button.textContent = option.labels[this.locale];
+    const label = document.createElement("span");
+    label.textContent = option.labels[this.locale];
+    button.append(label);
+    if (option.descriptions) {
+      button.setAttribute("aria-description", option.descriptions[this.locale]);
+      const description = document.createElement("span");
+      description.className = "ssml-editor-toolbar-option-description";
+      description.setAttribute("aria-hidden", "true");
+      description.textContent = option.descriptions[this.locale];
+      button.append(description);
+    }
     button.disabled = this.readonly;
     button.addEventListener("click", () => {
       if (!this.readonly) {
         this.applyInsertion(insertion, option);
       }
-      this.closeMenu(true);
+      this.closeMenu();
     });
     button.addEventListener("mousedown", (event) => event.preventDefault());
     return button;
   }
 
   private handleAction(id: string): void {
+    if (this.readonly) return;
+    if (id === "clearAll" && this.documentState) {
+      this.replaceDocument(clearSsmlDocument(this.documentState));
+      this.renderVisualEditor();
+      return;
+    }
     if (!this.editor) {
       return;
     }
     if (id === "undo" || id === "redo") {
       this.editor.trigger("ssml-toolbar", id, null);
       this.editor.focus();
-    } else if (id === "clearAll") {
-      if (this.documentState) {
-        this.replaceDocument(clearSsmlDocument(this.documentState));
-      }
     } else if (id === "format") {
       if (this.documentState) {
         this.replaceDocument(updateEditableText(this.documentState, formatXmlFragment(this.editor.getValue())));
@@ -1001,25 +1146,47 @@ export class SsmlEditorElement extends HTMLElementBase {
     const model = editor?.getModel();
     const editableValue = getEditableText(document);
     const fullValue = buildSsml(document);
+    const previousDocument = this.documentState;
+    const previousValue = this.valueState;
+    const documentChanged = !previousDocument || buildSsml(previousDocument) !== fullValue;
+    if (model && previousDocument) {
+      this.toolbarDocumentHistory.remember(
+        model,
+        updateEditableText(previousDocument, editor?.getValue() ?? editableValue),
+      );
+    }
     this.documentState = document;
     this.valueState = fullValue;
 
-    if (!editor || !model || editor.getValue() === editableValue) {
+    if (!editor || !model || (editor.getValue() === editableValue && !documentChanged)) {
       this.updateActiveButtons();
       this.dispatchChange(fullValue);
       return;
     }
 
-    editor.pushUndoStop();
-    editor.executeEdits("ssml-editor-toolbar", [
-      {
-        range: model.getFullModelRange(),
-        text: editableValue,
-        forceMoveMarkers: true,
-      },
-    ]);
-    editor.pushUndoStop();
-    editor.focus();
+    this.suppressChangeEvent = true;
+    try {
+      editor.pushUndoStop();
+      const applied = editor.executeEdits("ssml-editor-toolbar", [
+        {
+          range: model.getFullModelRange(),
+          text: editableValue,
+          forceMoveMarkers: true,
+        },
+      ]);
+      editor.pushUndoStop();
+      if (!applied) {
+        this.documentState = previousDocument;
+        this.valueState = previousValue;
+        throw new Error("The editor could not apply the toolbar edit.");
+      }
+      this.toolbarDocumentHistory.remember(model, document);
+    } finally {
+      this.suppressChangeEvent = false;
+    }
+    this.updateActiveButtons();
+    this.dispatchChange(fullValue);
+    if (this.editMode === "code") editor.focus();
   }
 
   private dispatchChange(value: string): void {
@@ -1067,6 +1234,7 @@ export class SsmlEditorElement extends HTMLElementBase {
     const copy = EDITOR_COPY[this.locale];
     const panel = document.createElement("section");
     panel.className = "ssml-editor-help";
+    panel.id = `${this.toolbarId}-help`;
     panel.setAttribute("aria-label", copy.helpHeading);
     const heading = document.createElement("h3");
     heading.textContent = copy.helpHeading;
@@ -1101,21 +1269,19 @@ export class SsmlEditorElement extends HTMLElementBase {
     if (this.root) {
       this.root.dataset.theme = isDarkTheme(this.theme) ? "dark" : "light";
     }
+    if (this.openMenu) this.openMenu.dataset.theme = isDarkTheme(this.theme) ? "dark" : "light";
   }
 
   private updateEditMode(): void {
+    this.moreOpen = false;
+    this.closeMenu();
+    this.closeClearConfirmation();
     if (this.editorContainer && this.visualContainer) {
       const visual = this.editMode === "visual";
       this.editorContainer.hidden = visual;
       this.visualContainer.hidden = !visual;
     }
-    for (const mode of ["visual", "code"] as const) {
-      const button = this.toolbarActions?.querySelector<HTMLButtonElement>(
-        `[data-ssml-editor-button="edit-mode-${mode}"]`,
-      );
-      button?.setAttribute("aria-pressed", String(this.editMode === mode));
-      button?.toggleAttribute("data-active", this.editMode === mode);
-    }
+    this.renderToolbar();
     this.renderVisualEditor();
   }
 
@@ -1241,7 +1407,7 @@ export class SsmlEditorElement extends HTMLElementBase {
       preview.addEventListener("click", () => {
         this.dispatchEvent(
           new CustomEvent("preview-selection", {
-            detail: { ssml: buildSsml({ ...documentState, children: [selectedLeaf.value] }) },
+            detail: { ssml: buildVisualPreview(documentState, selectedLeaf, this.visualSelection) },
             bubbles: true,
             composed: true,
           }),
@@ -1257,6 +1423,7 @@ export class SsmlEditorElement extends HTMLElementBase {
   }
 
   private updateActiveButtons(): void {
+    this.updateToolbarContext();
     const editor = this.editor;
     const model = this.model;
     const selection = editor?.getSelection();
@@ -1264,6 +1431,10 @@ export class SsmlEditorElement extends HTMLElementBase {
       return;
     }
 
+    const undo = this.toolbarButtons.get("undo");
+    const redo = this.toolbarButtons.get("redo");
+    if (undo) undo.disabled = this.readonly || !model.canUndo();
+    if (redo) redo.disabled = this.readonly || !model.canRedo();
     const activeTags = findActiveSsmlTags(model.getValue(), model.getOffsetAt(selection.getStartPosition()));
     for (const insertion of SSML_INSERTIONS) {
       const button = this.toolbarButtons.get(insertion.id);
@@ -1273,6 +1444,28 @@ export class SsmlEditorElement extends HTMLElementBase {
         );
       }
     }
+    if (this.toolbarActions) syncToolbarTabStops(this.toolbarActions);
+  }
+
+  private updateToolbarContext(): void {
+    const context = this.toolbarContext;
+    if (!context) return;
+    const text = TOOLBAR_COPY[this.locale];
+    const selection = this.editor?.getSelection();
+    const selected = this.model && selection ? this.model.getValueInRange(selection) : "";
+    let hint: string = text.cursorHint;
+    if (this.readonly) hint = text.readOnlyHint;
+    else if (this.editMode === "visual") hint = text.visualHint;
+    else if (!this.editor) hint = text.loadingHint;
+    else if (selected) hint = text.selectionHint;
+    context.replaceChildren();
+    if (this.editMode === "code" && selected) {
+      const count = document.createElement("span");
+      count.className = "ssml-editor-toolbar-selection-count";
+      count.textContent = `${selected.length}${EDITOR_COPY[this.locale].selectionCountSuffix}`;
+      context.append(count);
+    }
+    context.append(document.createTextNode(hint));
   }
 
   private async initialize(token: number): Promise<void> {
@@ -1307,11 +1500,14 @@ export class SsmlEditorElement extends HTMLElementBase {
     this.monaco = monacoModule;
     this.model = model;
     this.editor = editor;
-    this.contentDisposable = editor.onDidChangeModelContent(() => {
+    // The model event runs after Undo/Redo restores its alternative version ID.
+    this.contentDisposable = model.onDidChangeContent(() => {
+      if (this.suppressChangeEvent) return;
       const value = editor.getValue();
       let nextValue = value;
       if (this.documentState) {
-        this.documentState = updateEditableText(this.documentState, value);
+        const restoredDocument = this.toolbarDocumentHistory.find(model);
+        this.documentState = updateEditableText(restoredDocument ?? this.documentState, value);
         nextValue = buildSsml(this.documentState);
       }
       this.valueState = nextValue;
@@ -1319,6 +1515,7 @@ export class SsmlEditorElement extends HTMLElementBase {
       this.dispatchChange(nextValue);
     });
     this.cursorDisposable = editor.onDidChangeCursorPosition(() => this.updateActiveButtons());
+    this.selectionDisposable = editor.onDidChangeCursorSelection(() => this.updateToolbarContext());
     this.completionDisposable = registerSsmlCompletionProvider(monacoModule, {
       model,
       getOuterVoiceName: () => (this.documentState ? getEditableRegion(this.documentState).voiceName : undefined),
@@ -1342,8 +1539,71 @@ export class SsmlEditorElement extends HTMLElementBase {
         };
       },
     });
-    this.updateActiveButtons();
+    this.renderToolbar();
   }
+
+  private showClearConfirmation(trigger: HTMLButtonElement): void {
+    if (!this.toolbar || this.readonly) return;
+    this.closeMenu();
+    this.closeClearConfirmation();
+    const text = TOOLBAR_COPY[this.locale];
+    const panel = document.createElement("div");
+    panel.className = "ssml-editor-toolbar-confirmation";
+    panel.setAttribute("role", "alertdialog");
+    panel.setAttribute("aria-modal", "false");
+    const heading = document.createElement("p");
+    heading.className = "ssml-editor-toolbar-panel-heading";
+    heading.id = `${this.toolbarId}-clear-heading`;
+    heading.textContent = text.clearHeading;
+    const description = document.createElement("p");
+    description.id = `${this.toolbarId}-clear-description`;
+    description.textContent = text.clearDescription;
+    panel.setAttribute("aria-labelledby", heading.id);
+    panel.setAttribute("aria-describedby", description.id);
+    const controls = document.createElement("div");
+    controls.className = "ssml-editor-toolbar-group-controls";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ssml-editor-toolbar-button";
+    cancel.textContent = text.cancel;
+    cancel.addEventListener("click", () => this.closeClearConfirmation(true));
+    const confirm = document.createElement("button");
+    confirm.type = "button";
+    confirm.className = "ssml-editor-toolbar-button";
+    confirm.dataset.danger = "true";
+    confirm.textContent = EDITOR_COPY[this.locale].clearAll;
+    confirm.addEventListener("click", () => {
+      if (!this.readonly) this.handleAction("clearAll");
+      this.closeClearConfirmation();
+    });
+    controls.append(cancel, confirm);
+    panel.append(heading, description, controls);
+    panel.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeClearConfirmation(true);
+      }
+    });
+    this.clearConfirmation = panel;
+    this.clearConfirmationTrigger = trigger;
+    this.toolbar.append(panel);
+    cancel.focus();
+  }
+
+  private closeClearConfirmation(restoreFocus = false): void {
+    this.clearConfirmation?.remove();
+    this.clearConfirmation = null;
+    if (restoreFocus) this.clearConfirmationTrigger?.focus();
+    this.clearConfirmationTrigger = null;
+  }
+
+  private readonly positionOpenMenu = (): void => {
+    if (!this.openMenu || !this.openMenuTrigger) return;
+    const position = getPopoverPosition(this.openMenuTrigger.getBoundingClientRect(), this.openMenu);
+    this.openMenu.style.top = `${position.top}px`;
+    this.openMenu.style.left = `${position.left}px`;
+  };
 
   private readonly handleDocumentPointerDown = (event: PointerEvent): void => {
     const target = event.target;
@@ -1359,6 +1619,7 @@ export class SsmlEditorElement extends HTMLElementBase {
 
   private readonly handleDocumentKeyDown = (event: KeyboardEvent): void => {
     if (event.key === "Escape" && this.openMenu) {
+      event.preventDefault();
       this.closeMenu(true);
     }
   };
@@ -1378,10 +1639,13 @@ export class SsmlEditorElement extends HTMLElementBase {
 
   private disposeEditor(): void {
     this.closeMenu();
+    this.closeClearConfirmation();
     this.contentDisposable?.dispose();
     this.contentDisposable = null;
     this.cursorDisposable?.dispose();
     this.cursorDisposable = null;
+    this.selectionDisposable?.dispose();
+    this.selectionDisposable = null;
     this.completionDisposable?.dispose();
     this.completionDisposable = null;
     this.hoverDisposable?.dispose();
@@ -1391,12 +1655,15 @@ export class SsmlEditorElement extends HTMLElementBase {
     this.model?.dispose();
     this.model = null;
     this.monaco = null;
+    this.toolbarDocumentHistory.clear();
     this.root?.remove();
     this.root = null;
     this.toolbar = null;
     this.toolbarActions = null;
+    this.toolbarContext = null;
     this.display = null;
     this.editorContainer = null;
+    this.visualContainer = null;
     this.helpPanel = null;
     this.toolbarButtons.clear();
   }

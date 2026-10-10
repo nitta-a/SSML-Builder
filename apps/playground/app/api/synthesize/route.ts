@@ -9,6 +9,13 @@ const subscriptionKey = process.env.AZURE_SPEECH_KEY;
 const region = process.env.AZURE_SPEECH_REGION;
 const endpoint = process.env.AZURE_SPEECH_ENDPOINT?.trim() || undefined;
 
+export function GET(): Response {
+  return Response.json(
+    { configured: Boolean(subscriptionKey && region) },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 function errorResponse(message: string, status: number): Response {
   return Response.json({ error: message }, { status });
 }

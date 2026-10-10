@@ -1,6 +1,6 @@
 {
   "name": "ssml-builder-js",
-  "version": "2.19.1",
+  "version": "2.19.2",
   "description": "SSML building utilities, a React editor, and an Azure Text-to-Speech client",
   "license": "MIT",
   "repository": {
@@ -44,6 +44,7 @@
     "dist",
     "bin",
     "README.md",
+    "apps/playground/public/speech-studio.png",
     "LICENSE"
   ],
   "bin": {

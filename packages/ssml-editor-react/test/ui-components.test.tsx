@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { useEffect, useRef, type ComponentProps } from "react";
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { createRef, useEffect, useRef, type ComponentProps } from "react";
+import type { SsmlDocument } from "@ssml-builder-js/ssml-core";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getEditableText, updateEditableText } from "../src/editableSsml";
@@ -12,7 +13,15 @@ const monacoState = vi.hoisted(() => {
   let changeHandler: ((value: string) => void) | null = null;
   let selectionStartOffset = 0;
   let selectionEndOffset = 0;
+  let canUndo = false;
+  let canRedo = false;
+  let versionId = 1;
+  let alternativeVersionId = 1;
+  const undoStack: Array<{ value: string; alternativeVersionId: number }> = [];
+  const redoStack: Array<{ value: string; alternativeVersionId: number }> = [];
+  const cursorSelectionListeners = new Set<() => void>();
   const contentChangeListeners = new Set<() => void>();
+  const modelContentChangeListeners = new Set<() => void>();
   const cursorPositionListeners = new Set<(event: { position: { lineNumber: number; column: number } }) => void>();
   let latestContentDispose: ReturnType<typeof vi.fn> | null = null;
   let latestCursorPositionDispose: ReturnType<typeof vi.fn> | null = null;
@@ -67,7 +76,19 @@ const monacoState = vi.hoisted(() => {
     getLineContent: (lineNumber: number) => value.split(/\r\n|\r|\n/)[lineNumber - 1] ?? "",
     deltaDecorations: vi.fn(() => []),
     uri: {},
-    getVersionId: () => 1,
+    getVersionId: () => versionId,
+    getAlternativeVersionId: () => alternativeVersionId,
+    onDidChangeContent: vi.fn((listener: () => void) => {
+      modelContentChangeListeners.add(listener);
+      return { dispose: vi.fn(() => modelContentChangeListeners.delete(listener)) };
+    }),
+    canUndo: () => canUndo,
+    canRedo: () => canRedo,
+    getFullModelRange: () => {
+      const end = positionAt(value.length);
+      return { startLineNumber: 1, startColumn: 1, endLineNumber: end.lineNumber, endColumn: end.column };
+    },
+    dispose: vi.fn(),
   };
   const disposable = () => ({ dispose: vi.fn() });
   const editor = {
@@ -75,9 +96,13 @@ const monacoState = vi.hoisted(() => {
     getValue: () => value,
     getSelection: () => selection,
     getPosition: () => selection.getEndPosition(),
-    getScrolledVisiblePosition: () => null,
+    getScrolledVisiblePosition: (): { top: number; left: number; height: number } | null => null,
+    getDomNode: () => document.body,
     getLayoutInfo: () => ({ height: 100 }),
-    onDidChangeCursorSelection: vi.fn(disposable),
+    onDidChangeCursorSelection: vi.fn((listener: () => void) => {
+      cursorSelectionListeners.add(listener);
+      return { dispose: vi.fn(() => cursorSelectionListeners.delete(listener)) };
+    }),
     onDidChangeCursorPosition: vi.fn(
       (listener: (event: { position: { lineNumber: number; column: number } }) => void) => {
         cursorPositionListeners.add(listener);
@@ -111,6 +136,10 @@ const monacoState = vi.hoisted(() => {
       ) => {
         const edit = edits[0];
         if (edit) {
+          undoStack.push({ value, alternativeVersionId });
+          redoStack.length = 0;
+          versionId += 1;
+          alternativeVersionId = versionId;
           const startOffset =
             "getStartPosition" in edit.range
               ? model.getOffsetAt(edit.range.getStartPosition())
@@ -120,13 +149,40 @@ const monacoState = vi.hoisted(() => {
               ? model.getOffsetAt(edit.range.getEndPosition())
               : model.getOffsetAt({ lineNumber: edit.range.endLineNumber, column: edit.range.endColumn });
           value = `${value.slice(0, startOffset)}${edit.text}${value.slice(endOffset)}`;
+          canUndo = true;
+          canRedo = false;
+          changeHandler?.(value);
+          for (const listener of contentChangeListeners) listener();
+          for (const listener of modelContentChangeListeners) listener();
         }
         return true;
       },
     ),
     setSelection: vi.fn(),
     focus: vi.fn(),
-    trigger: vi.fn(),
+    setValue: vi.fn((nextValue: string) => {
+      value = nextValue;
+    }),
+    updateOptions: vi.fn(),
+    dispose: vi.fn(),
+    trigger: vi.fn((_source: string, action: string) => {
+      if (action !== "undo" && action !== "redo") return;
+      const source = action === "undo" ? undoStack : redoStack;
+      const target = action === "undo" ? redoStack : undoStack;
+      const entry = source.pop();
+      if (!entry) return;
+      target.push({ value, alternativeVersionId });
+      value = entry.value;
+      versionId += 1;
+      alternativeVersionId = versionId;
+      canUndo = undoStack.length > 0;
+      canRedo = redoStack.length > 0;
+      // Monaco's editor event fires before Undo/Redo restores the model's alternative version ID.
+      for (const listener of contentChangeListeners) listener();
+      alternativeVersionId = entry.alternativeVersionId;
+      changeHandler?.(value);
+      for (const listener of modelContentChangeListeners) listener();
+    }),
     addAction: vi.fn(disposable),
   };
   const monaco = {
@@ -144,7 +200,7 @@ const monacoState = vi.hoisted(() => {
       },
     },
     editor: {
-      registerCommand: vi.fn(disposable),
+      registerCommand: vi.fn((_id: string, _handler: (_accessor: unknown, ...args: unknown[]) => void) => disposable()),
       setModelMarkers: vi.fn(),
     },
     MarkerSeverity: {
@@ -154,6 +210,7 @@ const monacoState = vi.hoisted(() => {
 
   return {
     editor,
+    model,
     monaco,
     reset: () => {
       for (const mock of [
@@ -167,9 +224,14 @@ const monacoState = vi.hoisted(() => {
         editor.executeEdits,
         editor.setSelection,
         editor.focus,
+        editor.setValue,
+        editor.updateOptions,
+        editor.dispose,
         editor.trigger,
         editor.addAction,
         model.deltaDecorations,
+        model.onDidChangeContent,
+        model.dispose,
         monaco.languages.registerHoverProvider,
         monaco.languages.registerCompletionItemProvider,
         monaco.languages.registerCodeActionProvider,
@@ -184,7 +246,15 @@ const monacoState = vi.hoisted(() => {
       changeHandler = null;
       selectionStartOffset = 0;
       selectionEndOffset = 0;
+      canUndo = false;
+      canRedo = false;
+      versionId = 1;
+      alternativeVersionId = 1;
+      undoStack.length = 0;
+      redoStack.length = 0;
+      cursorSelectionListeners.clear();
       contentChangeListeners.clear();
+      modelContentChangeListeners.clear();
       cursorPositionListeners.clear();
       latestContentDispose = null;
       latestCursorPositionDispose = null;
@@ -195,6 +265,17 @@ const monacoState = vi.hoisted(() => {
     setSelectionOffsets: (startOffset: number, endOffset: number) => {
       selectionStartOffset = startOffset;
       selectionEndOffset = endOffset;
+    },
+    emitSelectionChange: (startOffset: number, endOffset: number) => {
+      selectionStartOffset = startOffset;
+      selectionEndOffset = endOffset;
+      for (const listener of cursorSelectionListeners) listener();
+    },
+    setHistory: (undo: boolean, redo: boolean) => {
+      canUndo = undo;
+      canRedo = redo;
+      for (const listener of contentChangeListeners) listener();
+      for (const listener of modelContentChangeListeners) listener();
     },
     getValue: () => value,
     setEOL: (nextEol: string) => {
@@ -211,6 +292,7 @@ const monacoState = vi.hoisted(() => {
       for (const listener of contentChangeListeners) {
         listener();
       }
+      for (const listener of modelContentChangeListeners) listener();
     },
     emitCursorPositionChange: (offset: number) => {
       selectionStartOffset = offset;
@@ -226,6 +308,17 @@ const monacoState = vi.hoisted(() => {
 });
 
 vi.mock("@ssml-builder-js/ssml-core", async () => import("../../ssml-core/src/index"));
+vi.mock("monaco-editor", () => ({
+  ...monacoState.monaco,
+  editor: {
+    ...monacoState.monaco.editor,
+    createModel: (value: string) => {
+      monacoState.setValue(value);
+      return monacoState.model;
+    },
+    create: () => monacoState.editor,
+  },
+}));
 
 vi.mock("@monaco-editor/react", () => ({
   default: function MockEditor({
@@ -259,7 +352,12 @@ vi.mock("@monaco-editor/react", () => ({
   },
 }));
 
-import { SsmlEditor } from "../src/SsmlEditor";
+import { SSML_INSERTIONS, SsmlEditor, type SsmlEditorRef } from "../src/SsmlEditor";
+import {
+  defineSsmlEditorElement,
+  type SsmlEditorChangeDetail,
+  type SsmlEditorElement,
+} from "../../ssml-editor-elements/src/index";
 
 const editorDocument = {
   type: "speak" as const,
@@ -299,6 +397,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe("editable SSML utilities", () => {
@@ -408,7 +507,7 @@ describe("SsmlEditor toolbar menus", () => {
     expect(
       within(menu)
         .getAllByRole("menuitem")
-        .map((option) => option.textContent),
+        .map((option) => option.getAttribute("aria-label")),
     ).toEqual(["cheerful", "calm", "sad"]);
   });
 
@@ -462,18 +561,19 @@ describe("SsmlEditor toolbar menus", () => {
     await user.click(screen.getByRole("button", { name: "Emotion" }));
     const options = within(screen.getByRole("menu", { name: "Emotion" })).getAllByRole("menuitem");
 
-    expect(options.map((option) => option.textContent)).toEqual(["cheerful"]);
+    expect(options.map((option) => option.getAttribute("aria-label"))).toEqual(["cheerful"]);
   });
 
-  it("shows a disabled localized option when the active voice supports no styles", async () => {
+  it("explains when the active voice supports no styles without a disabled form control", async () => {
     const user = userEvent.setup();
     renderEditor({ document: createVoiceDocument("th-TH-PremwadeeNeural") });
 
     await user.click(screen.getByRole("button", { name: "感情" }));
 
     const menu = screen.getByRole("menu", { name: "感情" });
-    const option = within(menu).getByRole("option", { name: "この音声はスタイル指定に対応していません" });
-    expect((option as HTMLOptionElement).disabled).toBe(true);
+    expect(within(menu).getByRole("note").textContent).toBe("この音声はスタイル指定に対応していません");
+    expect(within(menu).queryByRole("menuitem")).toBeNull();
+    expect(within(menu).queryByRole("combobox")).toBeNull();
   });
 
   it("refreshes emotion options after the document voice changes", async () => {
@@ -487,10 +587,9 @@ describe("SsmlEditor toolbar menus", () => {
     rerender(<SsmlEditor document={createVoiceDocument("th-TH-PremwadeeNeural")} locale="en" />);
     await user.click(screen.getByRole("button", { name: "Emotion" }));
 
-    const option = within(screen.getByRole("menu", { name: "Emotion" })).getByRole("option", {
-      name: "This voice does not support style selection.",
-    });
-    expect((option as HTMLOptionElement).disabled).toBe(true);
+    expect(within(screen.getByRole("menu", { name: "Emotion" })).getByRole("note").textContent).toBe(
+      "This voice does not support style selection.",
+    );
   });
 
   it("inserts an emotion style allowed by the active voice", async () => {
@@ -567,6 +666,476 @@ describe("SsmlEditor toolbar menus", () => {
     expect(screen.getByRole("menu", { name: "Break" })).toBeTruthy();
     await user.click(document.body);
     expect(screen.queryByRole("menu", { name: "Break" })).toBeNull();
+  });
+});
+
+describe("SsmlEditor toolbar UX", () => {
+  it("labels frequent actions and progressively reveals advanced settings", async () => {
+    const user = userEvent.setup();
+    renderEditor({ locale: "en" });
+    const toolbar = screen.getByRole("toolbar", { name: "SSML toolbar" });
+
+    expect(within(toolbar).getByRole("button", { name: "Rate" }).textContent).toContain("Rate");
+    expect(within(toolbar).getByRole("group", { name: "Voice" })).toBeTruthy();
+    for (const label of ["Language", "Silence", "Audio duration", "Format", "Remove formatting"]) {
+      expect(within(toolbar).queryByRole("button", { name: label })).toBeNull();
+    }
+    expect(within(toolbar).queryByRole("switch", { name: "Decorations" })).toBeNull();
+
+    const more = within(toolbar).getByRole("button", { name: "More" });
+    await user.click(more);
+    expect(more.getAttribute("aria-expanded")).toBe("true");
+    for (const label of ["Language", "Silence", "Audio duration", "Format", "Remove formatting"]) {
+      expect(within(toolbar).getByRole("button", { name: label })).toBeTruthy();
+    }
+    expect(within(toolbar).getByRole("switch", { name: "Decorations" })).toBeTruthy();
+    await user.click(more);
+    expect(within(toolbar).queryByRole("group", { name: "More settings" })).toBeNull();
+  });
+
+  it("keeps explicit order, groups, visibility, and custom insertions usable", async () => {
+    const user = userEvent.setup();
+    const { container } = renderEditor({
+      locale: "en",
+      toolbarOrder: ["format", "rate", "break", "undo"],
+      toolbarGroups: [{ id: "primary", buttonIds: ["format", "rate"] }],
+      buttonVisibility: { pitch: false, help: false, lang: false },
+      additionalInsertions: [
+        {
+          id: "spelling",
+          tagName: "say-as",
+          attribute: "interpret-as",
+          labels: { ja: "一文字ずつ", en: "Spell" },
+          options: [{ value: "characters", labels: { ja: "文字", en: "Characters" } }],
+        },
+      ],
+    });
+    const ids = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("[data-ssml-editor-toolbar-actions] button"),
+    ).map((button) => button.dataset.ssmlEditorButton);
+    expect(ids.slice(0, 4)).toEqual(["format", "rate", "break", "undo"]);
+    expect(screen.queryByRole("button", { name: "More" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pitch" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Help" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Language" })).toBeNull();
+
+    monacoState.setSelectionOffsets(0, 5);
+    await user.click(screen.getByRole("button", { name: "Spell" }));
+    await user.click(screen.getByRole("menuitem", { name: "Characters" }));
+    expect(monacoState.getValue()).toContain('<say-as interpret-as="characters">Hello</say-as>');
+  });
+
+  it("preserves compact and text-only preferences without hiding accessible names", () => {
+    const { rerender } = renderEditor({ locale: "en", showToolbarLabels: false });
+    const rate = screen.getByRole("button", { name: "Rate" });
+    expect(rate.textContent).not.toContain("Rate");
+
+    rerender(<SsmlEditor document={editorDocument} locale="en" showToolbarIcons={false} showToolbarLabels={false} />);
+    expect(screen.getByRole("button", { name: "Rate" }).textContent).toContain("Rate");
+  });
+
+  it("omits empty groups and the advanced disclosure when all actions are hidden", () => {
+    renderEditor({
+      locale: "en",
+      buttonVisibility: Object.fromEntries(
+        [
+          ...SSML_INSERTIONS.map((insertion) => insertion.id),
+          "undo",
+          "redo",
+          "format",
+          "decorations",
+          "clearAll",
+          "help",
+        ].map((id) => [id, false]),
+      ),
+    });
+    const toolbar = screen.getByRole("toolbar", { name: "SSML toolbar" });
+    expect(
+      within(toolbar)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Visual", "Code"]);
+    expect(within(toolbar).queryByRole("button", { name: "More" })).toBeNull();
+  });
+
+  it("uses a single toolbar tab stop and arrow navigation that skips disabled history actions", async () => {
+    const user = userEvent.setup();
+    renderEditor({ locale: "en" });
+    const toolbar = screen.getByRole("toolbar", { name: "SSML toolbar" });
+    expect(toolbar.querySelectorAll("button[tabindex='0']").length).toBe(1);
+    const visual = within(toolbar).getByRole("button", { name: "Visual" });
+    visual.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(within(toolbar).getByRole("button", { name: "Code" }));
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(within(toolbar).getByRole("button", { name: "Break" }));
+    await user.keyboard("{End}");
+    expect(document.activeElement).toBe(within(toolbar).getByRole("button", { name: "More" }));
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(visual);
+    expect(toolbar.querySelectorAll("button[tabindex='0']").length).toBe(1);
+  });
+
+  it("opens menus from the keyboard, navigates values, and restores focus on Escape", async () => {
+    const user = userEvent.setup();
+    renderEditor({ locale: "en" });
+    const trigger = screen.getByRole("button", { name: "Break" });
+    trigger.focus();
+    await user.keyboard("{ArrowDown}");
+    const items = within(screen.getByRole("menu", { name: "Break" })).getAllByRole("menuitem");
+    expect(document.activeElement).toBe(items[0]);
+    await user.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(items[1]);
+    await user.keyboard("{End}{ArrowDown}");
+    expect(document.activeElement).toBe(items[0]);
+    await user.keyboard("{ArrowUp}");
+    expect(document.activeElement).toBe(items.at(-1));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    await user.keyboard("{ArrowUp}");
+    expect(document.activeElement).toBe(
+      within(screen.getByRole("menu", { name: "Break" }))
+        .getAllByRole("menuitem")
+        .at(-1),
+    );
+  });
+
+  it("fits menus inside the viewport and opens above a trigger near the bottom", async () => {
+    const user = userEvent.setup();
+    renderEditor({ locale: "en" });
+    const trigger = screen.getByRole("button", { name: "Break" });
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      top: window.innerHeight - 68,
+      bottom: window.innerHeight - 28,
+      left: window.innerWidth - 24,
+      right: window.innerWidth,
+      width: 24,
+      height: 40,
+      x: window.innerWidth - 24,
+      y: window.innerHeight - 68,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(280);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(288);
+    await user.click(trigger);
+    const menu = screen.getByRole("menu", { name: "Break" });
+    expect(menu.style.top).toBe(`${window.innerHeight - 68 - 6 - 280}px`);
+    expect(menu.style.left).toBe(`${window.innerWidth - 288 - 8}px`);
+  });
+
+  it("uses independent menu IDs when multiple editors are mounted", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <SsmlEditor document={editorDocument} locale="en" />
+        <SsmlEditor document={editorDocument} locale="en" />
+      </>,
+    );
+    const triggers = screen.getAllByRole("button", { name: "Break" });
+    await user.click(triggers[0]);
+    const firstId = triggers[0].getAttribute("aria-controls");
+    await user.click(triggers[1]);
+    const secondId = triggers[1].getAttribute("aria-controls");
+    expect(firstId).toBeTruthy();
+    expect(secondId).toBeTruthy();
+    expect(firstId).not.toBe(secondId);
+    expect(document.getElementById(secondId ?? "")).toBe(screen.getByRole("menu", { name: "Break" }));
+  });
+
+  it("reveals advanced controls when CodeLens opens an audio-duration menu", async () => {
+    const user = userEvent.setup();
+    const value = '<mstts:audioduration value="2s"/>';
+    monacoState.setValue(value);
+    vi.spyOn(monacoState.editor, "getScrolledVisiblePosition").mockImplementation(() => ({
+      top: 24,
+      left: 8,
+      height: 18,
+    }));
+    renderEditor({ locale: "en" });
+    expect(screen.queryByRole("button", { name: "Audio duration" })).toBeNull();
+    const command = monacoState.monaco.editor.registerCommand.mock.calls[0]?.[1];
+    expect(command).toBeDefined();
+    act(() =>
+      command?.(undefined, {
+        type: "attribute",
+        insertionId: "mstts:audioduration",
+        attributeName: "value",
+        tagRange: { start: 0, end: value.length },
+      }),
+    );
+    const menu = screen.getByRole("menu", { name: "Audio duration" });
+    const options = within(menu).getAllByRole("menuitem");
+    expect(screen.getByRole("button", { name: "More" }).getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(options[0]);
+    await user.click(within(menu).getByRole("menuitem", { name: "5s" }));
+    expect(monacoState.getValue()).toBe('<mstts:audioduration value="5s"/>');
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("shows the selection context and previews a selection or a nonempty current line", async () => {
+    const user = userEvent.setup();
+    const onPreviewSelection = vi.fn();
+    renderEditor({ locale: "en", onPreviewSelection });
+    await user.click(screen.getByRole("button", { name: "Preview current line" }));
+    expect(onPreviewSelection).toHaveBeenLastCalledWith(expect.stringContaining("Hello world"));
+    act(() => monacoState.emitSelectionChange(0, 5));
+    expect(screen.getByRole("status").textContent).toContain("5 characters");
+    await user.click(screen.getByRole("button", { name: "Preview selection" }));
+    expect(onPreviewSelection).toHaveBeenLastCalledWith(expect.stringContaining(">Hello</speak>"));
+    act(() => {
+      monacoState.setValue("   ");
+      monacoState.emitSelectionChange(0, 0);
+    });
+    expect((screen.getByRole("button", { name: "Preview current line" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("tracks actual undo and redo availability", async () => {
+    const user = userEvent.setup();
+    renderEditor({ locale: "en" });
+    const undo = screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement;
+    const redo = screen.getByRole("button", { name: "Redo" }) as HTMLButtonElement;
+    expect(undo.disabled).toBe(true);
+    expect(redo.disabled).toBe(true);
+    act(() => monacoState.setHistory(true, false));
+    expect(undo.disabled).toBe(false);
+    await user.click(undo);
+    expect(monacoState.editor.trigger).toHaveBeenCalledWith("toolbar", "undo", null);
+    act(() => monacoState.setHistory(false, true));
+    expect(undo.disabled).toBe(true);
+    expect(redo.disabled).toBe(false);
+    await user.click(redo);
+    expect(monacoState.editor.trigger).toHaveBeenCalledWith("toolbar", "redo", null);
+  });
+
+  it("requires confirmation to remove formatting and preserves text, voice, and undo history", async () => {
+    const user = userEvent.setup();
+    const document: SsmlDocument = {
+      ...editorDocument,
+      children: [
+        {
+          type: "voice",
+          name: "en-US-JennyNeural",
+          children: [{ type: "prosody", rate: "slow", children: ["Hello world"] }],
+        },
+      ],
+    };
+    monacoState.setValue(getEditableText(document));
+    const onChange = vi.fn();
+    const onSsmlChange = vi.fn();
+    renderEditor({ document, locale: "en", onChange, onSsmlChange });
+    await user.click(screen.getByRole("button", { name: "More" }));
+    const trigger = screen.getByRole("button", { name: "Remove formatting" });
+    await user.click(trigger);
+    expect(onChange).not.toHaveBeenCalled();
+    let confirmation = screen.getByRole("alertdialog", { name: "Remove speech formatting" });
+    expect(globalThis.document.activeElement).toBe(within(confirmation).getByRole("button", { name: "Cancel" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(globalThis.document.activeElement).toBe(trigger);
+    await user.click(trigger);
+    confirmation = screen.getByRole("alertdialog", { name: "Remove speech formatting" });
+    await user.click(within(confirmation).getByRole("button", { name: "Remove formatting" }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onSsmlChange).toHaveBeenCalledWith(
+      expect.stringContaining('<voice name="en-US-JennyNeural">Hello world</voice>'),
+    );
+    expect(monacoState.getValue()).toBe("Hello world");
+    expect(monacoState.editor.pushUndoStop).toHaveBeenCalledTimes(2);
+    expect((screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    expect(onSsmlChange).toHaveBeenLastCalledWith(
+      expect.stringContaining('<prosody rate="slow">Hello world</prosody>'),
+    );
+    await user.click(screen.getByRole("button", { name: "Redo" }));
+    expect(onSsmlChange).toHaveBeenLastCalledWith(
+      expect.stringContaining('<voice name="en-US-JennyNeural">Hello world</voice>'),
+    );
+  });
+
+  it("formats XML as an undoable edit without duplicate change notifications", async () => {
+    const user = userEvent.setup();
+    const document: SsmlDocument = {
+      ...editorDocument,
+      children: [
+        { type: "p", children: ["Hello"] },
+        { type: "p", children: ["world"] },
+      ],
+    };
+    monacoState.setValue(getEditableText(document));
+    const onChange = vi.fn();
+    renderEditor({ document, locale: "en", onChange });
+    await user.click(screen.getByRole("button", { name: "More" }));
+    await user.click(screen.getByRole("button", { name: "Format" }));
+    expect(monacoState.editor.executeEdits).toHaveBeenCalledTimes(1);
+    expect(monacoState.getValue()).toContain("\n");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect((screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("hides code-only actions in visual mode and does not read the stale Monaco model", async () => {
+    const user = userEvent.setup();
+    const ref = createRef<SsmlEditorRef>();
+    render(<SsmlEditor ref={ref} document={editorDocument} locale="en" />);
+    await user.click(screen.getByRole("button", { name: "Break" }));
+    await user.click(screen.getByRole("button", { name: "Visual" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    const toolbar = screen.getByRole("toolbar", { name: "SSML toolbar" });
+    expect(within(toolbar).queryByRole("button", { name: "Rate" })).toBeNull();
+    expect(within(toolbar).queryByRole("button", { name: "Undo" })).toBeNull();
+    const textarea = screen.getByRole("textbox", { name: "Text" });
+    await user.clear(textarea);
+    await user.type(textarea, "Updated");
+    expect(ref.current?.getFullSsml()).toContain(">Updated</speak>");
+    expect(ref.current?.getSelectedSsml()).toBeNull();
+    expect(monacoState.getLatestContentDispose()).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps view controls available in read-only mode while disabling edits", async () => {
+    const user = userEvent.setup();
+    renderEditor({ locale: "en", readOnly: true });
+    expect(screen.getByRole("status").textContent).toContain("Read-only");
+    for (const label of ["Break", "Rate", "Undo", "Redo"]) {
+      expect((screen.getByRole("button", { name: label }) as HTMLButtonElement).disabled).toBe(true);
+    }
+    await user.click(screen.getByRole("button", { name: "More" }));
+    for (const label of ["Language", "Format", "Remove formatting"]) {
+      expect((screen.getByRole("button", { name: label }) as HTMLButtonElement).disabled).toBe(true);
+    }
+    await user.click(screen.getByRole("switch", { name: "Decorations" }));
+    expect(screen.getByTestId("monaco-editor").getAttribute("data-inlay-hints")).toBe("on");
+    await user.click(screen.getByRole("button", { name: "Help" }));
+    expect(screen.getByRole("region", { name: "Button and parameter descriptions" })).toBeTruthy();
+    expect(monacoState.editor.executeEdits).not.toHaveBeenCalled();
+  });
+
+  it("dismisses menus when advanced settings collapse, editing becomes read-only, or the toolbar is hidden", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderEditor({ locale: "en" });
+    await user.click(screen.getByRole("button", { name: "More" }));
+    await user.click(screen.getByRole("button", { name: "Language" }));
+    expect(screen.getByRole("menu", { name: "Language" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Break" }));
+    rerender(<SsmlEditor document={editorDocument} locale="en" readOnly />);
+    expect(screen.queryByRole("menu")).toBeNull();
+    rerender(<SsmlEditor document={editorDocument} locale="en" />);
+    await user.click(screen.getByRole("button", { name: "Break" }));
+    rerender(<SsmlEditor document={editorDocument} locale="en" showToolbar={false} />);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+});
+
+describe("Web Component toolbar UX", () => {
+  async function mountElement() {
+    defineSsmlEditorElement();
+    const { container } = render(<div />);
+    const element = globalThis.document.createElement("ssml-editor") as SsmlEditorElement;
+    element.setAttribute("locale", "en");
+    element.value =
+      '<speak version="1.0" xml:lang="en-US"><voice name="en-US-JennyNeural"><prosody rate="slow">Hello world</prosody></voice></speak>';
+    act(() => container.append(element));
+    await waitFor(() =>
+      expect((within(element).getByRole("button", { name: "Break" }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    return element;
+  }
+
+  it("matches the labelled task groups, advanced disclosure, and compact preference", async () => {
+    const user = userEvent.setup();
+    const element = await mountElement();
+    const toolbar = within(element).getByRole("toolbar", { name: "SSML toolbar" });
+    expect(within(toolbar).getByRole("group", { name: "Voice" })).toBeTruthy();
+    expect(within(toolbar).getByRole("button", { name: "Rate" }).textContent).toContain("Rate");
+    expect(within(toolbar).queryByRole("button", { name: "Language" })).toBeNull();
+    await user.click(within(toolbar).getByRole("button", { name: "More" }));
+    expect(within(toolbar).getByRole("button", { name: "Language" })).toBeTruthy();
+    act(() => element.setAttribute("show-toolbar-labels", "false"));
+    expect(within(toolbar).getByRole("button", { name: "Rate" }).textContent).not.toContain("Rate");
+    expect(within(toolbar).getByRole("button", { name: "Language" }).textContent).toContain("Language");
+  });
+
+  it("requires removal confirmation, dispatches one change, and restores outer settings on Undo", async () => {
+    const user = userEvent.setup();
+    const element = await mountElement();
+    const onChange = vi.fn((event: Event) => {
+      element.value = (event as CustomEvent<SsmlEditorChangeDetail>).detail.value;
+    });
+    element.addEventListener("change", onChange);
+    await user.click(within(element).getByRole("button", { name: "More" }));
+    await user.click(within(element).getByRole("button", { name: "Remove formatting" }));
+    expect(onChange).not.toHaveBeenCalled();
+    const confirmation = within(element).getByRole("alertdialog", { name: "Remove speech formatting" });
+    await user.click(within(confirmation).getByRole("button", { name: "Remove formatting" }));
+    expect(element.value).toContain('<voice name="en-US-JennyNeural">Hello world</voice>');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    await user.click(within(element).getByRole("button", { name: "Undo" }));
+    expect(element.value).toContain('<prosody rate="slow">Hello world</prosody>');
+    expect(onChange).toHaveBeenCalledTimes(2);
+    await user.click(within(element).getByRole("button", { name: "Redo" }));
+    expect(element.value).not.toContain("<prosody");
+    expect(element.value).toContain("Hello world");
+    expect(onChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("supports keyboard menu navigation and returns focus to the trigger", async () => {
+    const user = userEvent.setup();
+    const element = await mountElement();
+    const toolbar = within(element).getByRole("toolbar", { name: "SSML toolbar" });
+    expect(toolbar.querySelectorAll("button[tabindex='0']").length).toBe(1);
+    const trigger = within(element).getByRole("button", { name: "Break" });
+    trigger.focus();
+    await user.keyboard("{ArrowDown}");
+    const options = within(screen.getByRole("menu", { name: "Break" })).getAllByRole("menuitem");
+    expect(document.activeElement).toBe(options[0]);
+    await user.keyboard("{End}");
+    expect(document.activeElement).toBe(options.at(-1));
+    await user.keyboard("{Escape}");
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("preserves voice and speech settings when previewing visual text or its selection", async () => {
+    const user = userEvent.setup();
+    const element = await mountElement();
+    const previews: string[] = [];
+    element.addEventListener("preview-selection", (event: Event) => {
+      if (!(event instanceof CustomEvent)) throw new Error("Expected a custom preview event.");
+      const detail: unknown = event.detail;
+      if (!detail || typeof detail !== "object" || !("ssml" in detail) || typeof detail.ssml !== "string") {
+        throw new Error("Expected an SSML preview payload.");
+      }
+      previews.push(detail.ssml);
+    });
+    await user.click(within(element).getByRole("button", { name: "Visual" }));
+    await user.click(within(element).getByRole("button", { name: "Preview selection" }));
+    expect(previews.at(-1)).toContain('<voice name="en-US-JennyNeural"><prosody rate="slow">Hello world</prosody>');
+    const textarea = within(element).getByRole("textbox", { name: "Text" });
+    if (!(textarea instanceof HTMLTextAreaElement)) throw new Error("Expected a visual text editor.");
+    act(() => {
+      textarea.setSelectionRange(6, 11);
+      textarea.dispatchEvent(new Event("select"));
+    });
+    await user.click(within(element).getByRole("button", { name: "Preview selection" }));
+    expect(previews.at(-1)).toContain('<voice name="en-US-JennyNeural"><prosody rate="slow">world</prosody>');
+  });
+
+  it("keeps visual, read-only, and hidden-toolbar behavior consistent", async () => {
+    const user = userEvent.setup();
+    const element = await mountElement();
+    await user.click(within(element).getByRole("button", { name: "Visual" }));
+    const toolbar = within(element).getByRole("toolbar", { name: "SSML toolbar" });
+    expect(within(toolbar).queryByRole("button", { name: "Rate" })).toBeNull();
+    act(() => (element.readonly = true));
+    await user.click(within(toolbar).getByRole("button", { name: "More" }));
+    expect((within(toolbar).getByRole("button", { name: "Remove formatting" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(within(toolbar).getByRole("button", { name: "Help" })).toBeTruthy();
+    act(() => element.setAttribute("show-toolbar", "false"));
+    expect(within(element).queryByRole("toolbar")).toBeNull();
   });
 });
 
@@ -866,8 +1435,9 @@ describe("SsmlEditor props", () => {
     expect(onSsmlChange).toHaveBeenLastCalledWith(expect.stringContaining("<emphasis>テキスト</emphasis>"));
   });
 
-  it("reflects showDecorations in the Monaco editor settings", async () => {
+  it("reflects showDecorations in the Monaco editor settings and advanced toolbar", async () => {
     const { rerender } = renderEditor({ showDecorations: false });
+    await userEvent.click(screen.getByRole("button", { name: "その他" }));
     expect(screen.getByTestId("monaco-editor").getAttribute("data-inlay-hints")).toBe("off");
     expect(screen.getByRole("switch", { name: "装飾" }).getAttribute("aria-checked")).toBe("false");
 

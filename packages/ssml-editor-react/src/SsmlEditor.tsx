@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 import Editor from "@monaco-editor/react";
 import type { SsmlDocument, SsmlNode } from "@ssml-builder-js/ssml-core";
@@ -27,7 +27,7 @@ import {
 } from "./constants/ssmlPresets";
 import {
   EDITOR_COPY,
-  type EditorCopy,
+  TOOLBAR_COPY,
   type SsmlEditorLanguage,
   type SsmlEditorLocale,
   type SsmlEditorLocalizedText,
@@ -39,14 +39,14 @@ import { TimingPopovers } from "./components/popovers/TimingPopovers";
 import { InsertionPopover } from "./components/popovers/InsertionPopover";
 import { useSsmlEditorState } from "./hooks/useSsmlEditorState";
 import { useSsmlMonaco } from "./hooks/useSsmlMonaco";
-import { editorStyles as styles } from "./styles/editorStyles";
+import { editorStyles as styles, TOOLBAR_CSS } from "./styles/editorStyles";
+import { EditorToolbar } from "./components/EditorToolbar";
 import {
   VisualSsmlEditor,
   type VisualInspectorRenderer,
   type VisualVoiceCatalogEntry,
   type VoiceSelectorRenderProps,
 } from "./components/VisualSsmlEditor";
-const UNGROUPED_TOOLBAR_GROUP = "__ssml-editor-ungrouped__";
 const TIMING_POPOVER_TAGS = new Set(["break", "mstts:silence", "mstts:audioduration"]);
 const PROSODY_POPOVER_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
 const TEXT_POPOVER_TAGS = new Set(["sub", "say-as", "phoneme", "w", "lang"]);
@@ -452,7 +452,7 @@ function createDefaultToolbarGroups(
     })),
     {
       id: "document",
-      buttonIds: ["clearAll", "format", "decorations"],
+      buttonIds: ["format", "decorations", "clearAll"],
     },
     {
       id: "help",
@@ -716,6 +716,7 @@ const STYLE_CSS = `
   border: 1px solid var(--ssml-editor-error);
   border-radius: 0.25rem;
 }
+${TOOLBAR_CSS}
 `.trim();
 
 function injectEditorTheme(): void {
@@ -742,7 +743,7 @@ export interface SsmlEditorProps {
   showToolbar?: boolean;
   /** Whether toolbar action icons are displayed. */
   showToolbarIcons?: boolean;
-  /** Whether toolbar action text labels are displayed. */
+  /** Whether toolbar action text labels are displayed. Defaults to true. */
   showToolbarLabels?: boolean;
   /** Whether inline SSML decorations are displayed. The toolbar switch can change this at runtime. */
   showDecorations?: boolean;
@@ -778,11 +779,11 @@ export interface SsmlEditorProps {
   automaticLayout?: boolean;
   /** Reorders all toolbar controls. Unlisted controls follow. */
   toolbarOrder?: readonly SsmlEditorButton[];
-  /** Adds vertical separators between configured toolbar groups. */
+  /** Groups toolbar controls by purpose. Explicit layout configuration keeps every control visible. */
   toolbarGroups?: readonly SsmlEditorToolbarGroup[];
   /** Reorders built-in and custom insertion menus. Unlisted insertions follow. */
   insertionOrder?: readonly string[];
-  /** Visually groups insertion menus when toolbarGroups is not supplied. */
+  /** Groups insertion menus by purpose when toolbarGroups is not supplied. */
   insertionGroups?: readonly SsmlEditorInsertionGroup[];
   /** Replaces built-in insertion definitions with custom definitions by ID. */
   customInsertions?: SsmlEditorCustomInsertionCollection;
@@ -836,45 +837,6 @@ export interface SsmlEditorRef {
   getFullSsml(): string;
 }
 
-interface ToolbarDecorationsSwitchProps {
-  copy: EditorCopy;
-  showToolbarIcons: boolean;
-  showToolbarText: boolean;
-  decorationsVisible: boolean;
-  onVisibilityChange: (visible: boolean) => void;
-}
-
-function ToolbarDecorationsSwitch({
-  copy,
-  showToolbarIcons,
-  showToolbarText,
-  decorationsVisible,
-  onVisibilityChange,
-}: ToolbarDecorationsSwitchProps): ReactElement {
-  return (
-    <div style={styles.toolbarSwitch}>
-      {showToolbarIcons && (
-        <span style={styles.toolbarIcon} aria-hidden="true">
-          ☆
-        </span>
-      )}
-      {showToolbarText && <span>{copy.decorations}</span>}
-      <button
-        type="button"
-        className="ssml-editor-switch-track"
-        style={styles.toolbarSwitchTrack}
-        role="switch"
-        aria-checked={decorationsVisible}
-        aria-label={copy.decorations}
-        title={decorationsVisible ? copy.decorationsHideTitle : copy.decorationsShowTitle}
-        onClick={() => onVisibilityChange(!decorationsVisible)}
-      >
-        <span className="ssml-editor-switch-thumb" style={styles.toolbarSwitchThumb} aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
 export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function SsmlEditor(
   {
     document,
@@ -886,7 +848,7 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     locale: localeProp,
     showToolbar = true,
     showToolbarIcons = true,
-    showToolbarLabels = false,
+    showToolbarLabels = true,
     showDecorations = false,
     enableCodeLens = true,
     buttonVisibility,
@@ -950,9 +912,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
   const editorMinHeight = resolvedEditorOptions.minHeight ?? "8rem";
   const editorHeight = resolvedEditorOptions.height ?? editorMinHeight;
   const isReadOnly = resolvedEditorOptions.readOnly ?? false;
-  const toolbarButtonStyle = showToolbarText
-    ? styles.toolbarButton
-    : { ...styles.toolbarButton, ...styles.toolbarIconOnly };
   const configuredInsertions = getConfiguredInsertions(emotionStyles, customInsertions, additionalInsertions);
   const visibleInsertions = orderInsertions(configuredInsertions, insertionOrder).filter((insertion) =>
     isSsmlEditorButtonVisible(buttonVisibility, insertion.id),
@@ -987,9 +946,9 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     "redo",
     ...visibleInsertionGroups.flatMap(({ insertions }) => insertions.map((insertion) => insertion.id)),
     ...ungroupedInsertions.map((insertion) => insertion.id),
-    "clearAll",
     "format",
     "decorations",
+    "clearAll",
     "help",
   ];
   const visibleToolbarIds = new Set<string>([
@@ -1009,6 +968,18 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       }
     }
   }
+  const toolbarCopy = TOOLBAR_COPY[language];
+  const toolbarGroupLabels = new Map<string, string>([
+    ["history", toolbarCopy.historyGroup],
+    ["document", toolbarCopy.documentGroup],
+    ["help", toolbarCopy.helpGroup],
+    ...configuredInsertionGroups.map((group): [string, string] => [group.id, group.labels[language]]),
+  ]);
+  const customizedToolbarLayout =
+    toolbarOrder !== undefined ||
+    toolbarGroups !== undefined ||
+    insertionOrder !== undefined ||
+    insertionGroups !== undefined;
   const helpInsertions = [
     ...visibleInsertionGroups.flatMap(({ insertions }) => insertions),
     ...ungroupedInsertions,
@@ -1044,6 +1015,8 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     canPreviewSelection,
     refreshSelectionOverlay,
     updateActiveTags,
+    editorHistory,
+    setEditorHistory,
     getSelectedSsml,
     getCurrentLineSsml,
     getFullSsml,
@@ -1075,9 +1048,21 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     onSelectionOverlayChange: refreshSelectionOverlay,
     onActiveTagsChange: updateActiveTags,
     onSyntaxErrorChange: setSyntaxError,
+    enabled: editMode === "code",
+    onEditorHistoryChange: setEditorHistory,
     enableCodeLens,
     onOpenPopover: handleCodeLensAction,
   });
+
+  useEffect(() => {
+    if (editMode === "visual" || isReadOnly || !showToolbar) closePopover();
+  }, [closePopover, editMode, isReadOnly, showToolbar]);
+
+  const popoverAvailable =
+    openPopoverId === null || visibleInsertions.some((insertion) => insertion.id === openPopoverId);
+  useEffect(() => {
+    if (!popoverAvailable) closePopover();
+  }, [closePopover, popoverAvailable]);
 
   useImperativeHandle(
     ref,
@@ -1089,10 +1074,13 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     [getCurrentLineSsml, getFullSsml, getSelectedSsml],
   );
 
-  const renderInsertion = (insertion: SsmlEditorInsertionDefinition): ReactElement => {
+  const renderInsertion = (insertion: SsmlEditorInsertionDefinition, showLabels: boolean): ReactElement => {
     const isTimingPopover = insertion.tagName !== undefined && TIMING_POPOVER_TAGS.has(insertion.tagName);
     const isProsodyPopover = insertion.tagName !== undefined && PROSODY_POPOVER_TAGS.has(insertion.tagName);
     const isTextPopover = insertion.tagName !== undefined && TEXT_POPOVER_TAGS.has(insertion.tagName);
+    const toolbarButtonStyle = showLabels
+      ? styles.toolbarButton
+      : { ...styles.toolbarButton, ...styles.toolbarIconOnly };
     const insertionButtonStyle =
       insertion.tagName && activeTags.has(insertion.tagName.toLowerCase())
         ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive }
@@ -1109,12 +1097,12 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       language,
       isDarkTheme,
       showToolbarIcons,
-      showToolbarText,
+      showToolbarText: showLabels,
       toolbarButtonStyle: insertionButtonStyle,
       emptyOptionsMessage: copy.noAvailableOptions,
       isReadOnly,
-      disabled: insertionDisabled,
-      disabledReason,
+      disabled: insertionDisabled || !editorHistory.ready,
+      disabledReason: !editorHistory.ready ? toolbarCopy.loadingHint : disabledReason,
       openPopoverId,
       menuPosition: popoverPosition,
       menuRef: setPopoverMenuRef,
@@ -1148,172 +1136,6 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
     );
   };
 
-  const toolbarItemRenderers = new Map<string, () => ReactElement>([
-    [
-      "undo",
-      () => (
-        <button
-          key="undo"
-          type="button"
-          style={toolbarButtonStyle}
-          aria-label={copy.undo}
-          title={copy.undoTitle}
-          disabled={isReadOnly}
-          onClick={() => {
-            if (!isReadOnly) {
-              handleUndo();
-            }
-          }}
-        >
-          {showToolbarIcons && (
-            <span style={styles.toolbarIcon} aria-hidden="true">
-              ↩
-            </span>
-          )}
-          {showToolbarText && <span>{copy.undo}</span>}
-        </button>
-      ),
-    ],
-    [
-      "redo",
-      () => (
-        <button
-          key="redo"
-          type="button"
-          style={toolbarButtonStyle}
-          aria-label={copy.redo}
-          title={copy.redoTitle}
-          disabled={isReadOnly}
-          onClick={() => {
-            if (!isReadOnly) {
-              handleRedo();
-            }
-          }}
-        >
-          {showToolbarIcons && (
-            <span style={styles.toolbarIcon} aria-hidden="true">
-              ↪
-            </span>
-          )}
-          {showToolbarText && <span>{copy.redo}</span>}
-        </button>
-      ),
-    ],
-    [
-      "clearAll",
-      () => (
-        <button
-          key="clearAll"
-          type="button"
-          style={toolbarButtonStyle}
-          aria-label={copy.clearAll}
-          title={copy.clearAllTitle}
-          disabled={isReadOnly}
-          onClick={() => {
-            if (!isReadOnly) {
-              handleClear();
-            }
-          }}
-        >
-          {showToolbarIcons && (
-            <span style={styles.toolbarIcon} aria-hidden="true">
-              ×
-            </span>
-          )}
-          {showToolbarText && <span>{copy.clearAll}</span>}
-        </button>
-      ),
-    ],
-    [
-      "format",
-      () => (
-        <button
-          key="format"
-          type="button"
-          style={toolbarButtonStyle}
-          aria-label={copy.format}
-          title={copy.formatTitle}
-          disabled={isReadOnly}
-          onClick={() => {
-            if (!isReadOnly) {
-              handleFormat();
-            }
-          }}
-        >
-          {showToolbarIcons && (
-            <span style={styles.toolbarIcon} aria-hidden="true">
-              ≡
-            </span>
-          )}
-          {showToolbarText && <span>{copy.format}</span>}
-        </button>
-      ),
-    ],
-    [
-      "decorations",
-      () => (
-        <ToolbarDecorationsSwitch
-          key="decorations"
-          copy={copy}
-          showToolbarIcons={showToolbarIcons}
-          showToolbarText={showToolbarText}
-          decorationsVisible={decorationsVisible}
-          onVisibilityChange={setDecorationsVisible}
-        />
-      ),
-    ],
-    [
-      "help",
-      () => (
-        <button
-          key="help"
-          type="button"
-          style={toolbarButtonStyle}
-          aria-label={copy.help}
-          title={copy.helpTitle}
-          aria-expanded={isHelpOpen}
-          aria-controls={helpPanelId}
-          onClick={() => setIsHelpOpen((open) => !open)}
-        >
-          {showToolbarIcons && (
-            <span style={styles.toolbarIcon} aria-hidden="true">
-              ?
-            </span>
-          )}
-          {showToolbarText && <span>{copy.help}</span>}
-        </button>
-      ),
-    ],
-  ]);
-  for (const insertion of visibleInsertions) {
-    toolbarItemRenderers.set(insertion.id, () => renderInsertion(insertion));
-  }
-  const renderToolbarItems = (): ReactElement[] => {
-    let previousRenderedGroupId = UNGROUPED_TOOLBAR_GROUP;
-    let hasRenderedToolbarItem = false;
-    const renderedItems: ReactElement[] = [];
-
-    for (const id of toolbarItemIds) {
-      const render = toolbarItemRenderers.get(id);
-      if (!render) {
-        continue;
-      }
-
-      const groupId = toolbarGroupByButtonId.get(id) ?? UNGROUPED_TOOLBAR_GROUP;
-      const showSeparator = hasRenderedToolbarItem && groupId !== previousRenderedGroupId;
-      previousRenderedGroupId = groupId;
-      hasRenderedToolbarItem = true;
-      renderedItems.push(
-        <Fragment key={id}>
-          {showSeparator && <span style={styles.toolbarSeparator} aria-hidden="true" />}
-          {render()}
-        </Fragment>,
-      );
-    }
-
-    return renderedItems;
-  };
-
   return (
     <section
       className={className}
@@ -1323,41 +1145,38 @@ export const SsmlEditor = forwardRef<SsmlEditorRef, SsmlEditorProps>(function Ss
       data-theme={isDarkTheme ? "dark" : "light"}
     >
       {showToolbar && (
-        <div
+        <EditorToolbar
+          locale={language}
+          copy={copy}
+          editMode={editMode}
+          onEditModeChange={setEditMode}
+          readOnly={isReadOnly}
+          showIcons={showToolbarIcons}
+          showLabels={showToolbarText}
+          buttonIds={toolbarItemIds}
+          groupByButtonId={toolbarGroupByButtonId}
+          groupLabels={toolbarGroupLabels}
+          customizedLayout={customizedToolbarLayout}
+          insertions={visibleInsertions}
+          openInsertionId={openPopoverId}
+          renderInsertion={renderInsertion}
+          history={editorHistory}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onClear={handleClear}
+          onFormat={handleFormat}
+          onDismissPopover={closePopover}
+          decorationsVisible={decorationsVisible}
+          onDecorationsChange={setDecorationsVisible}
+          helpOpen={isHelpOpen}
+          helpPanelId={helpPanelId}
+          onHelpChange={setIsHelpOpen}
+          selection={selectionOverlay}
+          onPreview={canPreviewSelection ? previewSelection : undefined}
+          canPreview={editorHistory.ready && selectionOverlay.hasPreviewContent}
           className={toolbarClassName}
-          style={{ ...styles.toolbarContainer, ...toolbarStyle }}
-          data-ssml-editor-toolbar=""
-        >
-          <div
-            style={styles.toolbarActions}
-            role="toolbar"
-            aria-label={copy.toolbarAriaLabel}
-            data-ssml-editor-toolbar-actions=""
-          >
-            {renderToolbarItems()}
-            <span style={styles.toolbarSeparator} aria-hidden="true" />
-            <button
-              type="button"
-              style={
-                editMode === "visual" ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive } : toolbarButtonStyle
-              }
-              aria-pressed={editMode === "visual"}
-              onClick={() => setEditMode("visual")}
-            >
-              Visual
-            </button>
-            <button
-              type="button"
-              style={
-                editMode === "code" ? { ...toolbarButtonStyle, ...styles.toolbarButtonActive } : toolbarButtonStyle
-              }
-              aria-pressed={editMode === "code"}
-              onClick={() => setEditMode("code")}
-            >
-              Code
-            </button>
-          </div>
-        </div>
+          style={toolbarStyle}
+        />
       )}
       <div className={displayClassName} style={{ ...styles.display, ...displayStyle }} data-ssml-editor-display="">
         {isHelpOpen && isSsmlEditorButtonVisible(buttonVisibility, "help") && (

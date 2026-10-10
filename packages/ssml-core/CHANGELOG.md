@@ -1,5 +1,9 @@
 # @ssml-builder-js/ssml-core
 
+## 2.19.2
+
+No changes in this release.
+
 ## 2.19.1
 
 ### Patch Changes

@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SSML Builder Playground",
-  description: "Development playground for SSML Builder",
+  title: "Speech Studio | SSML Builder",
+  description: "Create, tune, preview, and export speech for announcements, video narration, and learning.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

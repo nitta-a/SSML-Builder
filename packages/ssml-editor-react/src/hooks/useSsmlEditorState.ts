@@ -23,12 +23,14 @@ import { findSsmlVoiceContext, updateTagAttribute } from "../ssmlContext";
 import type { MonacoEditor, SsmlSyntaxError } from "../ssmlDiagnostics";
 import type { SsmlCodeLensAction } from "../ssmlCodeLens";
 import { SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES } from "../constants/ui";
+import { getPopoverPosition, ToolbarDocumentHistory, type EditorHistoryState } from "../toolbar";
 
 const TIMING_INSERTION_TAGS = new Set(["break", "mstts:silence", "mstts:audioduration"]);
 const PROSODY_INSERTION_TAGS = new Set(["prosody", "mstts:express-as", "voice", "emphasis"]);
 const TEXT_INSERTION_TAGS = new Set(["sub", "say-as", "phoneme", "w", "lang"]);
 
 export interface SelectionOverlayState extends SelectionInfo {
+  hasPreviewContent: boolean;
   position: {
     top: number;
     left: number;
@@ -63,6 +65,7 @@ const EMPTY_SELECTION_OVERLAY: SelectionOverlayState = {
   selectedText: "",
   characterCount: 0,
   hasSelection: false,
+  hasPreviewContent: false,
   position: null,
   placement: "above",
 };
@@ -157,27 +160,29 @@ function getSelectionInfo(editor: MonacoEditor): SelectionInfo {
 
 function getSelectionOverlayState(editor: MonacoEditor): SelectionOverlayState {
   const info = getSelectionInfo(editor);
+  const hasPreviewContent = info.hasSelection || getCurrentLineText(editor) !== null;
   if (!info.hasSelection) {
-    return { ...info, position: null, placement: "above" };
+    return { ...info, hasPreviewContent, position: null, placement: "above" };
   }
 
   const selection = editor.getSelection();
   if (!selection) {
-    return { ...info, position: null, placement: "above" };
+    return { ...info, hasPreviewContent, position: null, placement: "above" };
   }
 
   const position = editor.getScrolledVisiblePosition(selection.getStartPosition());
   if (!position) {
-    return { ...info, position: null, placement: "above" };
+    return { ...info, hasPreviewContent, position: null, placement: "above" };
   }
 
   const editorHeight = editor.getLayoutInfo().height;
   if (position.top + position.height < 0 || position.top > editorHeight) {
-    return { ...info, position: null, placement: "above" };
+    return { ...info, hasPreviewContent, position: null, placement: "above" };
   }
 
   return {
     ...info,
+    hasPreviewContent,
     position,
     placement: position.top >= SELECTION_OVERLAY_ABOVE_THRESHOLD_LINES * position.height ? "above" : "below",
   };
@@ -296,6 +301,11 @@ export function useSsmlEditorState({
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [syntaxError, setSyntaxError] = useState<SsmlSyntaxError | null>(null);
   const [activeTags, setActiveTags] = useState<Set<string>>(() => new Set());
+  const [editorHistory, setEditorHistory] = useState<EditorHistoryState>({
+    ready: false,
+    canUndo: false,
+    canRedo: false,
+  });
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [popoverVoiceName, setPopoverVoiceName] = useState<string | undefined>(undefined);
   const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null);
@@ -306,6 +316,8 @@ export function useSsmlEditorState({
   const onPreviewSelectionRef = useRef(onPreviewSelection);
   const activePopoverTriggerRef = useRef<HTMLButtonElement | null>(null);
   const activePopoverMenuRef = useRef<HTMLDivElement | null>(null);
+  const suppressToolbarChangeRef = useRef(false);
+  const toolbarDocumentHistory = useRef(new ToolbarDocumentHistory()).current;
 
   draftDocumentRef.current = draftDocument;
   onSelectionChangeRef.current = onSelectionChange;
@@ -321,9 +333,10 @@ export function useSsmlEditorState({
   }, [injectTheme]);
 
   useEffect(() => {
+    if (document !== draftDocumentRef.current) toolbarDocumentHistory.clear();
     draftDocumentRef.current = document;
     setDraftDocument(document);
-  }, [document]);
+  }, [document, toolbarDocumentHistory]);
 
   useEffect(() => {
     setDecorationsVisible(showDecorations);
@@ -335,7 +348,8 @@ export function useSsmlEditorState({
     setPopoverVoiceName(undefined);
     setPopoverPosition(null);
     if (restoreFocus) {
-      activePopoverTriggerRef.current?.focus();
+      if (activePopoverTriggerRef.current) activePopoverTriggerRef.current.focus();
+      else editorRef.current?.focus();
     }
   }, []);
 
@@ -355,9 +369,40 @@ export function useSsmlEditorState({
     });
   }, []);
 
-  const setPopoverMenuRef = useCallback((menu: HTMLDivElement | null): void => {
-    activePopoverMenuRef.current = menu;
+  const updatePopoverPosition = useCallback((): void => {
+    const trigger = activePopoverTriggerRef.current;
+    if (trigger) {
+      setPopoverPosition(getPopoverPosition(trigger.getBoundingClientRect(), activePopoverMenuRef.current));
+      return;
+    }
+
+    const pending = pendingCodeLensAttributeRef.current;
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    if (!pending || !editor || !model) {
+      return;
+    }
+
+    const position = model.getPositionAt(pending.tagRange.start);
+    const visiblePosition = editor.getScrolledVisiblePosition(position);
+    const editorElement = editor.getDomNode();
+    if (!visiblePosition || !editorElement) {
+      return;
+    }
+
+    const editorBounds = editorElement.getBoundingClientRect();
+    const top = editorBounds.top + visiblePosition.top;
+    const anchor = { top, bottom: top + visiblePosition.height, left: editorBounds.left + visiblePosition.left };
+    setPopoverPosition(getPopoverPosition(anchor, activePopoverMenuRef.current));
   }, []);
+
+  const setPopoverMenuRef = useCallback(
+    (menu: HTMLDivElement | null): void => {
+      activePopoverMenuRef.current = menu;
+      if (menu) updatePopoverPosition();
+    },
+    [updatePopoverPosition],
+  );
 
   useEffect(() => {
     if (!openPopoverId) {
@@ -365,48 +410,6 @@ export function useSsmlEditorState({
       return;
     }
 
-    const updatePopoverPosition = (): void => {
-      const trigger = activePopoverTriggerRef.current;
-      if (trigger) {
-        const triggerBounds = trigger.getBoundingClientRect();
-        setPopoverPosition({
-          top: triggerBounds.bottom + 4,
-          left: triggerBounds.left,
-        });
-        return;
-      }
-
-      const pending = pendingCodeLensAttributeRef.current;
-      const editor = editorRef.current;
-      const model = editor?.getModel();
-      if (!pending || !editor || !model) {
-        return;
-      }
-
-      const position = model.getPositionAt(pending.tagRange.start);
-      const visiblePosition = editor.getScrolledVisiblePosition(position);
-      const editorElement = editor.getDomNode();
-      if (!visiblePosition || !editorElement) {
-        return;
-      }
-
-      const editorBounds = editorElement.getBoundingClientRect();
-      const menu = activePopoverMenuRef.current;
-      const margin = 8;
-      setPopoverPosition({
-        top: Math.max(
-          margin,
-          Math.min(
-            editorBounds.top + visiblePosition.top + visiblePosition.height + 4,
-            window.innerHeight - (menu?.offsetHeight ?? 0) - margin,
-          ),
-        ),
-        left: Math.max(
-          margin,
-          Math.min(editorBounds.left + visiblePosition.left, window.innerWidth - (menu?.offsetWidth ?? 0) - margin),
-        ),
-      });
-    };
     const handlePointerDown = (event: PointerEvent): void => {
       const target = event.target;
       if (
@@ -419,6 +422,7 @@ export function useSsmlEditorState({
     };
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
+        event.preventDefault();
         closePopover(true);
       }
     };
@@ -435,7 +439,7 @@ export function useSsmlEditorState({
       globalThis.document.removeEventListener("pointerdown", handlePointerDown);
       globalThis.document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closePopover, openPopoverId]);
+  }, [closePopover, openPopoverId, updatePopoverPosition]);
 
   const refreshSelectionOverlay = useCallback((editor: MonacoEditor, notify: boolean): void => {
     const nextSelection = getSelectionOverlayState(editor);
@@ -470,12 +474,15 @@ export function useSsmlEditorState({
 
   const handleTextChange = useCallback(
     (value: string): void => {
-      commit(updateEditableText(draftDocumentRef.current, value));
+      if (suppressToolbarChangeRef.current) return;
+      const model = editorRef.current?.getModel();
+      const restoredDocument = model ? toolbarDocumentHistory.find(model) : undefined;
+      commit(updateEditableText(restoredDocument ?? draftDocumentRef.current, value));
       if (editorRef.current) {
         refreshSelectionOverlay(editorRef.current, false);
       }
     },
-    [commit, refreshSelectionOverlay],
+    [commit, refreshSelectionOverlay, toolbarDocumentHistory],
   );
 
   const handleInsert = useCallback(
@@ -550,14 +557,48 @@ export function useSsmlEditorState({
     [handleInsert],
   );
 
+  const applyToolbarDocument = useCallback(
+    (nextDocument: SsmlDocument): void => {
+      const editor = editorRef.current;
+      const value = getEditableText(nextDocument);
+      const documentChanged = buildSsml(nextDocument) !== buildSsml(draftDocumentRef.current);
+      if (editor && (editor.getValue() !== value || documentChanged)) {
+        const model = editor.getModel();
+        if (!model) throw new Error("Cannot apply a toolbar edit without an editor model.");
+        const end = model.getPositionAt(editor.getValue().length);
+        // Alternative version IDs restore outer SSML settings even when the editable text does not change.
+        toolbarDocumentHistory.remember(model, updateEditableText(draftDocumentRef.current, editor.getValue()));
+        suppressToolbarChangeRef.current = true;
+        try {
+          editor.pushUndoStop();
+          const applied = editor.executeEdits("ssml-toolbar", [
+            {
+              range: { startLineNumber: 1, startColumn: 1, endLineNumber: end.lineNumber, endColumn: end.column },
+              text: value,
+            },
+          ]);
+          editor.pushUndoStop();
+          if (!applied) throw new Error("The editor could not apply the toolbar edit.");
+          toolbarDocumentHistory.remember(model, nextDocument);
+        } finally {
+          suppressToolbarChangeRef.current = false;
+        }
+        editor.focus();
+      }
+      commit(nextDocument);
+      if (editor) refreshSelectionOverlay(editor, false);
+    },
+    [commit, refreshSelectionOverlay, toolbarDocumentHistory],
+  );
+
   const handleClear = useCallback((): void => {
-    commit(clearSsmlDocument(draftDocumentRef.current));
-  }, [commit]);
+    applyToolbarDocument(clearSsmlDocument(draftDocumentRef.current));
+  }, [applyToolbarDocument]);
 
   const handleFormat = useCallback((): void => {
     const value = editorRef.current?.getValue() ?? getEditableText(draftDocumentRef.current);
-    commit(updateEditableText(draftDocumentRef.current, formatXmlFragment(value)));
-  }, [commit]);
+    applyToolbarDocument(updateEditableText(draftDocumentRef.current, formatXmlFragment(value)));
+  }, [applyToolbarDocument]);
 
   const handleUndo = useCallback((): void => {
     editorRef.current?.trigger("toolbar", "undo", null);
@@ -688,6 +729,8 @@ export function useSsmlEditorState({
     canPreviewSelection: onPreviewSelection !== undefined,
     refreshSelectionOverlay,
     updateActiveTags,
+    editorHistory,
+    setEditorHistory,
     getSelectedSsml: getSelectedSsmlValue,
     getCurrentLineSsml: getCurrentLineSsmlValue,
     getFullSsml,

@@ -10,6 +10,7 @@ import {
   type AzureVoiceCatalogMetadata,
 } from "@ssml-builder-js/ssml-core";
 import { SSML_ELEMENT_COPY, type SsmlEditorLocale } from "../locales";
+import { buildVisualPreview, getElementAncestors } from "../visualSsmlPreview";
 
 export interface VisualVoiceCatalogEntry {
   name: string;
@@ -552,26 +553,6 @@ function VisualElementInspector({
       )}
     </fieldset>
   );
-}
-
-function getElementAncestors(nodes: SsmlNode[], path: number[], ancestors: SsmlElement[] = []): SsmlElement[] {
-  const [index, ...rest] = path;
-  const node = nodes[index];
-  if (!node || !isElement(node)) return ancestors;
-  if (rest.length === 0) return ancestors;
-  return getElementAncestors(node.children ?? [], rest, [...ancestors, node]);
-}
-
-function buildVisualPreview(document: SsmlDocument, leaf: TextLeaf, selection: { start: number; end: number }): string {
-  const start = Math.max(0, Math.min(selection.start, leaf.value.length));
-  const end = Math.max(start, Math.min(selection.end, leaf.value.length));
-  const value = start === end ? leaf.value : leaf.value.slice(start, end);
-  const ancestors = getElementAncestors(document.children ?? [], leaf.path);
-  const children = ancestors.reduceRight<SsmlNode[]>(
-    (current, ancestor) => [{ ...ancestor, children: current }],
-    [value],
-  );
-  return buildSsml({ ...document, children });
 }
 
 function addDialogTurn(document: SsmlDocument, path: number[]): SsmlDocument {

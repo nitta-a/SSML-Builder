@@ -54,9 +54,30 @@ Node.js 22.6 以降をサポートします。Node.js 24 LTS 以降を推奨し�
 npm ci
 ```
 
-### Playground で音声を生成する
+### Playground の Speech Studio で制作する
 
-`apps/playground` の「音声を生成」ボタンは、現在の SSML をサーバー側の
+`apps/playground` は、原稿の準備 → 声・表現の調整 → 試聴・書き出しを一つの画面で行う
+Speech Studio です。原稿を読みやすい表示で確認し、「原稿を書き換える」で文章を編集できます。
+書き換え時は最初の声・速度・高さ・音量を引き継ぎますが、部分ごとの間や表現は解除されます。
+「読み上げを調整」では従来のビジュアル／コードエディターを使って細部を調整できます。
+
+![Playground の Speech Studio デモ](./apps/playground/public/speech-studio.png)
+
+- 館内アナウンス・ナレーション・eラーニングの用途別テンプレートから始められます。
+- 貼り付け、または `.txt` / `.ssml` / `.xml` ファイルから原稿を取り込めます（UTF-8 で最大 1 MB）。
+  テキストの空行は段落として保持し、SSML の構文エラーは取り込み前に表示します。
+  原稿の置き換え・書き換え後は、直前の原稿へ戻せます。
+- 原稿名と SSML は、このブラウザーの `localStorage` に自動保存し、再読み込み時に復元します。
+  保存できない場合はエラーを表示します。共有端末には機密原稿を残さないでください。
+  保存するのは一つの原稿で、音声や置き換え履歴は保存しません。
+- 読み上げ言語・声・速度・高さ・音量を設定し、文字数・段落数・読み上げ時間の目安を確認できます。
+  サイドバーの設定は最初の声に適用し、ほかの声は保持します。時間は概算です。
+- 構文・Azure 対応の診断を表示し、エラーがある原稿の音声生成を防ぎます。
+- SSML のコピー／ダウンロードと、生成した MP3 のダウンロードに対応します。
+  生成後に原稿を変更すると、音声が変更前のものだと明示します。
+- React / Web Component の切り替えとテキストノード変換は「開発者ツール」にまとめています。
+
+`apps/playground` の「全文をAzureで試聴」ボタンは、現在の SSML をサーバー側の
 Next.js Route Handler に送信し、`ssml-builder-js` で Azure
 Speech の音声を生成します。Azure のサブスクリプションキーをブラウザへ公開しないため、
 `apps/playground/.env.local` に次の値を設定してください。
@@ -81,7 +102,15 @@ Playground の表示言語は `ja`、`en`、`ko`、`zh-Hans`、`fr`、`pt-BR`、
 Playground の表示言語が日本語以外の場合、埋め込みエディターの UI は英語になります。
 テーマは OS の設定に追従し、ライト・ダークを手動で切り替えて保存できます。現在の
 SSML 全体または選択部分を Azure Speech で合成してブラウザーで再生でき、音声には
-SSML 本文のキャプションが付きます。生成された SSML は画面下部に表示されます。
+SSML 本文のキャプションが付きます。両エディターのビジュアル試聴は、選択部分の声・読み上げ設定を
+引き継ぎます。生成をキャンセルでき、失敗しても直前の音声は保持します。
+Azure の設定状態を画面に表示しますが、キーは公開しません。Azure の合成には利用料金が
+発生する場合があります。
+
+Azure 未設定でも「ブラウザ音声で原稿を確認」を利用できます。これは端末の音声でテキストを
+読み上げる機能で、Azure の声や SSML の間・表現は再現せず、音声の書き出しもできません。
+表示言語の変更は現在の原稿や読み上げ言語を変更しません。SSML と読み上げテキストは、
+原稿下の折りたたみ表示で確認できます。原稿は Azure 合成時にサーバーへ送信します。
 
 ### Next.js で Monaco と選択範囲試聴を使う
 
@@ -262,7 +291,11 @@ Azure Speech は `<audio>` の URL を取得するため、任意の URL をそ�
 
 `SsmlEditor` は `SsmlDocument` を受け取り、ツールバーと本文の表示エリアだけを表示するシンプルなコンポーネントです。ツールバーから選択範囲の速度、音量、ピッチなどの設定、元に戻す・やり直す操作ができます。音声の選択と表示はアプリ側で行います。本文の編集には Monaco Editor を使用し、変更時に SSML の構文を検証します。構文エラーはエディター上のマーカーとエラーメッセージで表示されます。XML のタグ名やパラメータへホバーすると SSML の説明を確認できます。テキストを選択すると、選択文字数と試聴を行うフローティングアクションが表示されます。`enableCodeLens`（デフォルトは `true`）が有効な場合、`prosody`、`break`、`mstts:audioduration` タグの上に属性編集やタグ操作の CodeLens が表示されます。`showDecorations` が有効な場合、`break` と `prosody` のタグに間やピッチ変化を示すインラインバッジが表示され、Monaco のインライン装飾も有効になります。生成された SSML は `onSsmlChange` で受け取り、アプリ側で自由に表示できます。`SsmlEditorRef` を `ref` に渡すと、全体、選択範囲、または現在行の SSML を取得できます。画面表示は日本語（デフォルト）と英語に対応しています。
 
-`editMode="visual"` を指定するかツールバーの **Visual** を選ぶと、XML を直接見ずに構造ツリーとパンくずから親要素を選択し、フォームで本文の変更、rate、pitch、emotion、pause、pronunciation の適用ができます。Azure の配置違反や属性エラーはビジュアル領域にも表示されます。`editMode="code"` で Monaco に戻ります。
+ツールバーは編集モード・選択範囲の状態と、用途別の編集操作を分けて表示します。間、速度、ピッチ、音量、強調、感情、読み上げ方法などの頻出操作はラベル付きで常時表示し、言語、無音、音声長、整形、装飾、書式解除は **その他** から開きます。Undo / Redo は実際の履歴がある場合だけ有効になります。`onPreviewSelection` を指定すると、ツールバーから選択部分または空でない現在行を試聴できます。
+
+`editMode="visual"` を指定するかツールバーの **ビジュアル** を選ぶと、XML を直接見ずに構造ツリーとパンくずから親要素を選択し、フォームで本文の変更、rate、pitch、emotion、pause、pronunciation の適用ができます。このモードではコード専用の挿入・履歴操作を表示しません。Azure の配置違反や属性エラーはビジュアル領域にも表示されます。**コード** または `editMode="code"` で Monaco に戻ります。
+
+Tab でツールバーに入り、左右矢印・Home・End で有効なコントロールを移動できます。挿入メニューは上下矢印で開き、上下矢印・Home・End・先頭文字で候補を選び、Enter で適用、Escape で閉じて元のボタンに戻ります。狭い画面では用途別グループが折り返され、メニューは画面内に収まる位置へ調整されます。
 
 Visual Editor と Code Editor の対応要素は次のとおりです。
 
@@ -322,22 +355,23 @@ export function App() {
 - `onSsmlChange`: 編集後に生成された SSML 文字列を受け取るコールバック
 - `ref`: `SsmlEditorRef` の `getFullSsml()` で全体の SSML、`getSelectedSsml()` で選択範囲（未選択時は内容が空でないカーソル行）の SSML、`getCurrentLineSsml()` で現在行の SSML を取得。選択範囲やカーソル行が空の場合は `null` を返します
 - `onSelectionChange`: 選択テキスト、文字数、選択状態を受け取るコールバック
-- `onPreviewSelection`: フローティングアクションの試聴ボタン押下時に、選択部分を元の `speak` 属性、`voice`、`prosody` などの親コンテキストで包んだ一時 SSML を受け取るコールバック。省略時は試聴ボタンが無効になります。Azure などの音声 API はこのコールバックから呼び出してください
+- `onPreviewSelection`: 試聴ボタン押下時に、選択部分を元の `speak` 属性、`voice`、`prosody` などの親コンテキストで包んだ一時 SSML を受け取るコールバック。指定するとツールバーにも試聴ボタンを表示し、未選択時は空でない現在行を対象にします。省略時はフローティングアクションの試聴ボタンが無効になります。Azure などの音声 API はこのコールバックから呼び出してください
 - `editMode`: 初期編集モード（`"code"` または `"visual"`）。Visual モードは構造ツリーとフォームによる構造化編集を提供します
 - `locale`: 画面表示の言語（`"ja"` または `"en"`）。省略時は `"ja"`。ホバーヘルプを含む UI の翻訳にも使用されます
 - `language`: `locale` の旧名称。既存コードとの互換性のため利用できますが、新しいコードでは `locale` を使用してください
 - `showToolbar`: ツールバー領域を表示するかどうか（デフォルトは `true`）
 - `showToolbarIcons`: ツールバーのアイコン表示（デフォルトは `true`）
-- `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `false`）。省略時はアイコンにホバーすると説明が表示されます
-- `showDecorations`: 本文中のインライン装飾（バッジや Inlay Hints）の表示（デフォルトは `false`）。ツールバーの「装飾」スイッチで表示・非表示を切り替えられます
+- `showToolbarLabels`: ツールバーの文字による説明表示（デフォルトは `true`）。`false` で頻出操作をコンパクトなアイコン表示にできます。「その他」の中ではラベルを表示します。アイコンの説明はホバーでも確認できます
+- `showDecorations`: 本文中のインライン装飾（バッジや Inlay Hints）の表示（デフォルトは `false`）。「その他」の「装飾」スイッチで表示・非表示を切り替えられます
 - `enableCodeLens`: `prosody`、`break`、`mstts:audioduration` タグの CodeLens クイックコントローラーを表示するか（デフォルトは `true`）
 - `buttonVisibility`: ツールバーボタンごとの表示設定。`help`、`break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`mstts:audioduration`、`undo`、`redo`、`clearAll`、`format`、`decorations`、カスタム挿入 ID を指定でき、未指定のボタンは表示されます
 - `editorOptions` / `settings`: Monaco の設定。`height`、`minHeight`、`readOnly`、`theme`（`system` / `light` / `dark`）、`fontSize`、`wordWrap`、`lineNumbers`、`minimap`、`automaticLayout` を指定できます。これらは同名のトップレベル props でも指定できます
 - `loadingFallback`: Monaco の読み込み中に表示する React ノード
-- `toolbarOrder`: ツールバー全体のボタン ID の表示順。指定されていないボタンは後ろに続きます
-- `toolbarGroups`: ツールバー全体を縦線で区切るグループ設定。`{ id, buttonIds }` 形式で指定し、枠線付きのグループは使用しません
+- `toolbarOrder`: ツールバーの編集操作のボタン ID の表示順。指定されていないボタンは後ろに続きます
+- `toolbarGroups`: ツールバーの編集操作を用途別にまとめるグループ設定。`{ id, buttonIds }` 形式で指定し、グループ自体の枠線は表示しません
 - `insertionOrder`: 挿入メニューの ID の表示順。`toolbarOrder` が未指定の場合の挿入メニュー順にも使用されます
-- `insertionGroups`: 挿入メニューを縦線で区切るグループ設定。`toolbarGroups` を省略した場合は、この設定からツールバーの既定グループも作成されます。省略時は間・無音、声の調整、表現、読み上げに分けて表示されます
+- `insertionGroups`: 挿入メニューを用途別にまとめるグループ設定。`toolbarGroups` を省略した場合は、この設定からツールバーの既定グループも作成されます。省略時は間・無音、声の調整、表現、読み上げに分けて表示されます
+- `toolbarOrder`、`toolbarGroups`、`insertionOrder`、`insertionGroups` のいずれかを明示すると、「その他」に移動せず、表示対象の編集操作をすべて指定レイアウト内に表示します。既存のカスタム配置とボタン ID は引き続き利用できます
 - `emotionStyles`: `emotion` メニューに表示する音声スタイル候補
 - `customInsertions` / `additionalInsertions`: カスタム SSML 挿入定義。`customInsertions` は同じ ID の標準定義を置き換え、`additionalInsertions` は標準定義へ追加します
 - `customInspectors`: Visual Editor のタグ名ごとに Inspector を差し替えるレンダラー
@@ -346,17 +380,21 @@ export function App() {
 - `className` / `style`: エディター全体のクラス名とインラインスタイル
 - `toolbarClassName` / `toolbarStyle`: ツールバーのクラス名とインラインスタイル
 - `displayClassName` / `displayStyle`: 本文表示エリアのクラス名とインラインスタイル
-- ツールバーの「フォーマット」ボタンで本文の XML を整形できます
+- 「その他」の「フォーマット」ボタンで本文の XML を整形できます
 - 挿入専用の要素（`break`、`mstts:silence`、`mstts:audioduration`、カスタム挿入の `mode: "insert"`）は、本文内で独立した行になるよう自動的に改行されます。選択範囲を囲む要素はインラインのまま挿入されます
 - 本文を変更すると SSML 構文を検証し、エラー箇所をエディター上に表示します
 
 標準の挿入メニューには `break`、`emphasis`、`rate`、`pitch`、`volume`、`emotion`、`say-as`、`lang`、`mstts:silence`、`mstts:audioduration` が含まれます。これらの定義は `SSML_INSERTIONS` から参照できます。カスタム挿入定義は配列または ID をキーにしたオブジェクトで指定でき、`createSsmlEditorInsertionDefinition` でタグ名と任意の 1 属性を持つ定義を作成できます。任意の属性や複数属性が必要な場合は `SsmlEditorInsertionDefinition` の `createTemplate` を実装してください。
 
-「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「全てクリア」ボタンは `voice` 要素を保持したまま、それ以外の XML 要素を削除して本文を残します。ドキュメントの `version`、`lang`、その他の属性も保持されます。
+「説明」ボタンを押すと、各コントロール、ボタン、設定の説明を表示できます。ボタンの設定はアコーディオンで表示され、デフォルトでは閉じています。アコーディオンのタイトルにはボタンの説明と生成される XML のタグ名が表示され、各設定の意味を確認できます。「その他」の「書式を解除」（ボタン ID は従来どおり `clearAll`）は、確認後に `voice` 要素を保持したまま、それ以外の XML 要素を削除して本文を残します。ドキュメントの `version`、`lang`、その他の属性も保持されます。コードモードでの書式解除と XML 整形は Undo / Redo の対象になります。
 
 ## `ssml-editor-elements` の利用方法
 
 `ssml-builder-js/elements` は、React などに依存しない `<ssml-editor>` Web Component を登録します。`monaco-editor` を別途インストールし、`value`、`theme`、`readonly` 属性または同名プロパティを使用できます。React エディターと同じ SSML ツールバーと説明表示も利用でき、`locale`、`show-toolbar`、`show-toolbar-labels`、`show-decorations` で表示を調整できます。`edit-mode="visual"` または `editor.editMode = "visual"` で構造ツリーとフォームのビジュアル編集に切り替えられます。編集時には `{ value }` を `detail` に持つ `change` イベントが発生し、ビジュアルモードの試聴は `{ ssml }` を持つ `preview-selection` イベントで受け取れます。
+
+Web Component もラベル付きの用途別グループと「その他」、書式解除の確認、キーボード操作に対応しています。ラベルは既定で表示され、`show-toolbar-labels="false"` で頻出操作をアイコン表示にできます。
+
+ツールバーの折り返しや「その他」の展開に合わせて高さが増えるよう、ホスト要素には固定の `height` ではなく、例えば `display: grid; min-height: 24rem;` を指定してください。
 
 ```ts
 import "ssml-builder-js/elements";
@@ -559,9 +597,32 @@ Node.js 22.6 or later is supported; Node.js 24 LTS or later is recommended. Vers
 npm ci
 ```
 
-### Generating audio in the playground
+### Producing speech in the playground's Speech Studio
 
-The **Generate audio** button in `apps/playground` sends the current SSML to a
+`apps/playground` is a Speech Studio for preparing a script, tuning voices and expression,
+and previewing or exporting the result. Review a readable transcript and use **Rewrite script**
+to edit its text. Rewriting retains the first voice, rate, pitch, and volume but removes
+passage-level pauses and expression. **Tune speech** opens the existing visual/code editor
+for detailed adjustments.
+
+![Screenshot of the Playground Speech Studio demo](./apps/playground/public/speech-studio.png)
+
+- Start with announcement, narration, or e-learning templates.
+- Paste text or import `.txt` / `.ssml` / `.xml` files, up to 1 MB of UTF-8 input.
+  Blank lines become paragraphs; SSML syntax errors are shown before import.
+  Restore the previous script after replacing or rewriting it.
+- The script title and SSML are automatically saved to this browser's `localStorage`
+  and restored on reload. Storage failures are shown explicitly. Do not leave confidential
+  scripts on shared devices. Only one draft is saved; audio and replacement history are not.
+- Set language, voice, rate, pitch, and volume, with character/paragraph counts and an
+  approximate duration. Sidebar settings apply to the first voice without replacing other voices.
+- Syntax and Azure compatibility diagnostics prevent synthesis of invalid scripts.
+- Copy or download SSML and download generated MP3 audio. Editing after generation marks
+  the audio as belonging to an earlier script.
+- The React / Web Component comparison and text-node transformation are available under
+  **Developer tools**, away from the everyday production workflow.
+
+The **Preview full script with Azure** button in `apps/playground` sends the current SSML to a
 server-side Next.js Route Handler, which uses `ssml-builder-js` to
 generate speech with Azure Speech. To keep the Azure subscription key out of the
 browser, set the following values in `apps/playground/.env.local`:
@@ -586,7 +647,15 @@ Japanese and English UI, so non-Japanese playground locales use the English edit
 The theme follows the operating system preference until a light or dark mode is selected
 manually, and the manual choice is stored in the browser. You can synthesize the full
 SSML document or the selected text and play it in the browser with an SSML caption track;
-the generated SSML is shown below the editor.
+visual previews in both editors retain the selected passage's voice and speech settings.
+Generation can be canceled, and the last successful audio remains available after a failure.
+The UI displays Azure configuration availability, never the key. Azure synthesis may incur charges.
+
+**Review text with browser speech** works without Azure configuration. It uses a device voice
+to read plain text, does not reproduce Azure voices or SSML pauses/expression, and cannot export
+audio. Changing the display language does not change the current script or speech language.
+Inspect SSML and readable text in the collapsible section beneath the script. Scripts are sent
+to the server when requesting Azure synthesis.
 
 ### Using Monaco and selection preview with Next.js
 
@@ -815,22 +884,23 @@ export function App() {
 - `onSsmlChange`: A callback that receives the generated SSML string
 - `ref`: An `SsmlEditorRef`; `getFullSsml()` returns the full SSML, `getSelectedSsml()` returns the selected text (or the cursor line when it contains content), and `getCurrentLineSsml()` returns the current cursor line. The selection and line methods return `null` when their target is empty
 - `onSelectionChange`: A callback that receives selected text, its character count, and whether a selection exists
-- `onPreviewSelection`: A callback that receives the selected partial SSML when the floating preview action is pressed. The preview action is disabled when this callback is omitted; call an audio API such as Azure from the callback
+- `onPreviewSelection`: A callback that receives partial SSML when preview is pressed. Supplying it also adds a toolbar preview action that uses the selection or a nonempty current line. The floating preview action is disabled when this callback is omitted; call an audio API such as Azure from the callback
 - `editMode`: Initial editor mode (`"code"` or `"visual"`). Visual mode provides structured tree and form editing
 - `locale`: The UI language (`"ja"` or `"en"`); defaults to `"ja"` and also controls hover-help translations
 - `language`: Legacy name for `locale`, retained for compatibility; use `locale` in new code
 - `showToolbar`: Whether to display the toolbar (defaults to `true`)
 - `showToolbarIcons`: Whether to show toolbar icons (defaults to `true`)
-- `showToolbarLabels`: Whether to show text labels on the toolbar (defaults to `false`); when omitted, hover over an icon to see its description
-- `showDecorations`: Whether inline decorations such as badges and inlay hints are shown in the text (defaults to `false`); use the **Decorations** toolbar switch to toggle them at runtime
+- `showToolbarLabels`: Whether to show toolbar text labels (defaults to `true`); set it to `false` for compact icon-only frequent actions. Advanced controls in **More** retain labels. Icons also expose descriptions on hover
+- `showDecorations`: Whether inline decorations such as badges and inlay hints are shown in the text (defaults to `false`); use the **Decorations** switch in **More** to toggle them at runtime
 - `enableCodeLens`: Whether CodeLens quick controls for `prosody`, `break`, and `mstts:audioduration` tags are shown (defaults to `true`)
 - `buttonVisibility`: Per-toolbar-button visibility settings for `help`, `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, `mstts:audioduration`, `undo`, `redo`, `clearAll`, `format`, `decorations`, and custom insertion IDs; unspecified buttons are shown
 - `editorOptions` / `settings`: Monaco settings for `height`, `minHeight`, `readOnly`, `theme` (`system` / `light` / `dark`), `fontSize`, `wordWrap`, `lineNumbers`, `minimap`, and `automaticLayout`. The same settings can also be supplied as top-level props
 - `loadingFallback`: A React node displayed while Monaco is loading
-- `toolbarOrder`: Display order for all toolbar button IDs; unlisted buttons follow
-- `toolbarGroups`: Groups all toolbar buttons with vertical separators using `{ id, buttonIds }`; groups are not rendered with borders
+- `toolbarOrder`: Display order for toolbar editing-action IDs; unlisted buttons follow
+- `toolbarGroups`: Groups toolbar editing actions by purpose using `{ id, buttonIds }`; groups are not rendered with borders
 - `insertionOrder`: Display order for insertion menu IDs; also supplies the insertion order used when `toolbarOrder` is omitted
-- `insertionGroups`: Groups insertion menus with vertical separators; when `toolbarGroups` is omitted, these groups also define the default toolbar groups. Menus are grouped into pauses, voice, expression, and pronunciation by default
+- `insertionGroups`: Groups insertion menus by purpose; when `toolbarGroups` is omitted, these groups also define the default toolbar groups. Menus are grouped into pauses, voice, expression, and pronunciation by default
+- Supplying any of `toolbarOrder`, `toolbarGroups`, `insertionOrder`, or `insertionGroups` displays all visible editing actions in the explicit layout instead of moving advanced actions into **More**. Existing custom layouts and button IDs remain supported
 - `emotionStyles`: Candidate voice styles shown by the `emotion` menu
 - `customInsertions` / `additionalInsertions`: Custom SSML insertion definitions. `customInsertions` replaces a built-in definition with the same ID, while `additionalInsertions` adds definitions to the built-ins
 - `customInspectors`: Custom renderers keyed by element type or serialized tag name for the Visual Editor
@@ -839,17 +909,25 @@ export function App() {
 - `className` / `style`: A class name and inline styles for the editor container
 - `toolbarClassName` / `toolbarStyle`: A class name and inline styles for the toolbar
 - `displayClassName` / `displayStyle`: A class name and inline styles for the text display area
-- Use the **Format** button to format the XML in the text display area
+- Use **More → Format** to format the XML in the text display area
 - Standalone elements (`break`, `mstts:silence`, `mstts:audioduration`, and custom insertions with `mode: "insert"`) are automatically placed on separate lines; elements that wrap a selection remain inline
 - Changing the text validates SSML syntax and displays errors in the editor
 
 The built-in insertion menus are `break`, `emphasis`, `rate`, `pitch`, `volume`, `emotion`, `say-as`, `lang`, `mstts:silence`, and `mstts:audioduration`. Their definitions are available through `SSML_INSERTIONS`. Custom insertion definitions can be supplied as an array or an object keyed by ID. Use `createSsmlEditorInsertionDefinition` to create a definition from a tag and one optional attribute; for arbitrary or multiple attributes, implement `createTemplate` on `SsmlEditorInsertionDefinition`.
 
-Click the **Description** button to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. The **Clear all** button preserves `voice` elements, removes the other XML elements, and leaves the text in place. The document's `version`, `lang`, and other attributes are also preserved.
+The toolbar separates editing mode and selection context from task-oriented control groups. Frequent actions have visible labels; language, silence, audio duration, formatting, decorations, and removing formatting are available in **More**. Undo and Redo are enabled only when their respective history is available. Visual mode hides code-only insertion and history controls; use **Code** to return to Monaco.
+
+Tab enters the toolbar; Left/Right, Home, and End navigate enabled controls. Up/Down opens insertion menus; Up/Down, Home, End, and initial letters navigate options, Enter applies them, and Escape closes the menu and restores trigger focus. Groups wrap on narrow screens, and menus are positioned within the viewport.
+
+Click **Help** to see descriptions of each control, button, and setting. Button settings are shown in accordions that are closed by default, with the button description and generated XML tag name as the accordion title and the meaning of each setting inside. **More → Remove formatting** (the existing `clearAll` button ID) requires confirmation, preserves `voice` elements, removes the other XML elements, and leaves the text in place. The document's `version`, `lang`, and other attributes are also preserved. Removing formatting and formatting XML in code mode participate in Undo/Redo history.
 
 ## Using `ssml-editor-elements`
 
 `ssml-builder-js/elements` registers a framework-independent `<ssml-editor>` Web Component without React. Install `monaco-editor` separately, then use the `value`, `theme`, and `readonly` attributes or properties. The component includes the same SSML toolbar and help display as the React editor; use `locale`, `show-toolbar`, `show-toolbar-labels`, and `show-decorations` to customize it. Set `edit-mode="visual"` or `editor.editMode = "visual"` to use the structured tree and form editor. Editing dispatches a `change` event whose `detail` is `{ value: string }`; visual preview dispatches a `preview-selection` event whose detail is `{ ssml: string }`.
+
+The Web Component also provides labelled task groups, **More**, removal confirmation, and keyboard navigation. Labels are shown by default; set `show-toolbar-labels="false"` for icon-only frequent actions.
+
+Use a flexible host layout, such as `display: grid; min-height: 24rem;`, rather than a fixed `height`, so wrapped controls and expanded **More** settings can grow without overlapping adjacent content.
 
 ```ts
 import "ssml-builder-js/elements";

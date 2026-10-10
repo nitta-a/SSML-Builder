@@ -1,5 +1,18 @@
 # @ssml-builder-js/ssml-editor-elements
 
+## 2.19.2
+
+### Patch Changes
+
+- Redesign the editor toolbar around common speech-editing tasks in both editor variants.
+
+  Show labels by default, group frequent actions by purpose, move advanced controls into More, localize editing-mode controls, and require confirmation before removing formatting. Preserve explicit React toolbar layouts, custom insertions, and existing button IDs. Support keyboard navigation, visible focus, contextual guidance, history availability, and viewport-aware insertion menus with option descriptions.
+
+  The React toolbar can preview the selection or current line when a preview callback is supplied. Formatting and removing formatting preserve Monaco undo/redo history, including changes to outer SSML settings.
+
+  Visual preview in both editor variants preserves ancestor voice and speech settings, and the Web Component preview honors the selected text range.
+- @ssml-builder-js/ssml-core@2.19.2
+
 ## 2.19.1
 
 ### Patch Changes

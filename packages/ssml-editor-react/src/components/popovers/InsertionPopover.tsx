@@ -1,7 +1,9 @@
+import { useEffect, useId, useRef } from "react";
 import type { CSSProperties, ReactElement, Ref } from "react";
 import { createPortal } from "react-dom";
 import type { SsmlEditorInsertionDefinition, SsmlEditorInsertionOption } from "../../SsmlEditor";
 import { editorStyles as styles } from "../../styles/editorStyles";
+import { focusMenuItem, handleMenuKeyDown } from "../../toolbar";
 
 export interface InsertionOptionGroup {
   label: string;
@@ -23,7 +25,7 @@ export interface InsertionPopoverProps {
   menuPosition: { top: number; left: number } | null;
   menuRef: Ref<HTMLDivElement>;
   onToggle: (trigger: HTMLButtonElement) => void;
-  onClose: () => void;
+  onClose: (restoreFocus?: boolean) => void;
   onApply: (insertion: SsmlEditorInsertionDefinition, option: SsmlEditorInsertionOption) => void;
   optionGroups?: readonly InsertionOptionGroup[];
 }
@@ -56,6 +58,14 @@ export function InsertionPopover({
   onApply,
   optionGroups,
 }: InsertionPopoverProps): ReactElement {
+  const menuId = useId();
+  const openingEdge = useRef<"first" | "last">("first");
+  const positioned = menuPosition !== null;
+  useEffect(() => {
+    const menu = document.getElementById(menuId);
+    if (isOpen && positioned && menu) focusMenuItem(menu, openingEdge.current);
+  }, [isOpen, menuId, positioned]);
+
   const hasOptions = optionGroups
     ? optionGroups.some((group) => group.options.length > 0)
     : insertion.options.length > 0;
@@ -64,39 +74,50 @@ export function InsertionPopover({
       key={option.value}
       type="button"
       role="menuitem"
+      aria-label={option.labels[language]}
+      aria-description={option.descriptions?.[language]}
+      className="ssml-editor-toolbar-option"
       style={styles.toolbarOption}
       title={option.descriptions?.[language] ?? insertion.descriptions[language]}
       disabled={isReadOnly || disabled}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
-        if (!isReadOnly) {
+        if (!isReadOnly && !disabled) {
           onApply(insertion, option);
         }
         onClose();
       }}
     >
-      {option.labels[language]}
+      <span>{option.labels[language]}</span>
+      {option.descriptions && (
+        <span className="ssml-editor-toolbar-option-description" aria-hidden="true">
+          {option.descriptions[language]}
+        </span>
+      )}
     </button>
   );
   const menu =
     isOpen && menuPosition && typeof document !== "undefined" ? (
       <div
         ref={menuRef}
-        id={`ssml-editor-popover-${insertion.id}`}
+        id={menuId}
+        className="ssml-editor-toolbar-menu"
         data-ssml-editor=""
         data-theme={isDarkTheme ? "dark" : "light"}
         style={{ ...styles.toolbarMenu, top: menuPosition.top, left: menuPosition.left }}
         role="menu"
+        tabIndex={-1}
         aria-label={insertion.labels[language]}
+        onKeyDown={(event) => handleMenuKeyDown(event.nativeEvent, event.currentTarget, onClose)}
       >
+        <div className="ssml-editor-toolbar-menu-heading" role="presentation">
+          <strong>{insertion.labels[language]}</strong>
+          <p>{insertion.parameterDescription[language]}</p>
+        </div>
         {!hasOptions ? (
-          <div role="presentation">
-            <select disabled value="" style={styles.toolbarEmptySelect}>
-              <option value="" disabled>
-                {emptyOptionsMessage}
-              </option>
-            </select>
-          </div>
+          <p role="note" style={styles.toolbarEmpty}>
+            {emptyOptionsMessage}
+          </p>
         ) : optionGroups ? (
           optionGroups.map((group) => (
             <fieldset key={group.label} style={styles.toolbarOptionGroup}>
@@ -115,14 +136,29 @@ export function InsertionPopover({
       <div style={styles.toolbarDropdown}>
         <button
           type="button"
+          className="ssml-editor-toolbar-button"
+          data-ssml-editor-button={insertion.id}
           style={toolbarButtonStyle}
           title={disabledReason ?? getInsertionTitle(insertion, language)}
           aria-label={insertion.labels[language]}
           aria-haspopup="menu"
           aria-expanded={isOpen}
-          aria-controls={isOpen ? `ssml-editor-popover-${insertion.id}` : undefined}
+          aria-controls={isOpen ? menuId : undefined}
           disabled={isReadOnly || disabled}
-          onClick={(event) => onToggle(event.currentTarget)}
+          onClick={(event) => {
+            openingEdge.current = "first";
+            onToggle(event.currentTarget);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+            event.preventDefault();
+            event.stopPropagation();
+            const edge = event.key === "ArrowUp" ? "last" : "first";
+            openingEdge.current = edge;
+            const menu = document.getElementById(menuId);
+            if (isOpen && menu) focusMenuItem(menu, edge);
+            else onToggle(event.currentTarget);
+          }}
         >
           {showToolbarIcons && (
             <span style={styles.toolbarIcon} aria-hidden="true">
