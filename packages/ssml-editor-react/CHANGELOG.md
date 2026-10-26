@@ -1,5 +1,12 @@
 # @ssml-builder-js/ssml-editor-react
 
+## 2.19.3
+
+### Patch Changes
+
+- Update vulnerable playground and editor development dependencies.
+- @ssml-builder-js/ssml-core@2.19.3
+
 ## 2.19.2
 
 ### Patch Changes

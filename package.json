@@ -1,6 +1,6 @@
 {
   "name": "ssml-builder-js",
-  "version": "2.19.2",
+  "version": "2.19.3",
   "description": "SSML building utilities, a React editor, and an Azure Text-to-Speech client",
   "license": "MIT",
   "repository": {
@@ -77,9 +77,9 @@
   },
   "peerDependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "monaco-editor": "^0.56.0",
     "react": ">=18.2.0 <20",
-    "react-dom": ">=18.2.0 <20",
-    "monaco-editor": "^0.56.0"
+    "react-dom": ">=18.2.0 <20"
   },
   "peerDependenciesMeta": {
     "@monaco-editor/react": {
@@ -99,12 +99,12 @@
     "microsoft-cognitiveservices-speech-sdk": "1.51.0"
   },
   "overrides": {
-    "dompurify": "3.4.16",
+    "dompurify": "3.4.17",
     "esbuild": "0.28.2",
     "sharp": "0.35.5",
     "source-map-js": "1.2.2",
     "monaco-editor": {
-      "dompurify": "3.4.16"
+      "dompurify": "3.4.17"
     }
   }
 }

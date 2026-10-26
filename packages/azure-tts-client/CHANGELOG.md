@@ -1,5 +1,11 @@
 # @ssml-builder-js/azure-tts-client
 
+## 2.19.3
+
+### Patch Changes
+
+- @ssml-builder-js/ssml-core@2.19.3
+
 ## 2.19.2
 
 ### Patch Changes
